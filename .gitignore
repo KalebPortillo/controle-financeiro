@@ -1,0 +1,62 @@
+# OS
+.DS_Store
+Thumbs.db
+*~
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+log/*
+!log/.keep
+npm-debug.log*
+yarn-error.log*
+
+# Temp
+tmp/*
+!tmp/.keep
+
+# Rails
+config/master.key
+config/credentials/*.key
+db/*.sqlite3
+db/*.sqlite3-journal
+storage/
+
+# Bundle
+.bundle
+vendor/bundle
+
+# Node
+node_modules/
+.pnp
+.pnp.js
+dist/
+.vite/
+
+# Build outputs
+public/assets/
+public/packs/
+public/packs-test/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Docker local overrides
+docker-compose.override.yml
+
+# Sentry
+.sentryclirc
+
+# Claude Code local
+.claude/

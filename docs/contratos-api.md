@@ -1,4 +1,4 @@
-# Controle Financeiro do Casal — Contratos de API v1 (v0.1)
+# Controle Financeiro — Contratos de API v1 (v1.0)
 
 ## Contexto
 
@@ -335,19 +335,20 @@ Formato uniforme:
    → 201 Created
 ```
 
-## Pontos em aberto
+## Decisões finalizadas após revisão
 
-1. **Tamanho máximo de upload em `/imports`**: sugerido 10 MB por arquivo. OK?
-2. **Filtros multi-valor**: `?tag_id=t1&tag_id=t2` (qualquer) vs `?tag_ids=t1,t2` (AND/OR)? Recomendação: `?tag_id_in=t1,t2` (OR) e `?tag_id_all=t1,t2` (AND).
-3. **WebSocket auth**: cookie de sessão funciona em Action Cable (default Rails). OK.
-4. **Webhooks Pluggy**: receber notificação de "nova transação disponível" para sync sob demanda em vez de polling. Endpoint `POST /api/v1/webhooks/pluggy` com assinatura HMAC. Entra no MVP ou fica como segunda fase? Recomendação: MVP, evita polling caro.
+| Tema | Decisão |
+|---|---|
+| Tamanho máx de upload em `/imports` | **10 MB** por arquivo. Retorna 413 Payload Too Large acima disso. |
+| Filtros multi-valor | **`?campo_in=a,b`** (OR) e **`?campo_all=a,b`** (AND). Aplica-se a `tag_id_in`, `tag_id_all`, `account_id_in`, etc. |
+| Autenticação WebSocket | **Cookie de sessão** padrão Rails Action Cable. Frontend conecta no `/cable` sem header extra; sessão valida o membership. |
+| Webhooks Pluggy | **Já no MVP**. Endpoint `POST /api/v1/webhooks/pluggy` com assinatura **HMAC-SHA256** validada via shared secret nas Rails credentials. Evita polling caro e dá near-real-time. |
 
 ## Próximos passos
 
-1. Você revisa contratos e ajusta.
-2. Fechamos a v1.0.
-3. Passamos para **setup do monorepo** (estrutura, Dockerfile, Kamal config, GitHub Actions skeletons).
-4. Depois: **plano de implementação em fatias TDD**.
+1. Contratos de API v1 v1.0 fechados.
+2. Próximo doc: setup do monorepo.
+3. Depois: primeira fatia TDD.
 
 ## Validação
 
@@ -355,4 +356,4 @@ Formato uniforme:
 - Convenções (paginação, erros, timestamps, money) consistentes entre todas as rotas.
 - Frontend consegue, em teoria, montar telas para todos os fluxos a partir desses endpoints.
 
-**Status:** v0.1 — primeiro draft após Modelo de Dados v0.1.
+**Status:** v1.0 — fechado após revisão das 4 decisões pendentes (upload máx 10MB, filtros `_in`/`_all`, auth WebSocket por cookie, webhooks Pluggy no MVP).

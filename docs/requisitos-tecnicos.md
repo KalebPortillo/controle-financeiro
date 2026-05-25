@@ -1,4 +1,4 @@
-# Controle Financeiro do Casal — Requisitos Técnicos (v1.1)
+# Controle Financeiro — Requisitos Técnicos (v1.1)
 
 ## Contexto
 
@@ -378,8 +378,8 @@ Nenhum em requisitos técnicos. Todas as decisões fechadas (ver tabela "Decisõ
 
 ## Próximos passos no plano de engenharia
 
-1. **Modelo de dados** (tabelas, relações, índices, constraints) — alinhado com cada RF.
-2. **Contratos de API v1** (endpoints, payloads, status codes, paginação, erros).
+1. ~~**Modelo de dados**~~ — feito em `docs/modelo-de-dados.md` (v1.0).
+2. ~~**Contratos de API v1**~~ — feitos em `docs/contratos-api.md` (v1.0).
 3. **Setup do monorepo** (estrutura de pastas, Dockerfile, Kamal config, GitHub Actions skeletons, SimpleCov, Sentry SDK, MSW, etc.).
 4. **Plano de implementação em fatias TDD** — cada fatia entrega um RF de ponta a ponta: (1) testes vermelhos, (2) implementação mínima verde, (3) refactor, (4) merge → staging → produção.
 5. **Ordem das fatias**: começar pelo fluxo core (RF15 plataforma + RF16 auth + workspace), depois ingestão (RF1 Pluggy + RF20 import por arquivo), depois inbox (RF2 + RF3 AI), depois consolidados (RF4 + RF5 + RF6 incluindo RF6.6), depois agregações (RF8 orçamentos + RF13 relatórios), e por fim o restante.

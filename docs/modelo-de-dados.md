@@ -1,4 +1,4 @@
-# Controle Financeiro do Casal — Modelo de Dados (v0.1)
+# Controle Financeiro — Modelo de Dados (v1.0)
 
 ## Contexto
 
@@ -434,20 +434,21 @@ Notificação in-app (RF17).
 - **Soft delete via `status='rejected'`**: mantém o registro para evitar reimport pelo Pluggy/parser. Hard delete vira opção raro no UI (RF2.3).
 - **Currency em todas as money-tables**: BRL fixo no MVP. Preparado pra multi-moeda sem migration de schema futura.
 
-## Pontos em aberto
+## Decisões finalizadas após revisão
 
-1. **Active Storage vs S3 direto** para arquivos de import: Active Storage é padrão Rails e dá indireção transparente para Object Storage. Recomendação: Active Storage com backend S3 (Oracle Object Storage tem API S3-compatível).
-2. **Indexação de jsonb `source_metadata`**: precisamos consultar por campo específico do payload Pluggy (ex.: external_transaction_id pra dedup)? Se sim, GIN index ou coluna gerada. Recomendação: coluna gerada `external_transaction_id` extraída do jsonb com unique index por (account_id, external_transaction_id).
-3. **Particionamento de `transactions`**: para 2 usuários, transações por mês ~50–200. Em 5 anos, ~10k. **Sem particionamento** necessário. Marcado como out-of-scope.
-4. **Versionamento de `ai_learned_rules`**: se uma regra mudar, devo manter histórico? Recomendação: não — a regra é mutável e o aprendizado é incremental. Histórico se quiser fica em event log futuro.
-5. **Tabela `accounts.kind='credit_card'`**: precisamos modelar a **fatura** como entidade separada (data de fechamento, vencimento, valor previsto)? PRD/RF9.5 fala em "faturas futuras". Recomendação: derivar via query (`transactions WHERE account.kind='credit_card' AND occurred_at IN <período da fatura>`), sem tabela física. Reavaliar se faltar feature.
+| Tema | Decisão |
+|---|---|
+| Armazenamento de arquivos de import | **Active Storage** com backend S3-compatível apontando para Oracle Object Storage. Indireção limpa, padrão Rails. |
+| Dedup de transações sync via Pluggy | Coluna **gerada `external_transaction_id`** extraída de `source_metadata` jsonb, com **unique index `(account_id, external_transaction_id)`**. GIN no jsonb fica de fora (overhead desnecessário). |
+| Particionamento de `transactions` | **Out-of-scope** no MVP e provavelmente sempre. Volume estimado (2 usuários, ~50–200 tx/mês, ~10k em 5 anos) não justifica. |
+| Versionamento de `ai_learned_rules` | **Sem histórico**. Regra é mutável; aprendizado é incremental. Event log futuro se algum dia precisar. |
+| Modelagem de **fatura** do cartão | **Sem entidade física**. Fatura é objeto **derivado por query** (`transactions WHERE account.kind='credit_card' AND occurred_at IN <período>`), atendendo RF9.5. Reavaliar se faltar feature. |
 
 ## Próximos passos
 
-1. Você revisa o modelo e ajusta pontos discordantes.
-2. Fechamos a v1.0.
-3. Passamos para **contratos de API v1** (endpoints, payloads, paginação, erros).
-4. Depois: setup do monorepo + primeira fatia TDD.
+1. Modelo de dados v1.0 fechado.
+2. Próximo doc: setup do monorepo (estrutura, Dockerfile, migrations skeleton, etc.).
+3. Depois: primeira fatia TDD.
 
 ## Validação
 
@@ -455,4 +456,4 @@ Notificação in-app (RF17).
 - Constraints físicas (NOT NULL, FK, UNIQUE, CHECK) protegem o que dá pra proteger no DB; o resto fica em services + testes.
 - Índices cobrem as queries quentes (inbox, relatórios por período, agregação por tag/categoria).
 
-**Status:** v0.1 — primeiro draft após fechamento do PRD v1.2 e Requisitos Técnicos v1.1.
+**Status:** v1.0 — fechado após revisão das 5 decisões pendentes (Active Storage, dedup Pluggy, particionamento, versionamento AI, fatura derivada).

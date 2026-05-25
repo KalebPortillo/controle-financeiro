@@ -1,4 +1,4 @@
-# Controle Financeiro do Casal — Requisitos de Produto (PRD v1.2)
+# Controle Financeiro — Requisitos de Produto (PRD v1.2)
 
 ## Contexto
 
@@ -248,20 +248,18 @@ Recomendação preliminar (a aprofundar na fase técnica):
 
 ## Pontos em aberto
 
-Nenhum em produto. Todos os pontos discutidos nas duas iterações foram fechados (ver tabela "Decisões fechadas" acima).
+Nenhum em produto. Todos os itens foram fechados ao longo das iterações (ver tabela "Decisões fechadas" acima).
 
-Pontos que migram para a próxima fase (técnica), não bloqueiam o PRD:
-- Escolha final da integração Nubank (pynubank vs Pluggy vs outro).
-- Stack (linguagem, framework backend/frontend).
-- Modelo de dados.
-- Esquema de autenticação (sessões, JWT, magic link).
-- Estratégia de deploy na Oracle Cloud.
+Para o estado atual da engenharia, ver:
+- `docs/requisitos-tecnicos.md` (v1.1) — stack, infra, testes (TDD), CI/CD, integração com Pluggy e Gemini, monitoramento Sentry, hospedagem.
+- `docs/modelo-de-dados.md` — entidades, índices, constraints.
+- `docs/contratos-api.md` — endpoints, payloads, convenções.
 
 ## Próximos passos
 
-1. PRD v1.0 fechado.
-2. Passamos para a **fase técnica**: arquitetura, stack, integração Nubank (decisão final), modelo de dados, UI/UX.
-3. Após a fase técnica fechada, iniciamos a implementação.
+1. PRD v1.2 fechado.
+2. Setup do monorepo (estrutura, Dockerfile, Kamal, GitHub Actions, dependências).
+3. Plano de implementação em fatias TDD — primeiro fluxo recomendado: RF16 (auth + workspace).
 
 ## Validação deste PRD
 

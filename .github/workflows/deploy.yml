@@ -1,5 +1,12 @@
 name: deploy
 
+# Build acontece na VPS (builder.remote no kamal). Por isso este workflow é
+# bem enxuto — não precisa QEMU, não precisa buildx, não precisa docker login
+# no runner. O job é só: orquestrar o Kamal via SSH.
+#
+# - push em main → deploy automático em staging
+# - tag v*       → deploy em production (com aprovação obrigatória)
+
 on:
   push:
     branches: [main]
@@ -7,7 +14,7 @@ on:
 
 permissions:
   contents: read
-  packages: write
+  packages: write   # KAMAL_REGISTRY_PASSWORD = GITHUB_TOKEN, precisa pra publicar no GHCR
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -21,7 +28,7 @@ jobs:
     needs: test
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 20
     environment:
       name: staging
       url: https://wallet-staging.portilho.cc
@@ -33,9 +40,6 @@ jobs:
           ruby-version: 3.3.5
           working-directory: backend
           bundler-cache: true
-
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
 
       - name: Restore master.key
         run: echo "${{ secrets.RAILS_MASTER_KEY }}" > backend/config/master.key
@@ -67,7 +71,7 @@ jobs:
     needs: test
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 20
     environment:
       name: production
       url: https://wallet.portilho.cc
@@ -79,9 +83,6 @@ jobs:
           ruby-version: 3.3.5
           working-directory: backend
           bundler-cache: true
-
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
 
       - name: Restore master.key
         run: echo "${{ secrets.RAILS_MASTER_KEY }}" > backend/config/master.key

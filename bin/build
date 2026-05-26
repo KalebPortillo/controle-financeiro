@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# bin/build — builda o frontend e copia o dist pra backend/public/.
+# O Rails serve esses arquivos estáticos + faz fallback do SPA (StaticController#index).
+
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+echo "→ building frontend..."
+(cd frontend && npm run build)
+
+echo "→ copying dist to backend/public/..."
+rm -rf backend/public/index.html backend/public/assets backend/public/favicon.svg
+cp -r frontend/dist/* backend/public/
+
+echo "✓ done. start Rails with: cd backend && bin/rails server"

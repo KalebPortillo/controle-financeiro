@@ -28,6 +28,11 @@
 # Ignore CI service files.
 /coverage/
 
+# Frontend build output (copiado de frontend/dist/ via bin/build).
+/public/index.html
+/public/favicon.svg
+/public/assets/
+
 # Ignore master.key (and any other credentials key) but keep credentials.yml.enc.
 /config/master.key
 /config/credentials/*.key

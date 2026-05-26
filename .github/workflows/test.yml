@@ -1,0 +1,99 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: controle_financeiro
+          POSTGRES_PASSWORD: dev
+          POSTGRES_DB: controle_financeiro_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U controle_financeiro"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.3.5
+          working-directory: backend
+          bundler-cache: true
+
+      - name: Prepare test database
+        env:
+          RAILS_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5433
+          DB_USERNAME: controle_financeiro
+          DB_PASSWORD: dev
+        run: bin/rails db:prepare
+
+      - name: Minitest
+        env:
+          RAILS_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5433
+          DB_USERNAME: controle_financeiro
+          DB_PASSWORD: dev
+        run: bin/rails test
+
+      - name: Rubocop
+        run: bundle exec rubocop --no-server
+
+      - name: Brakeman (security static analysis)
+        run: bundle exec brakeman --no-pager --quiet
+
+      - name: Bundler audit (gem CVEs)
+        run: bundle exec bundle-audit check --update
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22.11.0
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Vitest
+        run: npm run test:run

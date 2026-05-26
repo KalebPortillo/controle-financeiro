@@ -43,11 +43,13 @@ env:
     SOLID_QUEUE_IN_PUMA: true
     DB_PORT: 5432
 
-# Build local (rodando do dev box ARM, é nativo; rodando do GHA x86, usa
-# QEMU emulation — slow on first build, layer cache acelera depois).
+# Build na própria VPS via SSH — nativo ARM, sem QEMU. Contexto é enviado
+# pela rede pelo Kamal e o build cache mora na VPS (subsequentes ficam rápidos).
+# Trade-off conhecido: a VPS gasta CPU/RAM durante o build (~3-5min).
 # Context = raiz do monorepo (precisa ver backend/ + frontend/ no Dockerfile).
 builder:
   arch: arm64
+  remote: ssh://portilho@vps.portilho.cc
   context: ..
   dockerfile: ../Dockerfile
 

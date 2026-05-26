@@ -55,7 +55,7 @@ jobs:
             LogLevel ERROR
           SSH_CONFIG
 
-      - name: Kamal setup → staging (idempotente: boota proxy + accessories + app)
+      - name: "Kamal setup → staging (idempotente — boota proxy + accessories + app)"
         working-directory: backend
         env:
           KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
@@ -101,7 +101,7 @@ jobs:
             LogLevel ERROR
           SSH_CONFIG
 
-      - name: Kamal setup → production (idempotente: boota proxy + accessories + app)
+      - name: "Kamal setup → production (idempotente — boota proxy + accessories + app)"
         working-directory: backend
         env:
           KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Budget progress bar</title>
+<link rel="stylesheet" href="_preview.css" />
+<style>
+  /* Pastel tints reserved for the budget progress bar — softer than the
+     semantic token palette used in text/buttons. */
+  :root {
+    --budget-ok:   #BBF7D0; /* green 200 */
+    --budget-warn: #FDE68A; /* amber 200 */
+    --budget-over: #FECACA; /* red 200 */
+    --budget-track: #F5F5F5;
+  }
+  :root[data-theme="dark"], .dark {
+    --budget-ok:   #86EFAC;
+    --budget-warn: #FDE68A;
+    --budget-over: #FECACA;
+    --budget-track: #1F1F1F;
+  }
+  .bar-track {
+    height: 8px;
+    background: var(--budget-track);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .bar-fill { height: 100%; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<div class="col gap-4">
+  <div class="label">pastel · verde ≤79 · âmbar 80–99 · vermelho ≥100</div>
+
+  <div class="col" style="gap:6px">
+    <div class="row" style="justify-content:space-between">
+      <div style="font-size:13px;font-weight:500">Mercado</div>
+      <div style="font-size:12px;color:var(--muted-foreground)" class="cf-money">R$ 423,00 de R$ 800,00 · 53%</div>
+    </div>
+    <div class="bar-track">
+      <div class="bar-fill" style="width:53%;background:var(--budget-ok)"></div>
+    </div>
+  </div>
+
+  <div class="col" style="gap:6px">
+    <div class="row" style="justify-content:space-between">
+      <div style="font-size:13px;font-weight:500">Comida fora</div>
+      <div style="font-size:12px;color:var(--muted-foreground)" class="cf-money">R$ 488,00 de R$ 600,00 · 81%</div>
+    </div>
+    <div class="bar-track">
+      <div class="bar-fill" style="width:81%;background:var(--budget-warn)"></div>
+    </div>
+  </div>
+
+  <div class="col" style="gap:6px">
+    <div class="row" style="justify-content:space-between">
+      <div style="font-size:13px;font-weight:500">Transporte</div>
+      <div style="font-size:12px;color:var(--muted-foreground)" class="cf-money">R$ 620,00 de R$ 500,00 · 124%</div>
+    </div>
+    <div class="bar-track">
+      <div class="bar-fill" style="width:100%;background:var(--budget-over)"></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

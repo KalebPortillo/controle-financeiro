@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Inputs</title>
+<link rel="stylesheet" href="_preview.css" />
+<style></style>
+</head>
+<body>
+
+<div class="col gap-3">
+  <div class="label">input · select · search</div>
+  <div class="row gap-3">
+    <input class="input" placeholder="Título do gasto" style="width:240px" />
+    <select class="input" style="width:160px">
+      <option>Categoria</option>
+      <option>Alimentação</option>
+      <option>Transporte</option>
+    </select>
+    <div style="position:relative;display:inline-flex;align-items:center">
+      <svg class="icon" style="position:absolute;left:10px;color:var(--muted-foreground)" viewBox="0 0 24 24" width="14" height="14"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input class="input" placeholder="Buscar (/)" style="padding-left:32px;width:200px" />
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

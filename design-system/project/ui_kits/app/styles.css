@@ -1,0 +1,312 @@
+/* ============================================================
+   Controle Financeiro — UI kit styles.
+   Cosmetic recreation of the shadcn/ui patterns specified in
+   docs/requisitos-design.md. Tokens come from colors_and_type.css.
+   ============================================================ */
+
+/* ---------- Layout shell ---------- */
+.cf-app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w-open) 1fr;
+  height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  overflow: hidden;
+}
+.cf-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+.cf-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
+}
+
+/* ---------- Sidebar ---------- */
+.cf-sidebar {
+  display: flex;
+  flex-direction: column;
+  background: var(--muted);
+  border-right: 1px solid var(--border);
+  padding: 14px 10px;
+}
+.cf-sidebar__brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px 16px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.cf-sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cf-sidebar__item {
+  all: unset;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: background 80ms ease, color 80ms ease;
+}
+.cf-sidebar__item:hover { background: color-mix(in srgb, var(--foreground) 5%, transparent); color: var(--foreground); }
+.cf-sidebar__item.is-active {
+  background: var(--background);
+  color: var(--foreground);
+  font-weight: 500;
+  box-shadow: 0 0 0 1px var(--border);
+}
+.cf-sidebar__badge { margin-left: auto; }
+.cf-sidebar__footer { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); }
+
+.cf-workspace {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 6px;
+}
+.cf-workspace--lg { padding: 6px 0 14px; }
+.cf-workspace__name { font-size: 13px; font-weight: 500; }
+.cf-workspace__sub  { font-size: 11px; color: var(--muted-foreground); }
+.cf-workspace__info { flex: 1; min-width: 0; }
+.cf-avatar {
+  width: 28px; height: 28px;
+  background: var(--foreground); color: var(--background);
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600;
+}
+.cf-avatar--lg { width: 40px; height: 40px; font-size: 14px; }
+
+/* ---------- TopBar ---------- */
+.cf-topbar {
+  display: flex; align-items: center; gap: 16px;
+  height: var(--header-h);
+  padding: 0 32px;
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+}
+.cf-topbar__title { min-width: 120px; }
+.cf-topbar__search { flex: 1; max-width: 520px; position: relative; display: flex; align-items: center; }
+.cf-topbar__search .cf-input-wrap { width: 100%; }
+.cf-topbar__search .cf-kbd--inline {
+  position: absolute; right: 10px;
+}
+.cf-topbar__actions { margin-left: auto; display: flex; gap: 6px; }
+
+.cf-iconbtn {
+  all: unset;
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  position: relative;
+}
+.cf-iconbtn:hover { background: var(--muted); color: var(--foreground); }
+.cf-iconbtn__dot {
+  position: absolute; top: 7px; right: 7px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+}
+
+/* ---------- Bottom nav (mobile) ---------- */
+.cf-bottomnav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: var(--bottomnav-h);
+  background: var(--background);
+  border-top: 1px solid var(--border);
+  z-index: 30;
+}
+.cf-bottomnav__item {
+  all: unset;
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  position: relative;
+}
+.cf-bottomnav__item.is-active { color: var(--foreground); font-weight: 500; }
+.cf-bottomnav__icon { position: relative; display: inline-flex; }
+.cf-bottomnav__badge {
+  position: absolute; top: -4px; right: -8px;
+  background: var(--primary); color: var(--primary-foreground);
+  font-size: 9px; font-weight: 600;
+  padding: 1px 4px; border-radius: 8px; min-width: 14px; text-align: center;
+}
+.cf-bottomnav__label { line-height: 1; }
+
+/* ---------- Buttons ---------- */
+.cf-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 12px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans); font-size: 13px; font-weight: 500;
+  line-height: 1;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 80ms ease, color 80ms ease, border-color 80ms ease;
+}
+.cf-btn--sm { height: 28px; padding: 0 10px; font-size: 12px; }
+.cf-btn--lg { height: 40px; padding: 0 16px; font-size: 14px; }
+.cf-btn--icon { width: 32px; padding: 0; justify-content: center; }
+
+.cf-btn--primary, .cf-btn--default {
+  background: var(--primary); color: var(--primary-foreground);
+}
+.cf-btn--primary:hover, .cf-btn--default:hover {
+  background: color-mix(in srgb, var(--primary) 90%, #fff 10%);
+}
+.cf-btn--secondary {
+  background: var(--secondary); color: var(--secondary-foreground);
+  border-color: var(--border);
+}
+.cf-btn--secondary:hover { background: color-mix(in srgb, var(--secondary) 80%, var(--foreground) 8%); }
+.cf-btn--outline {
+  background: transparent; color: var(--foreground);
+  border-color: var(--border);
+}
+.cf-btn--outline:hover { background: var(--muted); }
+.cf-btn--ghost {
+  background: transparent; color: var(--foreground);
+}
+.cf-btn--ghost:hover { background: var(--muted); }
+.cf-btn--destructive {
+  background: var(--destructive); color: var(--destructive-foreground);
+}
+.cf-btn--destructive:hover { background: color-mix(in srgb, var(--destructive) 88%, #fff 12%); }
+
+.cf-btn__icon { display: inline-flex; }
+.cf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.cf-kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 16px; padding: 0 5px; border-radius: 3px;
+  font-family: var(--font-mono); font-size: 10px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  margin-left: 6px;
+  font-weight: 500;
+}
+.cf-btn--primary .cf-kbd, .cf-btn--default .cf-kbd, .cf-btn--destructive .cf-kbd {
+  background: rgba(255,255,255,0.18); border-color: transparent;
+}
+.cf-kbd--inline {
+  background: var(--muted); border: 1px solid var(--border);
+  color: var(--muted-foreground);
+  margin-left: 0;
+}
+
+/* ---------- Badges ---------- */
+.cf-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 20px; padding: 0 8px;
+  font-size: 11px; font-weight: 500;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+}
+.cf-badge--default     { background: var(--primary); color: var(--primary-foreground); }
+.cf-badge--secondary   { background: var(--muted); color: var(--foreground); }
+.cf-badge--outline     { background: transparent; color: var(--foreground); border-color: var(--border); }
+.cf-badge--destructive { background: var(--destructive); color: var(--destructive-foreground); }
+
+/* ---------- Tag chip ---------- */
+.cf-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 22px; padding: 0 8px;
+  font-size: 12px; font-weight: 500;
+  background: var(--muted); color: var(--foreground);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.cf-tag__dot { width: 6px; height: 6px; border-radius: 50%; }
+.cf-tag__x {
+  all: unset;
+  cursor: pointer;
+  color: var(--muted-foreground);
+  font-size: 14px; line-height: 1;
+  margin-left: 2px;
+}
+
+/* ---------- Confidence dot ---------- */
+.cf-confidence {
+  width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ---------- Inputs ---------- */
+.cf-input {
+  height: 36px; padding: 0 12px;
+  background: var(--background);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans); font-size: 13px;
+  color: var(--foreground);
+  outline: none;
+  transition: border-color 80ms ease;
+}
+.cf-input:focus { border-color: var(--ring); outline: 2px solid color-mix(in srgb, var(--ring) 30%, transparent); outline-offset: -1px; }
+.cf-input--readonly { background: var(--muted); color: var(--muted-foreground); display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; gap: 6px; }
+.cf-input--has-leading { padding-left: 32px; }
+.cf-input-wrap { position: relative; display: inline-flex; align-items: center; width: 100%; }
+.cf-input-wrap .cf-input { width: 100%; }
+.cf-input-wrap__icon {
+  position: absolute; left: 10px; pointer-events: none;
+  color: var(--muted-foreground);
+  display: inline-flex;
+}
+
+/* ---------- Card ---------- */
+.cf-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+/* ---------- Progress (budget) ---------- */
+.cf-progress {
+  width: 100%; height: 8px;
+  background: var(--budget-track);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.cf-progress__fill { height: 100%; background: var(--budget-fill); border-radius: 4px; transition: width 200ms ease; }
+
+/* ---------- Skeleton ---------- */
+.cf-skeleton {
+  background: linear-gradient(90deg, var(--muted), color-mix(in srgb, var(--muted) 70%, var(--background)), var(--muted));
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm);
+  animation: cf-skeleton 1.5s ease-in-out infinite;
+}
+@keyframes cf-skeleton { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .cf-skeleton { animation: none; }
+}
+
+/* ---------- Section/page heads ---------- */
+.cf-section-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 16px;
+}
+.cf-section-header__actions { display: flex; gap: 8px; }
+.cf-page-head {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  margin-bottom: 16px;
+}
+.cf-page-head h2 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}

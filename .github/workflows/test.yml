@@ -88,14 +88,16 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install
-        # Workaround pro bug npm/cli#4828: ainda com optionalDependencies
-        # listados explicitamente, npm ci e npm install não instalam o native
-        # binding correto da plataforma. Único fix consistente é regenerar
-        # do zero (apaga lockfile + node_modules + npm install).
-        # Perde-se reproducibilidade exata, mas Vitest passa a achar o binding.
         run: |
           rm -f package-lock.json
           npm install --no-audit --no-fund
+          echo "=== rolldown bindings instalados ==="
+          ls -la node_modules/@rolldown/ 2>&1 || echo "(diretório não existe)"
+          echo ""
+          echo "=== arch + libc ==="
+          uname -a
+          ldd --version 2>&1 | head -1
+          node -e "console.log({arch:process.arch,platform:process.platform})"
 
       - name: Typecheck
         run: npm run typecheck

@@ -55,7 +55,7 @@ Rails.application.configure do
   # config.action_mailer.raise_delivery_errors = false
 
   # Set host to be used by links generated in mailer templates.
-  config.action_mailer.default_url_options = { host: "example.com" }
+  config.action_mailer.default_url_options = { host: "wallet.portilho.cc" }
 
   # Specify outgoing SMTP server. Remember to add smtp/* credentials via bin/rails credentials:edit.
   # config.action_mailer.smtp_settings = {
@@ -76,12 +76,11 @@ Rails.application.configure do
   # Only use :id for inspections in production.
   config.active_record.attributes_for_inspect = [ :id ]
 
-  # Enable DNS rebinding protection and other `Host` header attacks.
-  # config.hosts = [
-  #   "example.com",     # Allow requests from example.com
-  #   /.*\.example\.com/ # Allow requests from subdomains like `www.example.com`
-  # ]
-  #
-  # Skip DNS rebinding protection for the default health check endpoint.
-  # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+  # Hosts públicos servidos via Cloudflare Tunnel. APP_HOST permite override
+  # via ENV no Kamal (cada destination injeta o seu host).
+  config.hosts << ENV.fetch("APP_HOST", "wallet.portilho.cc")
+
+  # Healthcheck do Kamal (kamal-proxy) e do Rails (rails/health#show) bate via
+  # localhost, então não passa por config.hosts.
+  config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
 end

@@ -10,9 +10,10 @@ image: kalebportillo/controle-financeiro
 
 # Single-VPS deploy: ambos destinos rodam na mesma máquina, em containers
 # distintos. Kamal proxy roteia por Host header.
+# vps.portilho.cc = A record sem proxy CF apontando pro IP público da VPS.
 servers:
   web:
-    - 10.0.0.172
+    - vps.portilho.cc
 
 # kamal-proxy expõe porta 80/443 do host e roteia por Host header pros
 # containers das apps. Cloudflare termina TLS antes do tunnel; kamal-proxy

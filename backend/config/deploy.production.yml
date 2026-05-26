@@ -20,7 +20,7 @@ builder:
 accessories:
   postgres:
     image: postgres:16-alpine
-    host: 10.0.0.172
+    host: vps.portilho.cc
     port: "127.0.0.1:5435:5432"
     env:
       clear:

@@ -1,8 +1,10 @@
 # PostgreSQL config for Controle Financeiro.
 #
-# Dev: aponta para o Postgres do `infra/docker-compose.yml` (host port 5433).
-# Test: mesmo container, banco separado.
-# Production: lê DATABASE_URL setado pelo Kamal/Oracle Cloud.
+# Dev/Test: Postgres do `infra/docker-compose.yml` (host port 5433).
+# Staging/Production: Postgres como Kamal accessory; ENV vars vêm do
+# config/deploy.<destination>.yml + .kamal/secrets.
+#
+# Solid stack (cache, queue, cable) requer DBs separados por env.
 
 default: &default
   adapter: postgresql
@@ -21,17 +23,32 @@ test:
   <<: *default
   database: controle_financeiro_test
 
-# Staging local: roda em :3001 contra o mesmo Postgres do dev, banco separado.
-# Quando subir staging no Kamal, DATABASE_URL externo cobre.
 staging:
-  <<: *default
-  database: controle_financeiro_staging
+  primary: &primary_staging
+    <<: *default
+    database: controle_financeiro_staging
+    username: <%= ENV.fetch("DB_USERNAME", "controle_financeiro") %>
+    password: <%= ENV["DATABASE_PASSWORD"] %>
+    host: <%= ENV["DB_HOST"] %>
+    port: <%= ENV.fetch("DB_PORT", 5432) %>
+  cache:
+    <<: *primary_staging
+    database: controle_financeiro_staging_cache
+    migrations_paths: db/cache_migrate
+  queue:
+    <<: *primary_staging
+    database: controle_financeiro_staging_queue
+    migrations_paths: db/queue_migrate
+  cable:
+    <<: *primary_staging
+    database: controle_financeiro_staging_cable
+    migrations_paths: db/cable_migrate
 
 production:
   primary: &primary_production
     <<: *default
     database: controle_financeiro_production
-    username: controle_financeiro
+    username: <%= ENV.fetch("DB_USERNAME", "controle_financeiro") %>
     password: <%= ENV["DATABASE_PASSWORD"] %>
     host: <%= ENV["DB_HOST"] %>
     port: <%= ENV.fetch("DB_PORT", 5432) %>

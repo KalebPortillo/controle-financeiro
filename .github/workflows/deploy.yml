@@ -55,13 +55,13 @@ jobs:
             LogLevel ERROR
           SSH_CONFIG
 
-      - name: Kamal deploy → staging
+      - name: Kamal setup → staging (idempotente: boota proxy + accessories + app)
         working-directory: backend
         env:
           KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           KAMAL_DB_PASSWORD_STAGING: ${{ secrets.KAMAL_DB_PASSWORD_STAGING }}
           SENTRY_DSN_BACKEND: ${{ secrets.SENTRY_DSN_BACKEND }}
-        run: bundle exec kamal deploy -d staging
+        run: bundle exec kamal setup -d staging
 
   deploy-production:
     needs: test
@@ -101,10 +101,10 @@ jobs:
             LogLevel ERROR
           SSH_CONFIG
 
-      - name: Kamal deploy → production
+      - name: Kamal setup → production (idempotente: boota proxy + accessories + app)
         working-directory: backend
         env:
           KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           KAMAL_DB_PASSWORD_PRODUCTION: ${{ secrets.KAMAL_DB_PASSWORD_PRODUCTION }}
           SENTRY_DSN_BACKEND: ${{ secrets.SENTRY_DSN_BACKEND }}
-        run: bundle exec kamal deploy -d production
+        run: bundle exec kamal setup -d production

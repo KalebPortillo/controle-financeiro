@@ -1,0 +1,35 @@
+# Kamal — destination "staging".
+# Roda na mesma VPS de prod mas em container/db isolados.
+
+env:
+  clear:
+    RAILS_ENV: staging
+    APP_HOST: wallet-staging.portilho.cc
+    DB_HOST: controle-financeiro-staging-postgres
+    DB_USERNAME: controle_financeiro
+
+proxy:
+  host: wallet-staging.portilho.cc
+
+volumes:
+  - "controle_financeiro_staging_storage:/rails/storage"
+
+# Build with VITE_SENTRY_DSN baked into the JS bundle (DSN é "público", não é
+# segredo — pode ficar em ENV no build args).
+builder:
+  args:
+    VITE_SENTRY_DSN: https://3b525cd80caf345ef6a17537d974d054@o4511457451966464.ingest.us.sentry.io/4511457488666625
+
+accessories:
+  postgres:
+    image: postgres:16-alpine
+    host: 10.0.0.172
+    port: "127.0.0.1:5434:5432"
+    env:
+      clear:
+        POSTGRES_USER: controle_financeiro
+        POSTGRES_DB: controle_financeiro_staging
+      secret:
+        - POSTGRES_PASSWORD
+    directories:
+      - data:/var/lib/postgresql/data

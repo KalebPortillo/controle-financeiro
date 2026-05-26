@@ -88,10 +88,14 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install
-        # npm ci tem bug com optionalDependencies platform-specific
-        # (npm/cli#4828) — não instala bindings transitivos para a plataforma
-        # corrente. npm install --include=optional força instalação dos optional.
-        run: npm install --include=optional --no-audit --no-fund
+        # Workaround pro bug npm/cli#4828: ainda com optionalDependencies
+        # listados explicitamente, npm ci e npm install não instalam o native
+        # binding correto da plataforma. Único fix consistente é regenerar
+        # do zero (apaga lockfile + node_modules + npm install).
+        # Perde-se reproducibilidade exata, mas Vitest passa a achar o binding.
+        run: |
+          rm -f package-lock.json
+          npm install --no-audit --no-fund
 
       - name: Typecheck
         run: npm run typecheck

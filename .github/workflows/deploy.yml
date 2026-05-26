@@ -45,10 +45,15 @@ jobs:
       - name: Restore master.key
         run: echo "${{ secrets.RAILS_MASTER_KEY }}" > backend/config/master.key
 
-      - name: Trust VPS host key
+      - name: SSH config — VPS sem strict host checking (single-deployer scenario)
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H vps.portilho.cc >> ~/.ssh/known_hosts
+          cat >> ~/.ssh/config <<'SSH_CONFIG'
+          Host vps.portilho.cc 64.181.161.9
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            LogLevel ERROR
+          SSH_CONFIG
 
       - name: Kamal deploy → staging
         working-directory: backend
@@ -86,10 +91,15 @@ jobs:
       - name: Restore master.key
         run: echo "${{ secrets.RAILS_MASTER_KEY }}" > backend/config/master.key
 
-      - name: Trust VPS host key
+      - name: SSH config — VPS sem strict host checking (single-deployer scenario)
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H vps.portilho.cc >> ~/.ssh/known_hosts
+          cat >> ~/.ssh/config <<'SSH_CONFIG'
+          Host vps.portilho.cc 64.181.161.9
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            LogLevel ERROR
+          SSH_CONFIG
 
       - name: Kamal deploy → production
         working-directory: backend

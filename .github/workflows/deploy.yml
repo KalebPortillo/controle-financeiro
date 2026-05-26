@@ -37,17 +37,13 @@ jobs:
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
-      - uses: webfactory/ssh-agent@v0.9.1
-        with:
-          ssh-auth-sock: /tmp/ssh-agent.sock
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
       - name: Restore master.key
         run: echo "${{ secrets.RAILS_MASTER_KEY }}" > backend/config/master.key
 
-      - name: SSH config — VPS sem strict host checking + keepalive
+      - name: "Setup SSH — chave em disco + config + teste de conectividade"
         run: |
           mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | install -m 600 /dev/stdin ~/.ssh/id_ed25519
           cat >> ~/.ssh/config <<'SSH_CONFIG'
           Host vps.portilho.cc 64.181.161.9
             StrictHostKeyChecking no
@@ -57,6 +53,7 @@ jobs:
             ServerAliveCountMax 10
             TCPKeepAlive yes
           SSH_CONFIG
+          ssh portilho@vps.portilho.cc echo "SSH OK — pré-voo bem-sucedido"
 
       - name: "Kamal setup → staging (idempotente — boota proxy + accessories + app)"
         working-directory: backend
@@ -86,17 +83,13 @@ jobs:
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
-      - uses: webfactory/ssh-agent@v0.9.1
-        with:
-          ssh-auth-sock: /tmp/ssh-agent.sock
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
       - name: Restore master.key
         run: echo "${{ secrets.RAILS_MASTER_KEY }}" > backend/config/master.key
 
-      - name: SSH config — VPS sem strict host checking + keepalive
+      - name: "Setup SSH — chave em disco + config + teste de conectividade"
         run: |
           mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | install -m 600 /dev/stdin ~/.ssh/id_ed25519
           cat >> ~/.ssh/config <<'SSH_CONFIG'
           Host vps.portilho.cc 64.181.161.9
             StrictHostKeyChecking no
@@ -106,6 +99,7 @@ jobs:
             ServerAliveCountMax 10
             TCPKeepAlive yes
           SSH_CONFIG
+          ssh portilho@vps.portilho.cc echo "SSH OK — pré-voo bem-sucedido"
 
       - name: "Kamal setup → production (idempotente — boota proxy + accessories + app)"
         working-directory: backend

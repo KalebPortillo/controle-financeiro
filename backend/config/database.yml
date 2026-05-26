@@ -21,6 +21,12 @@ test:
   <<: *default
   database: controle_financeiro_test
 
+# Staging local: roda em :3001 contra o mesmo Postgres do dev, banco separado.
+# Quando subir staging no Kamal, DATABASE_URL externo cobre.
+staging:
+  <<: *default
+  database: controle_financeiro_staging
+
 production:
   primary: &primary_production
     <<: *default

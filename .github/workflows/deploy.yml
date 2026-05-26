@@ -48,12 +48,12 @@ jobs:
       - name: Trust VPS host key
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H 10.0.0.172 >> ~/.ssh/known_hosts
+          ssh-keyscan -H vps.portilho.cc >> ~/.ssh/known_hosts
 
       - name: Kamal deploy → staging
         working-directory: backend
         env:
-          KAMAL_REGISTRY_PASSWORD: ${{ secrets.KAMAL_REGISTRY_PASSWORD }}
+          KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           KAMAL_DB_PASSWORD_STAGING: ${{ secrets.KAMAL_DB_PASSWORD_STAGING }}
           SENTRY_DSN_BACKEND: ${{ secrets.SENTRY_DSN_BACKEND }}
         run: bundle exec kamal deploy -d staging
@@ -89,12 +89,12 @@ jobs:
       - name: Trust VPS host key
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H 10.0.0.172 >> ~/.ssh/known_hosts
+          ssh-keyscan -H vps.portilho.cc >> ~/.ssh/known_hosts
 
       - name: Kamal deploy → production
         working-directory: backend
         env:
-          KAMAL_REGISTRY_PASSWORD: ${{ secrets.KAMAL_REGISTRY_PASSWORD }}
+          KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           KAMAL_DB_PASSWORD_PRODUCTION: ${{ secrets.KAMAL_DB_PASSWORD_PRODUCTION }}
           SENTRY_DSN_BACKEND: ${{ secrets.SENTRY_DSN_BACKEND }}
         run: bundle exec kamal deploy -d production

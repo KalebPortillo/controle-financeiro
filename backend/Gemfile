@@ -46,8 +46,16 @@ gem "pundit"
 # JSON serializers for API responses
 gem "jsonapi-serializer"
 
+# Error tracking + performance monitoring
+gem "sentry-ruby"
+gem "sentry-rails"
+
 # Foreman para o bin/dev orquestrar Rails + Vite + Solid Queue worker
 gem "foreman", group: :development
+
+# Carrega .env / .env.<env> em todos os ambientes (dev, staging, prod-via-systemd).
+# Em prod-via-Kamal as ENV vêm do orquestrador; o gem ignora .env ausente.
+gem "dotenv-rails"
 
 group :development, :test do
   # Test data factories — alternativa às fixtures padrão Rails

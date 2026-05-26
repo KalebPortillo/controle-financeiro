@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# bin/dev — orquestra Rails API + Vite + Solid Queue worker via foreman.
+# Pressupõe Postgres já rodando: `docker compose -f infra/docker-compose.yml up -d`.
+
+set -e
+cd "$(dirname "$0")/.."
+
+# foreman vem do backend Gemfile (group :development)
+exec bundle exec --gemfile=backend/Gemfile foreman start -f Procfile.dev

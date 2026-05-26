@@ -1,0 +1,100 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  deploy-staging:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: staging
+      url: https://wallet-staging.portilho.cc
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.3.5
+          working-directory: backend
+          bundler-cache: true
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-auth-sock: /tmp/ssh-agent.sock
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Restore master.key
+        run: echo "${{ secrets.RAILS_MASTER_KEY }}" > backend/config/master.key
+
+      - name: Trust VPS host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H 10.0.0.172 >> ~/.ssh/known_hosts
+
+      - name: Kamal deploy → staging
+        working-directory: backend
+        env:
+          KAMAL_REGISTRY_PASSWORD: ${{ secrets.KAMAL_REGISTRY_PASSWORD }}
+          KAMAL_DB_PASSWORD_STAGING: ${{ secrets.KAMAL_DB_PASSWORD_STAGING }}
+          SENTRY_DSN_BACKEND: ${{ secrets.SENTRY_DSN_BACKEND }}
+        run: bundle exec kamal deploy -d staging
+
+  deploy-production:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: production
+      url: https://wallet.portilho.cc
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.3.5
+          working-directory: backend
+          bundler-cache: true
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-auth-sock: /tmp/ssh-agent.sock
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Restore master.key
+        run: echo "${{ secrets.RAILS_MASTER_KEY }}" > backend/config/master.key
+
+      - name: Trust VPS host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H 10.0.0.172 >> ~/.ssh/known_hosts
+
+      - name: Kamal deploy → production
+        working-directory: backend
+        env:
+          KAMAL_REGISTRY_PASSWORD: ${{ secrets.KAMAL_REGISTRY_PASSWORD }}
+          KAMAL_DB_PASSWORD_PRODUCTION: ${{ secrets.KAMAL_DB_PASSWORD_PRODUCTION }}
+          SENTRY_DSN_BACKEND: ${{ secrets.SENTRY_DSN_BACKEND }}
+        run: bundle exec kamal deploy -d production

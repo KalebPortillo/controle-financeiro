@@ -1,4 +1,4 @@
-# Controle Financeiro — Contratos de API v1 (v1.0)
+# Controle Financeiro — Contratos de API v1 (v1.1)
 
 ## Contexto
 
@@ -100,11 +100,39 @@ Formato uniforme:
 - `PATCH /api/v1/accounts/:id` — rename, owner.
 - `DELETE /api/v1/accounts/:id` — 422 se houver transactions.
 
-### Bank Connections (RF1.3–RF1.7)
+### Bank Connections (RF1.3–RF1.7, RF21)
 - `POST /api/v1/bank_connections` — body: `{ provider: "pluggy", item_id: "...", account_external_ids: [...], history_since: "2026-01-01" }`. Pluggy Connect (widget) roda no frontend; depois o frontend POSTa o resultado aqui.
-- `GET  /api/v1/bank_connections` — list.
-- `POST /api/v1/bank_connections/:id/sync` — força sync agora. 202 Accepted + retorna job_id.
+- `GET  /api/v1/bank_connections` — list com payload enriquecido (RF21):
+  ```json
+  {
+    "connections": [
+      {
+        "id": "...",
+        "provider": "pluggy",
+        "institution": "nubank",
+        "owner_membership_id": "...",
+        "accounts": [{ "id": "...", "kind": "credit_card", "name": "Nubank CC" }],
+        "status": "connected",
+        "last_sync_at": "2026-05-26T06:00:00Z",
+        "next_sync_at": "2026-05-27T06:00:00Z",
+        "last_sync_duration_seconds": 14,
+        "last_sync_created_count": 23,
+        "last_sync_duplicate_count": 2,
+        "last_sync_error_count": 0,
+        "error_message": null
+      }
+    ],
+    "summary": { "total": 3, "connected": 2, "error": 1, "syncing": 0 }
+  }
+  ```
+- `GET  /api/v1/bank_connections/:id` — detalhe individual com mesmo schema acima.
+- `POST /api/v1/bank_connections/:id/sync` — força sync agora. 202 Accepted + retorna `{ job_id, started_at }`. Status sobe via Action Cable.
+- `POST /api/v1/bank_connections/sync_all` — dispara sync de todas as conexões ativas do workspace. 202.
+- `GET  /api/v1/bank_connections/:id/sync_history?limit=10` — últimas N execuções de sync com `{ started_at, finished_at, duration_seconds, status, created_count, duplicate_count, error_count, error_message }`.
+- `POST /api/v1/bank_connections/:id/reconnect` — refresh do token/MFA (handoff para Pluggy Connect quando aplicável).
 - `DELETE /api/v1/bank_connections/:id` — disconnect.
+
+**Canal Action Cable `BankConnectionsChannel`** broadcasta eventos `connection_updated` com o objeto atualizado sempre que `status`/`last_sync_at` mudam — usado pelo painel para refletir progresso em tempo real sem polling.
 
 ### Transactions — listagem e leitura (RF2, RF4, RF13)
 - `GET /api/v1/transactions` — list. Filtros:
@@ -356,4 +384,4 @@ Formato uniforme:
 - Convenções (paginação, erros, timestamps, money) consistentes entre todas as rotas.
 - Frontend consegue, em teoria, montar telas para todos os fluxos a partir desses endpoints.
 
-**Status:** v1.0 — fechado após revisão das 4 decisões pendentes (upload máx 10MB, filtros `_in`/`_all`, auth WebSocket por cookie, webhooks Pluggy no MVP).
+**Status:** v1.1 — adicionados endpoints + payload enriquecido de Bank Connections para RF21 (sync status panel): `GET` retorna status agregado, `sync_all`, `sync_history`, `reconnect`, e canal `BankConnectionsChannel` para updates em tempo real.

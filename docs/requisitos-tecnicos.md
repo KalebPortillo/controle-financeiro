@@ -1,4 +1,4 @@
-# Controle Financeiro — Requisitos Técnicos (v1.1)
+# Controle Financeiro — Requisitos Técnicos (v1.2)
 
 ## Contexto
 
@@ -256,6 +256,7 @@ controle-financeiro/
 | **RF18** Exportação | Fora do MVP |
 | **RF19** Hospedagem | Smoke tests pós-deploy (HTTPS, auth, health endpoint) |
 | **RF20** Importação por arquivo | Parsers CSV/OFX, dedup, casos de borda (encoding, delimitador, valores inválidos), feedback do upload |
+| **RF21** Painel sync status | Endpoint de listagem com status agregado; job assíncrono dispara sync e atualiza colunas `status`/`last_sync_at`/`error_message` na tabela `bank_connections`; broadcast via Action Cable para o frontend ouvir mudanças em tempo real; histórico (tabela complementar a definir ou contar via logs do job); testes cobrem todos os estados (`conectado`, `sincronizando`, `erro`, `expirado`) |
 
 ### Convenções de teste
 - **Backend**: `test/services/transactions/consolidate_service_test.rb` espelha `app/services/transactions/consolidate_service.rb`.
@@ -392,4 +393,4 @@ Nenhum em requisitos técnicos. Todas as decisões fechadas (ver tabela "Decisõ
 - Estratégia de testes garante que cada RF do PRD tem rede de segurança.
 - Nenhuma decisão técnica fechada deixa um RF inviável.
 
-**Status:** v1.1 — adicionada seção "Ambiente de desenvolvimento (VPS workspace)" com Postgres em Docker Compose + Rails/Vite nativos via asdf.
+**Status:** v1.2 — adicionado mapeamento de testes do RF21 (painel sync status) à tabela RF → foco de teste. Sem mudanças estruturais no resto.

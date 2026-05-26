@@ -1,4 +1,4 @@
-# Controle Financeiro — Requisitos de Design (v1.0)
+# Controle Financeiro — Requisitos de Design (v1.1)
 
 ## Contexto
 
@@ -221,6 +221,30 @@ Doc complementar ao PRD v1.2, Requisitos Técnicos v1.1, Modelo de Dados v1.0 e 
   - Default: 1º de janeiro do ano corrente.
   - Opções: último 1 mês, 3 meses, 12 meses, custom.
 
+### Painel de status de sincronização (RF21)
+
+**Localização:** Settings → Contas é a tela principal. Indicador resumido aparece no header de Inbox/Gastos.
+
+**Connection card** (1 por conexão bancária):
+- Linha 1: ícone da instituição (Lucide `landmark` ou imagem do banco) + nome + tipo (corrente / cartão) + chip pequeno com o "dono" no casal.
+- Linha 2: **status dot colorido** (verde/amarelo/vermelho/violet animado para "sincronizando") + label do status.
+- Linha 3: "Última sincronização: há 2 horas" (timestamp relativo, absoluto em tooltip) + ao lado, "Próxima às 6h".
+- Linha 4 (só se houver erro): mensagem destacada em destructive light bg.
+- Ações no canto direito: botão primário "Sincronizar agora" (ghost com ícone Lucide `refresh-cw`); menu `⋯` com "Ver histórico", "Reconectar", "Desconectar".
+
+**Quando uma sync está em andamento**: o status dot fica violet animado (pulsa), o botão "Sincronizar agora" vira disabled com label "Sincronizando…", e há uma linha de progresso violet sutil cruzando o card.
+
+**Botão "Sincronizar todas"** fica no topo da lista (outline, com ícone) — apenas habilitado quando ≥2 conexões.
+
+**Indicador global** (header do app, ao lado do bell de notificações):
+- Quando tudo OK: ícone `check-circle` neutro pequeno + tooltip "Sincronização em dia".
+- Quando há erro: dot vermelho + tooltip "1 conexão com erro" → clique navega ao painel.
+- Quando sincronizando: spinner violet pequeno.
+
+**Histórico** (drawer/sheet quando clica em "Ver histórico"): lista vertical com linhas mostrando data/hora, duração, contadores (novas, duplicadas, erros), status final em chip. Últimas 10 execuções por padrão; "Ver tudo" expande.
+
+**Empty state**: nenhuma conexão ainda → ilustração linha minimalista + headline "Conecte sua primeira conta" + CTA "Conectar conta" (violet primary).
+
 ### Importação por arquivo (RF20)
 - Drag-and-drop area ou botão "Selecionar arquivo".
 - Após upload: tela de processamento (`status=processing`), com spinner.
@@ -331,4 +355,4 @@ Nenhum. As 4 decisões pendentes (logo, accent, wireframes, tema default) foram 
 - Decisões visuais consistentes (palette, tipografia, radius, sombras) — não há "uma tela com cara de outro app".
 - Acessibilidade e responsividade resolvidas no nível de princípio + biblioteca.
 
-**Status:** v1.0 — fechado após 4 decisões finais (logo Lucide `wallet` permanente, accent Violet 600/400, wireframes Figma de 3 telas-chave antes do código, tema default `prefers-color-scheme`).
+**Status:** v1.1 — adicionada seção "Painel de status de sincronização" (RF21): connection cards com status dot animado, botão "Sincronizar agora" + "Sincronizar todas", indicador global no header, histórico em drawer, empty state.

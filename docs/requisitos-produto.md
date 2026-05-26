@@ -1,4 +1,4 @@
-# Controle Financeiro — Requisitos de Produto (PRD v1.2)
+# Controle Financeiro — Requisitos de Produto (PRD v1.3)
 
 ## Contexto
 
@@ -177,6 +177,22 @@ Esta v1.0 fecha todos os pontos de produto após duas iterações com o usuário
 - **RF20.4** Feedback ao usuário ao fim do upload: quantos itens novos foram criados, quantos foram detectados como duplicados, quantos falharam (com motivo).
 - **RF20.5** Formatos suportados no MVP: **CSV** (delimitador detectado: vírgula, ponto-e-vírgula, tab) e **OFX**. XLS/XLSX podem entrar depois.
 
+### RF21. Painel de status de sincronização
+- **RF21.1** Existe uma **tela dedicada** (dentro de Settings → Contas, ou seção "Sincronização" no menu "Mais") que lista todas as conexões bancárias do workspace e seu status de sync.
+- **RF21.2** Para cada conexão, exibir:
+  - Instituição (ex.: Nubank) + tipo (conta corrente / cartão) + dono no casal.
+  - **Status atual**: `conectado`, `sincronizando`, `erro`, `expirado`, `desconectado`.
+  - **Última sincronização**: timestamp relativo ("há 2 horas") com timestamp absoluto disponível em hover/tap.
+  - **Próxima sincronização agendada** (ex.: "diária às 6h").
+  - **Mensagem de erro** detalhada quando aplicável (ex.: "Token expirado — reconecte").
+  - **Contagem de transações importadas** na última sync.
+- **RF21.3** Botão **"Sincronizar agora"** por conexão — dispara sync manual e atualiza o status para `sincronizando` em tempo real (Action Cable empurra o estado).
+- **RF21.4** Botão **"Sincronizar todas"** quando há múltiplas conexões.
+- **RF21.5** **Indicador global** discreto (no header ou sidebar) sumarizando: total conectadas / com erro / sincronizando agora. Clicar leva direto ao painel.
+- **RF21.6** Quando uma sync falha, **notificação in-app** (RF17.2) é emitida e a tela oferece "Tentar de novo".
+- **RF21.7** **Histórico das últimas N sincronizações** por conexão (ex.: últimas 10) com timestamp, duração, contagem de transações importadas/duplicadas/erros, status final. Útil para auditoria leve quando algo dá errado.
+- **RF21.8** Ações destrutivas (desconectar, reconectar) ficam disponíveis na mesma tela mas atrás de confirmação.
+
 ## Comparação com o mercado (atualizada)
 
 | Feature | Sua app | Organizze | Mobills | YNAB | Monarch |
@@ -225,6 +241,7 @@ Esta v1.0 fecha todos os pontos de produto após duas iterações com o usuário
 | Convite no workspace | Por email cadastrado (esposa cria conta primeiro, depois é adicionada). |
 | Tag em N categorias | Total geral do período nunca duplica o gasto. Visões por categoria podem sobrepor, com sinalização visual. Orçamentos por categoria contam o gasto em cada um (intencional). |
 | Importação em massa por arquivo | CSV/OFX suportados no MVP. Mesmo fluxo de inbox da sync automática (dedup + pré-categorização + aprovação manual). |
+| Painel de status de sincronização | Tela dedicada (Settings → Contas) lista cada conexão com status, última sync, próxima agendada, erro, contagem de transações; botão "Sincronizar agora" por conexão + global; indicador discreto no header; histórico das últimas N execuções. |
 
 ## Integração com Nubank — pesquisa preliminar (decisão técnica, mas afeta produto)
 
@@ -268,4 +285,4 @@ Para o estado atual da engenharia, ver:
 - A comparação com o mercado bate com sua percepção.
 - Não falta feature óbvia para o seu cenário.
 
-**Status:** v1.2 — adicionada RF20 (importação em massa por arquivo CSV/OFX). Pronta para evolução paralela com a fase técnica.
+**Status:** v1.3 — adicionada RF21 (painel de status de sincronização) com 8 sub-requisitos cobrindo visibilidade, ação manual, indicador global, notificação de falha e histórico.

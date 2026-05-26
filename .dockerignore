@@ -1,0 +1,74 @@
+# Build context é a raiz do monorepo. Reduzir o que entra no contexto pra image
+# ficar enxuto e build mais rápido.
+
+# Git
+.git/
+.gitignore
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs / tmp
+*.log
+node_modules/
+
+# === Backend ===
+backend/.bundle/
+backend/log/*
+!backend/log/.keep
+backend/tmp/*
+!backend/tmp/.keep
+backend/tmp/pids/*
+!backend/tmp/pids/.keep
+backend/storage/*
+!backend/storage/.keep
+
+# Env files (são injetados via Kamal env, não entram no image).
+backend/.env*
+!backend/.env.example
+frontend/.env*
+!frontend/.env.example
+
+# Master key (é injetado via RAILS_MASTER_KEY env).
+backend/config/master.key
+backend/config/credentials/*.key
+
+# CI / Kamal (não precisam dentro do image).
+.github/
+backend/config/deploy*.yml
+backend/.kamal/
+config/deploy*.yml
+.kamal/
+
+# Frontend já-builded (vai ser regenerado em build stage).
+frontend/dist/
+frontend/node_modules/
+
+# Frontend artifacts em backend/public/ (do bin/build local) — não entram no
+# image, vão ser regenerados pelo stage frontend-builder.
+backend/public/index.html
+backend/public/favicon.svg
+backend/public/assets/
+
+# Docker
+Dockerfile*
+.dockerignore
+
+# Infra local
+infra/
+
+# Docs / design (não vão pra imagem de runtime).
+docs/
+design-system/
+
+# Bin/build é dev-only (build dentro do Docker é via npm run build no stage).
+bin/build
+bin/dev
+Procfile.dev

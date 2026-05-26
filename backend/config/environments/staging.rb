@@ -1,32 +1,41 @@
 require "active_support/core_ext/integer/time"
 
-# Staging — mirror de development com DB separado e hostnames públicos.
-# Quando o app entrar em deploy real (Kamal), staging.rb deve convergir para
-# um espelho de production (eager_load, cache, etc.) com flag para debug fácil.
+# Staging — espelho de production com:
+#   - hostname diferente (wallet-staging.portilho.cc, via APP_HOST)
+#   - banco diferente (DATABASE_URL apontando pro Postgres staging)
+#   - deprecações reportadas em log (em prod ficam silenciadas)
+#
+# Roda como container Kamal com RAILS_ENV=staging. Comportamento de runtime
+# (eager_load, cache_store, log_to_stdout) é idêntico ao prod pra pegar bugs
+# que só aparecem com classes lazy-loaded ou cache durável.
 Rails.application.configure do
-  config.enable_reloading = true
-  config.eager_load = false
-  config.consider_all_requests_local = true
-  config.server_timing = true
+  config.enable_reloading = false
+  config.eager_load = true
+  config.consider_all_requests_local = false
 
-  config.action_controller.perform_caching = false
-  config.cache_store = :memory_store
+  config.public_file_server.headers = { "cache-control" => "public, max-age=#{1.year.to_i}" }
 
   config.active_storage.service = :local
 
-  config.action_mailer.raise_delivery_errors = false
-  config.action_mailer.perform_caching = false
+  # Log para STDOUT (containerized) com request_id.
+  config.log_tags = [ :request_id ]
+  config.logger   = ActiveSupport::TaggedLogging.logger(STDOUT)
+  config.log_level = ENV.fetch("RAILS_LOG_LEVEL", "info")
+  config.silence_healthcheck_path = "/up"
+
+  # Deprecações reportadas (em prod ficam silenciadas).
+  config.active_support.report_deprecations = true
+
+  config.cache_store = :solid_cache_store
+  config.active_job.queue_adapter = :solid_queue
+  config.solid_queue.connects_to = { database: { writing: :queue } }
+
   config.action_mailer.default_url_options = { host: "wallet-staging.portilho.cc" }
 
-  config.active_support.deprecation = :log
-  config.active_record.migration_error = :page_load
-  config.active_record.verbose_query_logs = true
-  config.active_record.query_log_tags_enabled = true
-  config.active_job.verbose_enqueue_logs = true
-  config.action_dispatch.verbose_redirect_logs = true
-  config.action_view.annotate_rendered_view_with_filenames = true
-  config.action_controller.raise_on_missing_callback_actions = true
+  config.i18n.fallbacks = true
+  config.active_record.dump_schema_after_migration = false
+  config.active_record.attributes_for_inspect = [ :id ]
 
-  # Host público de staging via Cloudflare Tunnel.
-  config.hosts << "wallet-staging.portilho.cc"
+  config.hosts << ENV.fetch("APP_HOST", "wallet-staging.portilho.cc")
+  config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
 end

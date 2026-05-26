@@ -17,8 +17,9 @@ builder:
   args:
     VITE_SENTRY_DSN: https://3b525cd80caf345ef6a17537d974d054@o4511457451966464.ingest.us.sentry.io/4511457488666625
 
+# Accessory com sufixo do destination — ver explicação em deploy.staging.yml.
 accessories:
-  postgres:
+  postgres-production:
     image: postgres:16-alpine
     host: vps.portilho.cc
     port: "127.0.0.1:5435:5432"

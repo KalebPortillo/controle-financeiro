@@ -45,7 +45,7 @@ jobs:
       - name: Restore master.key
         run: echo "${{ secrets.RAILS_MASTER_KEY }}" > backend/config/master.key
 
-      - name: SSH config — VPS sem strict host checking (single-deployer scenario)
+      - name: SSH config — VPS sem strict host checking + keepalive
         run: |
           mkdir -p ~/.ssh
           cat >> ~/.ssh/config <<'SSH_CONFIG'
@@ -53,6 +53,9 @@ jobs:
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
             LogLevel ERROR
+            ServerAliveInterval 30
+            ServerAliveCountMax 10
+            TCPKeepAlive yes
           SSH_CONFIG
 
       - name: "Kamal setup → staging (idempotente — boota proxy + accessories + app)"
@@ -91,7 +94,7 @@ jobs:
       - name: Restore master.key
         run: echo "${{ secrets.RAILS_MASTER_KEY }}" > backend/config/master.key
 
-      - name: SSH config — VPS sem strict host checking (single-deployer scenario)
+      - name: SSH config — VPS sem strict host checking + keepalive
         run: |
           mkdir -p ~/.ssh
           cat >> ~/.ssh/config <<'SSH_CONFIG'
@@ -99,6 +102,9 @@ jobs:
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
             LogLevel ERROR
+            ServerAliveInterval 30
+            ServerAliveCountMax 10
+            TCPKeepAlive yes
           SSH_CONFIG
 
       - name: "Kamal setup → production (idempotente — boota proxy + accessories + app)"

@@ -4,7 +4,7 @@ env:
   clear:
     RAILS_ENV: production
     APP_HOST: wallet.portilho.cc
-    DB_HOST: controle-financeiro-production-postgres
+    DB_HOST: controle-financeiro-postgres-production
     DB_USERNAME: controle_financeiro
 
 proxy:

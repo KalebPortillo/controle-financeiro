@@ -5,7 +5,7 @@ env:
   clear:
     RAILS_ENV: staging
     APP_HOST: wallet-staging.portilho.cc
-    DB_HOST: controle-financeiro-staging-postgres
+    DB_HOST: controle-financeiro-postgres-staging
     DB_USERNAME: controle_financeiro
 
 proxy:

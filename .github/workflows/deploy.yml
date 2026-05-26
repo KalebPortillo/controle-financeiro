@@ -1,8 +1,9 @@
 name: deploy
 
-# Build acontece na VPS (builder.remote no kamal). Por isso este workflow é
-# bem enxuto — não precisa QEMU, não precisa buildx, não precisa docker login
-# no runner. O job é só: orquestrar o Kamal via SSH.
+# Build acontece na VPS (builder.remote no kamal): o runner do GHA só
+# orquestra. Mas o `docker buildx build --output=type=registry` empurra
+# credenciais do CLI (runner) pro buildkit remoto, então o runner PRECISA
+# estar logado no ghcr.io — senão o push falha com "denied".
 #
 # - push em main → deploy automático em staging
 # - tag v*       → deploy em production (com aprovação obrigatória)
@@ -43,6 +44,9 @@ jobs:
 
       - name: Restore master.key
         run: echo "${{ secrets.RAILS_MASTER_KEY }}" > backend/config/master.key
+
+      - name: "Docker login GHCR (buildx remoto precisa das creds do runner)"
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: "Setup SSH — chave em disco + config + teste de conectividade"
         run: |
@@ -86,6 +90,9 @@ jobs:
 
       - name: Restore master.key
         run: echo "${{ secrets.RAILS_MASTER_KEY }}" > backend/config/master.key
+
+      - name: "Docker login GHCR (buildx remoto precisa das creds do runner)"
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: "Setup SSH — chave em disco + config + teste de conectividade"
         run: |

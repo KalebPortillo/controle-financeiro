@@ -45,8 +45,11 @@ env:
 
 # Build local (rodando do dev box ARM, é nativo; rodando do GHA x86, usa
 # QEMU emulation — slow on first build, layer cache acelera depois).
+# Context = raiz do monorepo (precisa ver backend/ + frontend/ no Dockerfile).
 builder:
   arch: arm64
+  context: ..
+  dockerfile: ../Dockerfile
 
 # SSH user na VPS. portilho precisa estar no docker group (sudo usermod -aG
 # docker portilho) para Kamal rodar docker sem sudo.

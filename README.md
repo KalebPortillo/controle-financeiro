@@ -11,6 +11,7 @@ Specs canônicas em [`docs/`](./docs):
 - [Modelo de Dados](./docs/modelo-de-dados.md) — entidades, índices, constraints.
 - [Contratos de API](./docs/contratos-api.md) — endpoints, payloads, convenções.
 - [Requisitos de Design](./docs/requisitos-design.md) — vibe, tokens, IA, telas-chave.
+- [Deploy Runbook](./docs/deploy-runbook.md) — armadilhas de campo, lições do CI/Tailscale/Kamal, recovery do zero.
 
 Design system completo em [`design-system/`](./design-system) (handoff de claude.ai/design — tokens CSS, ícones, UI kit React).
 

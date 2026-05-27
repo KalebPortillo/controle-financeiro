@@ -121,4 +121,40 @@ for dir in storage storage-staging; do
   fi
 done
 
+# ---------------------------------------------------------------------------
+# 6. Autorizar chave SSH dedicada do CI (kamal_deploy_key)
+# ---------------------------------------------------------------------------
+#
+# O job `deploy-{staging,production}` do GitHub Actions usa essa chave (via
+# secret SSH_PRIVATE_KEY) pra SSH-ar no oracle-app-box. A pública mora no
+# repo de dev em ~/.ssh/kamal_deploy_key.pub. Esse script lê do env
+# CI_PUBLIC_KEY (ou do arquivo CI_PUBLIC_KEY_FILE) e adiciona ao
+# authorized_keys se ainda não estiver lá.
+#
+# Uso recomendado quando re-rodando o setup:
+#   CI_PUBLIC_KEY="$(cat ~/.ssh/kamal_deploy_key.pub)" \
+#     ssh oracle-app-box 'bash -s' < infra/setup-oracle-app-box.sh
+
+CI_PUB="${CI_PUBLIC_KEY:-}"
+if [ -z "$CI_PUB" ] && [ -n "${CI_PUBLIC_KEY_FILE:-}" ] && [ -f "$CI_PUBLIC_KEY_FILE" ]; then
+  CI_PUB=$(cat "$CI_PUBLIC_KEY_FILE")
+fi
+
+if [ -n "$CI_PUB" ]; then
+  AUTH_KEYS="$HOME/.ssh/authorized_keys"
+  mkdir -p "$HOME/.ssh"
+  touch "$AUTH_KEYS"
+  chmod 700 "$HOME/.ssh"
+  chmod 600 "$AUTH_KEYS"
+
+  if grep -qF "$CI_PUB" "$AUTH_KEYS"; then
+    ok "Chave SSH do CI já autorizada."
+  else
+    echo "$CI_PUB" >> "$AUTH_KEYS"
+    info "Chave SSH do CI adicionada ao authorized_keys."
+  fi
+else
+  warn "CI_PUBLIC_KEY / CI_PUBLIC_KEY_FILE não fornecido — pulando autorização da chave do CI."
+fi
+
 ok "Setup concluído. oracle-app-box pronto para kamal deploy."

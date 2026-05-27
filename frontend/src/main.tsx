@@ -25,10 +25,10 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <SentryErrorBoundary
       fallback={({ error }) => (
-        <main className="min-h-screen flex items-center justify-center p-8">
+        <main className="min-h-screen bg-background text-foreground flex items-center justify-center p-8">
           <div className="max-w-md space-y-2 text-center">
-            <p className="text-sm font-semibold text-red-600">Algo deu errado</p>
-            <p className="text-xs text-neutral-500 font-mono">
+            <p className="text-sm font-semibold text-destructive">Algo deu errado</p>
+            <p className="text-xs text-muted-foreground font-mono">
               {error instanceof Error ? error.message : String(error)}
             </p>
           </div>

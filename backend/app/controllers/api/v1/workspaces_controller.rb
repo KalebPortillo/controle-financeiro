@@ -54,14 +54,4 @@ class Api::V1::WorkspacesController < ApplicationController
       created_at: workspace.created_at.iso8601
     }
   end
-
-  def render_validation_error(record)
-    render json: {
-      error: {
-        code: "validation_failed",
-        message: record.errors.full_messages.to_sentence,
-        details: record.errors.map { |e| { field: e.attribute, code: e.type.to_s, message: e.message } }
-      }
-    }, status: :unprocessable_entity
-  end
 end

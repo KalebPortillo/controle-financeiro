@@ -7,4 +7,7 @@ class ApplicationController < ActionController::API
   # Helpers de autenticação compartilhados — `current_user`, `signed_in?`,
   # `require_authentication!`. Detalhes em controllers/concerns/authentication.rb.
   include Authentication
+
+  # Renderização canônica de erros (formato em contratos-api.md v1.1).
+  include ApiErrorResponses
 end

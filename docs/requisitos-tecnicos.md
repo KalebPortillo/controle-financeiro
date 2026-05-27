@@ -1,4 +1,4 @@
-# Controle Financeiro — Requisitos Técnicos (v1.3)
+# Controle Financeiro — Requisitos Técnicos (v1.4)
 
 ## Contexto
 
@@ -315,6 +315,20 @@ controle-financeiro/
 - Convidado cria conta primeiro (Google).
 - Dono adiciona pelo email já cadastrado.
 
+### Status de implementação (RF16 — v0.2.0-rf16-auth em produção)
+
+| Item | Estado |
+|---|---|
+| `User` model (UUID, email citext, google_uid, name, avatar_url) | ✅ |
+| `Workspace` + `WorkspaceMembership` (role check-constrained editor/viewer) | ✅ |
+| OmniAuth Google callback (`/api/v1/auth/google_oauth2/callback`) | ✅ |
+| `Users::CreateWithPersonalWorkspace` (cria user + workspace + membership numa transação) | ✅ |
+| Sessions endpoints (`/api/v1/sessions/current` GET/DELETE + `select_workspace`) | ✅ |
+| Workspaces + Memberships REST (RF16.3 convite por email cadastrado, 404 user_not_found) | ✅ |
+| Rack::Attack throttle 10 req/min por IP em `/api/v1/auth/*` | ✅ |
+| Pundit | ⏳ não wired — scoping via `current_user.workspaces.find(id)` resolve RF16; entra quando RF tiver authz granular |
+| CSRF token em rotas mutadoras | ⏳ defer — SPA same-origin + cookie SameSite=Lax cobre o MVP do casal |
+
 ## Hospedagem e infra (resumo)
 
 - **Oracle Cloud Always Free Tier** (Ampere A1 ARM, sa-saopaulo-1).
@@ -411,4 +425,4 @@ Nenhum em requisitos técnicos. Todas as decisões fechadas (ver tabela "Decisõ
 - Estratégia de testes garante que cada RF do PRD tem rede de segurança.
 - Nenhuma decisão técnica fechada deixa um RF inviável.
 
-**Status:** v1.2 — adicionado mapeamento de testes do RF21 (painel sync status) à tabela RF → foco de teste. Sem mudanças estruturais no resto.
+**Status:** v1.4 — RF16 (auth Google OAuth + workspace) marcado como implementado e em produção em `v0.2.0-rf16-auth`. Status detalhado das peças do RF16 na seção "Autenticação e autorização". Lições e armadilhas de campo do CI/deploy ficam em [`docs/deploy-runbook.md`](./deploy-runbook.md).

@@ -10,15 +10,4 @@ class User < ApplicationRecord
   validates :email,      presence: true, uniqueness: true, format: { with: EMAIL_FORMAT }
   validates :google_uid, presence: true, uniqueness: true
   validates :name,       presence: true
-
-  # Upsert idempotente vindo do callback do Google OAuth.
-  # `auth` é o OmniAuth::AuthHash que o omniauth-google-oauth2 entrega.
-  def self.find_or_create_from_google(auth)
-    user = find_or_initialize_by(google_uid: auth.uid)
-    user.email      = auth.info.email
-    user.name       = auth.info.name
-    user.avatar_url = auth.info.image
-    user.save!
-    user
-  end
 end

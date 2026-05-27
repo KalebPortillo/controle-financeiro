@@ -33,41 +33,15 @@ class UserTest < ActiveSupport::TestCase
     assert_includes user.errors[:email], "is invalid"
   end
 
-  # --- .find_or_create_from_google ---------------------------------------
+  test "owns memberships and workspaces through them" do
+    user = create(:user)
+    workspace_a = create(:workspace)
+    workspace_b = create(:workspace)
+    create(:workspace_membership, user: user, workspace: workspace_a)
+    create(:workspace_membership, user: user, workspace: workspace_b)
 
-  def google_auth(overrides = {})
-    OmniAuth::AuthHash.new({
-      provider: "google_oauth2",
-      uid: "google-123",
-      info: {
-        email: "kaleb@example.com",
-        name:  "Kaleb",
-        image: "https://lh3.googleusercontent.com/a/abc"
-      }
-    }.deep_merge(overrides))
-  end
-
-  test ".find_or_create_from_google creates a user from a fresh google auth" do
-    assert_difference "User.count", 1 do
-      user = User.find_or_create_from_google(google_auth)
-      assert_equal "google-123",        user.google_uid
-      assert_equal "kaleb@example.com", user.email
-      assert_equal "Kaleb",             user.name
-    end
-  end
-
-  test ".find_or_create_from_google finds existing user by google_uid" do
-    existing = create(:user, google_uid: "google-123", email: "old@example.com")
-    assert_no_difference "User.count" do
-      user = User.find_or_create_from_google(google_auth)
-      assert_equal existing.id, user.id
-    end
-  end
-
-  test ".find_or_create_from_google updates name and avatar when google profile changes" do
-    create(:user, google_uid: "google-123", name: "Old", avatar_url: nil)
-    user = User.find_or_create_from_google(google_auth)
-    assert_equal "Kaleb",                                  user.name
-    assert_equal "https://lh3.googleusercontent.com/a/abc", user.avatar_url
+    assert_equal 2, user.workspace_memberships.count
+    assert_includes user.workspaces, workspace_a
+    assert_includes user.workspaces, workspace_b
   end
 end

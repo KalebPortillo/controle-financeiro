@@ -41,4 +41,13 @@ class Users::CreateWithPersonalWorkspaceTest < ActiveSupport::TestCase
     user = Users::CreateWithPersonalWorkspace.call(google_auth(name: "New Name"))
     assert_equal "New Name", user.name
   end
+
+  test "matches existing user by google_uid (não cria duplicado por email)" do
+    existing = create(:user, google_uid: "google-1", email: "stale@example.com")
+    assert_no_difference "User.count" do
+      user = Users::CreateWithPersonalWorkspace.call(google_auth(email: "kaleb@example.com"))
+      assert_equal existing.id, user.id
+      assert_equal "kaleb@example.com", user.reload.email
+    end
+  end
 end

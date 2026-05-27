@@ -9,11 +9,13 @@ name: deploy
 # O runner autentica no tailnet via OAuth client antes do SSH.
 #
 # Secrets necessários no repositório/environment:
-#   RAILS_MASTER_KEY          — config/master.key
-#   SSH_PRIVATE_KEY           — chave ed25519 autorizada no oracle-app-box
-#   TAILSCALE_OAUTH_CLIENT_ID — OAuth client do tailnet (tag:ci)
-#   TAILSCALE_OAUTH_SECRET    — OAuth secret do tailnet (tag:ci)
-#   SENTRY_DSN_BACKEND        — DSN Sentry do backend Rails
+#   RAILS_MASTER_KEY             — config/master.key
+#   SSH_PRIVATE_KEY              — chave ed25519 autorizada no oracle-app-box
+#   TAILSCALE_OAUTH_CLIENT_ID    — OAuth client do tailnet (tag:ci)
+#   TAILSCALE_OAUTH_SECRET       — OAuth secret do tailnet (tag:ci)
+#   SENTRY_DSN_BACKEND           — DSN Sentry do backend Rails
+#   GOOGLE_OAUTH_CLIENT_ID       — RF16, Web client do Google Cloud Console
+#   GOOGLE_OAUTH_CLIENT_SECRET   — RF16, idem
 #
 # Nota: DB password NÃO é secret do GHA — vem do ~/.pgpass do oracle-app-box
 # via SSH (ver backend/.kamal/secrets-common).
@@ -88,6 +90,8 @@ jobs:
         env:
           KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           SENTRY_DSN_BACKEND: ${{ secrets.SENTRY_DSN_BACKEND }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
         run: bundle exec kamal setup -d staging
 
   deploy-production:
@@ -140,4 +144,6 @@ jobs:
         env:
           KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           SENTRY_DSN_BACKEND: ${{ secrets.SENTRY_DSN_BACKEND }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
         run: bundle exec kamal setup -d production

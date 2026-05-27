@@ -46,7 +46,7 @@ function setupFetch(session: SessionFixture) {
   return { calls, fetchMock }
 }
 
-function renderDashboard(_session: SessionFixture) {
+function renderDashboard() {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
@@ -65,7 +65,7 @@ describe('<DashboardPage />', () => {
   it('greets the user and shows the active workspace', async () => {
     const session = buildSession()
     setupFetch(session)
-    renderDashboard(session)
+    renderDashboard()
 
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /olá, kaleb/i })).toBeInTheDocument()
@@ -77,7 +77,7 @@ describe('<DashboardPage />', () => {
   it('omits the workspace switcher when the user has a single workspace', async () => {
     const session = buildSession()
     setupFetch(session)
-    renderDashboard(session)
+    renderDashboard()
 
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /olá, kaleb/i })).toBeInTheDocument()
@@ -94,7 +94,7 @@ describe('<DashboardPage />', () => {
       active_workspace_id: 'w1',
     })
     const { fetchMock } = setupFetch(session)
-    renderDashboard(session)
+    renderDashboard()
 
     await waitFor(() => expect(screen.getByText('Trocar de workspace')).toBeInTheDocument())
     const user = userEvent.setup()
@@ -111,7 +111,7 @@ describe('<DashboardPage />', () => {
   it('clicking "Sair" calls DELETE /sessions/current', async () => {
     const session = buildSession()
     const { fetchMock } = setupFetch(session)
-    renderDashboard(session)
+    renderDashboard()
 
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /olá, kaleb/i })).toBeInTheDocument()

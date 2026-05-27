@@ -1,5 +1,5 @@
 import { Card, CardBody } from '../components/Card'
-import { buttonClass } from '../components/Button'
+import { buttonClass } from '../components/buttonClass'
 import { WalletLogo } from '../components/WalletLogo'
 
 /**

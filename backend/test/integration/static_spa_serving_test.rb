@@ -17,6 +17,8 @@ class StaticSpaServingTest < ActionDispatch::IntegrationTest
 
   setup do
     @index_path = Rails.public_path.join("index.html")
+    # public/ pode não existir em CI (não é tracked pelo git quando vazio).
+    FileUtils.mkdir_p(@index_path.dirname)
     @backup = @index_path.exist? ? @index_path.read : nil
     @index_path.write(SHELL)
   end

@@ -70,8 +70,13 @@ jobs:
           oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
           tags: tag:ci
 
-      - name: "Setup SSH — chave em disco + config + teste de conectividade"
+      - name: "Setup SSH — hosts/chave/config + teste de conectividade"
+        # tailscale-action sobe o tailnet com --accept-dns=false por default,
+        # então MagicDNS não resolve "oracle-app-box". Mapeamos manualmente
+        # via /etc/hosts apontando para o IP Tailscale fixo (100.68.129.58).
+        # Se a máquina for re-tagada e ganhar IP novo, atualizar este map.
         run: |
+          echo "100.68.129.58 oracle-app-box" | sudo tee -a /etc/hosts > /dev/null
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" | install -m 600 /dev/stdin ~/.ssh/id_ed25519
           cat >> ~/.ssh/config <<'SSH_CONFIG'
@@ -124,8 +129,13 @@ jobs:
           oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
           tags: tag:ci
 
-      - name: "Setup SSH — chave em disco + config + teste de conectividade"
+      - name: "Setup SSH — hosts/chave/config + teste de conectividade"
+        # tailscale-action sobe o tailnet com --accept-dns=false por default,
+        # então MagicDNS não resolve "oracle-app-box". Mapeamos manualmente
+        # via /etc/hosts apontando para o IP Tailscale fixo (100.68.129.58).
+        # Se a máquina for re-tagada e ganhar IP novo, atualizar este map.
         run: |
+          echo "100.68.129.58 oracle-app-box" | sudo tee -a /etc/hosts > /dev/null
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" | install -m 600 /dev/stdin ~/.ssh/id_ed25519
           cat >> ~/.ssh/config <<'SSH_CONFIG'

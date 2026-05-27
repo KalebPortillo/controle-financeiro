@@ -24,7 +24,9 @@ proxy:
   healthcheck:
     path: /up
     interval: 5
-    timeout: 30
+    # Bumped pra 60s porque o boot do Rails 8 (eager_load + solid stack + Sentry init)
+    # tava colando perto dos 30s em staging — margem apertada pra prod.
+    timeout: 60
 
 registry:
   server: ghcr.io

@@ -21,4 +21,16 @@ Sentry.init do |config|
     "ActionController::RoutingError",
     "ActiveRecord::RecordNotFound"
   ]
+
+  # Hook para sanitizar dados antes de enviar pro Sentry. Hoje não temos
+  # nada sensível para escapar (a API ainda não recebe transações reais),
+  # mas o hook fica aqui — quando RF1 (Pluggy) ou RF12 (entrada manual)
+  # começarem a popular params/exception_message com amount_cents,
+  # description, etc, basta strip-ar dentro do bloco.
+  config.before_send = ->(event, _hint) do
+    # TODO(RF1/RF12): sanitizar amount_cents, description, account info
+    # de event.request, event.extra, event.exception.values quando essas
+    # rotas existirem.
+    event
+  end
 end

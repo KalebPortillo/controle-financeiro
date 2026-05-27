@@ -86,7 +86,6 @@ jobs:
         working-directory: backend
         env:
           KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          KAMAL_DB_PASSWORD_STAGING: ${{ secrets.KAMAL_DB_PASSWORD_STAGING }}
           SENTRY_DSN_BACKEND: ${{ secrets.SENTRY_DSN_BACKEND }}
         run: bundle exec kamal setup -d staging
 
@@ -139,6 +138,5 @@ jobs:
         working-directory: backend
         env:
           KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          KAMAL_DB_PASSWORD_PRODUCTION: ${{ secrets.KAMAL_DB_PASSWORD_PRODUCTION }}
           SENTRY_DSN_BACKEND: ${{ secrets.SENTRY_DSN_BACKEND }}
         run: bundle exec kamal setup -d production

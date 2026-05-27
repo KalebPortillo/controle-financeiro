@@ -1,8 +1,8 @@
 # PostgreSQL config for Controle Financeiro.
 #
 # Dev/Test: Postgres do `infra/docker-compose.yml` (host port 5433).
-# Staging/Production: Postgres como Kamal accessory; ENV vars vêm do
-# config/deploy.<destination>.yml + .kamal/secrets.
+# Staging/Production: Postgres nativo na oracle-app-box (host.docker.internal:5432).
+# ENV vars vêm do config/deploy.<destination>.yml + .kamal/secrets-common.
 #
 # Solid stack (cache, queue, cable) requer DBs separados por env.
 

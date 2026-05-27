@@ -36,8 +36,8 @@ function App() {
         </header>
 
         <p className="text-sm text-neutral-500 leading-relaxed">
-          Pre-MVP smoke test. Backend Rails 8 + frontend Vite/React, expostos via
-          Cloudflare Tunnel. Próximo: começar TDD do RF16 (auth + workspace).
+          Pre-MVP smoke test. Backend Rails 8 + frontend Vite/React, atrás do
+          Cloudflare proxy + kamal-proxy. Próximo: TDD do RF16 (auth + workspace).
         </p>
 
         <section className="rounded-md border border-neutral-200 p-4 space-y-3">
@@ -74,13 +74,15 @@ function App() {
           {error && <p className="text-xs text-red-600">{error}</p>}
         </section>
 
-        <button
-          type="button"
-          onClick={triggerJsError}
-          className="text-xs text-neutral-400 hover:text-neutral-700 underline cursor-pointer"
-        >
-          Trigger test error (Sentry probe)
-        </button>
+        {import.meta.env.MODE !== 'production' && (
+          <button
+            type="button"
+            onClick={triggerJsError}
+            className="text-xs text-neutral-400 hover:text-neutral-700 underline cursor-pointer"
+          >
+            Trigger test error (Sentry probe)
+          </button>
+        )}
       </div>
     </main>
   )

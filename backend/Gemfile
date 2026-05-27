@@ -32,9 +32,6 @@ gem "thruster", require: false
 # Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
 gem "image_processing", "~> 1.2"
 
-# Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
-gem "rack-cors"
-
 # Auth: Google OAuth via OmniAuth (RF16)
 gem "omniauth"
 gem "omniauth-google-oauth2"
@@ -50,16 +47,15 @@ gem "jsonapi-serializer"
 gem "sentry-ruby"
 gem "sentry-rails"
 
-# Foreman para o bin/dev orquestrar Rails + Vite + Solid Queue worker
-gem "foreman", group: :development
-
-# Carrega .env / .env.<env> em todos os ambientes (dev, staging, prod-via-systemd).
-# Em prod-via-Kamal as ENV vêm do orquestrador; o gem ignora .env ausente.
-gem "dotenv-rails"
-
 group :development, :test do
   # Test data factories — alternativa às fixtures padrão Rails
   gem "factory_bot_rails"
+
+  # Carrega .env / .env.<env>. Em prod/staging via Kamal, ENV vem do orquestrador.
+  gem "dotenv-rails"
+
+  # Foreman para o bin/dev orquestrar Rails + Vite + Solid Queue worker.
+  gem "foreman"
 
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"

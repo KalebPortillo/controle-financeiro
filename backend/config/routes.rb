@@ -6,7 +6,8 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       get "health", to: "health#show"
-      get "test_error", to: "errors#trigger"
+      # Sentry probe: rota só existe fora de produção para evitar spam de quota.
+      get "test_error", to: "errors#trigger" unless Rails.env.production?
     end
   end
 

@@ -18,14 +18,33 @@ Design system completo em [`design-system/`](./design-system) (handoff de claude
 
 ```
 controle-financeiro/
-├── backend/         # Rails 8 API (em construção)
-├── frontend/        # Vite + React + TS (em construção)
-├── infra/           # docker-compose.yml (Postgres), Kamal config (futuro)
-├── docs/            # specs canônicas
-├── design-system/   # handoff Claude Design — tokens, kit, ícones
-├── .tool-versions   # Ruby 3.3.5 + Node 22.11.0 (asdf)
-└── .github/workflows/  # CI/CD (futuro)
+├── backend/                   # Rails 8 API (em construção)
+│   ├── config/deploy.yml      # Kamal — base + destination (staging/production)
+│   └── .kamal/                # secrets-common + hooks (commitado, sem segredo literal)
+├── frontend/                  # Vite + React + TS (em construção)
+├── infra/                     # docker-compose.yml (Postgres dev local)
+├── docs/                      # specs canônicas (PRD, técnicos, dados, API, design)
+├── design-system/             # handoff Claude Design — tokens, kit, ícones
+├── Dockerfile                 # multi-stage build (frontend → backend → runtime)
+├── .tool-versions             # Ruby 3.3.5 + Node 22.11.0 (asdf)
+└── .github/workflows/         # CI/CD: test.yml + deploy.yml (Kamal)
 ```
+
+## Deploy
+
+- **Host:** `oracle-app-box` (Oracle Cloud Ampere A1, ARM64, sa-saopaulo-1).
+- **Acesso:** Tailscale (porta 22 fechada na internet pública).
+- **TLS:** Cloudflare proxy (Full strict) → kamal-proxy com cert Let's Encrypt → app HTTP interno.
+- **Postgres:** nativo no host (não é Kamal accessory). Conexão via `host.docker.internal:5432`, user `portilho`.
+- **Storage:** bind mounts em `~/apps/controle-financeiro/data/` (convenção do helper `newapp`).
+- **Comandos:**
+  ```bash
+  cd backend
+  bundle exec kamal deploy -d staging       # push em main → CI dispara
+  bundle exec kamal deploy -d production    # tag v* → CI dispara
+  bundle exec kamal app logs -d staging
+  bundle exec kamal app exec -d staging "bin/rails console"
+  ```
 
 ## Dev environment (VPS workspace)
 

@@ -18,7 +18,7 @@ Rails.application.configure do
   config.active_storage.service = :local
 
   # Mesma postura SSL do production — ver explicação em production.rb.
-  # (assume_ssl porque Cloudflare termina TLS, kamal-proxy fala HTTP com o app)
+  # (assume_ssl porque kamal-proxy termina TLS e fala HTTP interno com o app)
   config.assume_ssl = true
   config.force_ssl = true
   config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }

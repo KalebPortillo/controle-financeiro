@@ -76,6 +76,7 @@ USER 1000:1000
 
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 
-# Thruster ouve na 80 e proxy pro Puma na 3000. CF Tunnel aponta pra host port.
+# Thruster ouve na 80 e proxy pro Puma na 3000. kamal-proxy faz o roteamento
+# por Host header das portas públicas 80/443 do host pro app_port=80 do container.
 EXPOSE 80
 CMD ["./bin/thrust", "./bin/rails", "server"]

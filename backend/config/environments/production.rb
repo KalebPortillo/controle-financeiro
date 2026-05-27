@@ -21,8 +21,9 @@ Rails.application.configure do
   # Store uploaded files on the local file system (see config/storage.yml for options).
   config.active_storage.service = :local
 
-  # Cloudflare termina TLS na borda e cloudflared/kamal-proxy falam HTTP
-  # interno com o app. `assume_ssl = true` faz o Rails confiar no
+  # Cloudflare (Full strict) termina TLS na borda; kamal-proxy termina TLS
+  # com cert Let's Encrypt e fala HTTP interno (docker network kamal) com o
+  # container Rails. `assume_ssl = true` faz o Rails confiar no
   # X-Forwarded-Proto upstream e gerar cookies/redirects como se a request
   # tivesse chegado em HTTPS — assim `force_ssl` não vira loop de redirect.
   config.assume_ssl = true
@@ -79,8 +80,8 @@ Rails.application.configure do
   # Only use :id for inspections in production.
   config.active_record.attributes_for_inspect = [ :id ]
 
-  # Hosts públicos servidos via Cloudflare Tunnel. APP_HOST permite override
-  # via ENV no Kamal (cada destination injeta o seu host).
+  # Hosts públicos atrás do Cloudflare proxy + kamal-proxy. APP_HOST permite
+  # override via ENV no Kamal (cada destination injeta o seu host).
   config.hosts << ENV.fetch("APP_HOST", "wallet.portilho.cc")
 
   # Healthcheck do Kamal (kamal-proxy) e do Rails (rails/health#show) bate via

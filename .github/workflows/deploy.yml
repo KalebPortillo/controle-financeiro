@@ -85,12 +85,19 @@ jobs:
         # então MagicDNS não resolve "oracle-app-box". Mapeamos manualmente
         # via /etc/hosts apontando para o IP Tailscale fixo (100.68.129.58).
         # Se a máquina for re-tagada e ganhar IP novo, atualizar este map.
+        #
+        # `User portilho` na config evita que sub-comandos do Kamal usem
+        # `runner` (usuário default no GHA runner) — Kamal força via -l,
+        # mas alguns sub-paths (kamal-proxy SSH) leem o ~/.ssh/config.
         run: |
           echo "100.68.129.58 oracle-app-box" | sudo tee -a /etc/hosts > /dev/null
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" | install -m 600 /dev/stdin ~/.ssh/id_ed25519
           cat >> ~/.ssh/config <<'SSH_CONFIG'
           Host oracle-app-box
+            User portilho
+            IdentityFile ~/.ssh/id_ed25519
+            IdentitiesOnly yes
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
             LogLevel ERROR
@@ -98,15 +105,40 @@ jobs:
             ServerAliveCountMax 10
             TCPKeepAlive yes
           SSH_CONFIG
-          ssh portilho@oracle-app-box echo "SSH OK — pré-voo bem-sucedido"
+          ssh oracle-app-box echo "SSH OK — pré-voo bem-sucedido"
+
+      - name: "Espelhar secrets em ~/.config/controle-financeiro/secrets.env"
+        # O .kamal/secrets-common sourceia esse arquivo por var via subshell.
+        # Em dev local ele já existe; em CI escrevemos aqui pra unificar o caminho.
+        # Sem isso, o KAMAL_REGISTRY_PASSWORD chega vazio no docker login do remoto
+        # (Dotenv subshell não enxerga as vars do step env em todos os contextos).
+        env:
+          KAMAL_REGISTRY_PASSWORD:    ${{ secrets.GITHUB_TOKEN }}
+          SENTRY_DSN_BACKEND:         ${{ secrets.SENTRY_DSN_BACKEND }}
+          GOOGLE_OAUTH_CLIENT_ID:     ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.config/controle-financeiro
+          umask 077
+          cat > ~/.config/controle-financeiro/secrets.env <<EOF
+          export KAMAL_REGISTRY_PASSWORD='${KAMAL_REGISTRY_PASSWORD}'
+          export SENTRY_DSN_BACKEND='${SENTRY_DSN_BACKEND}'
+          export GOOGLE_OAUTH_CLIENT_ID='${GOOGLE_OAUTH_CLIENT_ID}'
+          export GOOGLE_OAUTH_CLIENT_SECRET='${GOOGLE_OAUTH_CLIENT_SECRET}'
+          EOF
+          chmod 600 ~/.config/controle-financeiro/secrets.env
+          # Smoke: confirma que as vars saem do source com tamanho > 0
+          set +u
+          source ~/.config/controle-financeiro/secrets.env
+          echo "KAMAL_REGISTRY_PASSWORD len: ${#KAMAL_REGISTRY_PASSWORD}"
+          echo "SENTRY_DSN_BACKEND len:      ${#SENTRY_DSN_BACKEND}"
+          echo "GOOGLE_OAUTH_CLIENT_ID len:  ${#GOOGLE_OAUTH_CLIENT_ID}"
+          echo "GOOGLE_OAUTH_CLIENT_SECRET len: ${#GOOGLE_OAUTH_CLIENT_SECRET}"
 
       - name: "Kamal setup → staging (idempotente — boota proxy + app)"
         working-directory: backend
-        env:
-          KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          SENTRY_DSN_BACKEND: ${{ secrets.SENTRY_DSN_BACKEND }}
-          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
-          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+        # As vars são lidas via `~/.config/controle-financeiro/secrets.env`
+        # pelo .kamal/secrets-common (espelha o fluxo de dev local).
         run: bundle exec kamal setup -d staging
 
   deploy-production:
@@ -144,12 +176,19 @@ jobs:
         # então MagicDNS não resolve "oracle-app-box". Mapeamos manualmente
         # via /etc/hosts apontando para o IP Tailscale fixo (100.68.129.58).
         # Se a máquina for re-tagada e ganhar IP novo, atualizar este map.
+        #
+        # `User portilho` na config evita que sub-comandos do Kamal usem
+        # `runner` (usuário default no GHA runner) — Kamal força via -l,
+        # mas alguns sub-paths (kamal-proxy SSH) leem o ~/.ssh/config.
         run: |
           echo "100.68.129.58 oracle-app-box" | sudo tee -a /etc/hosts > /dev/null
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" | install -m 600 /dev/stdin ~/.ssh/id_ed25519
           cat >> ~/.ssh/config <<'SSH_CONFIG'
           Host oracle-app-box
+            User portilho
+            IdentityFile ~/.ssh/id_ed25519
+            IdentitiesOnly yes
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
             LogLevel ERROR
@@ -157,13 +196,38 @@ jobs:
             ServerAliveCountMax 10
             TCPKeepAlive yes
           SSH_CONFIG
-          ssh portilho@oracle-app-box echo "SSH OK — pré-voo bem-sucedido"
+          ssh oracle-app-box echo "SSH OK — pré-voo bem-sucedido"
+
+      - name: "Espelhar secrets em ~/.config/controle-financeiro/secrets.env"
+        # O .kamal/secrets-common sourceia esse arquivo por var via subshell.
+        # Em dev local ele já existe; em CI escrevemos aqui pra unificar o caminho.
+        # Sem isso, o KAMAL_REGISTRY_PASSWORD chega vazio no docker login do remoto
+        # (Dotenv subshell não enxerga as vars do step env em todos os contextos).
+        env:
+          KAMAL_REGISTRY_PASSWORD:    ${{ secrets.GITHUB_TOKEN }}
+          SENTRY_DSN_BACKEND:         ${{ secrets.SENTRY_DSN_BACKEND }}
+          GOOGLE_OAUTH_CLIENT_ID:     ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+        run: |
+          mkdir -p ~/.config/controle-financeiro
+          umask 077
+          cat > ~/.config/controle-financeiro/secrets.env <<EOF
+          export KAMAL_REGISTRY_PASSWORD='${KAMAL_REGISTRY_PASSWORD}'
+          export SENTRY_DSN_BACKEND='${SENTRY_DSN_BACKEND}'
+          export GOOGLE_OAUTH_CLIENT_ID='${GOOGLE_OAUTH_CLIENT_ID}'
+          export GOOGLE_OAUTH_CLIENT_SECRET='${GOOGLE_OAUTH_CLIENT_SECRET}'
+          EOF
+          chmod 600 ~/.config/controle-financeiro/secrets.env
+          # Smoke: confirma que as vars saem do source com tamanho > 0
+          set +u
+          source ~/.config/controle-financeiro/secrets.env
+          echo "KAMAL_REGISTRY_PASSWORD len: ${#KAMAL_REGISTRY_PASSWORD}"
+          echo "SENTRY_DSN_BACKEND len:      ${#SENTRY_DSN_BACKEND}"
+          echo "GOOGLE_OAUTH_CLIENT_ID len:  ${#GOOGLE_OAUTH_CLIENT_ID}"
+          echo "GOOGLE_OAUTH_CLIENT_SECRET len: ${#GOOGLE_OAUTH_CLIENT_SECRET}"
 
       - name: "Kamal setup → production (idempotente — boota proxy + app)"
         working-directory: backend
-        env:
-          KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          SENTRY_DSN_BACKEND: ${{ secrets.SENTRY_DSN_BACKEND }}
-          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
-          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+        # As vars são lidas via `~/.config/controle-financeiro/secrets.env`
+        # pelo .kamal/secrets-common (espelha o fluxo de dev local).
         run: bundle exec kamal setup -d production

@@ -47,6 +47,10 @@ gem "jsonapi-serializer"
 gem "sentry-ruby"
 gem "sentry-rails"
 
+# Rate limiting + proteção contra abuso (RF16). Throttle nos endpoints de
+# auth + safelist do healthcheck. Storage via Rails.cache (solid_cache).
+gem "rack-attack"
+
 group :development, :test do
   # Test data factories — alternativa às fixtures padrão Rails
   gem "factory_bot_rails"

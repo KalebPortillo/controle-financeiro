@@ -4,7 +4,31 @@ require "test_helper"
 # motivou este teste: `render file:` em API mode devolvia body vazio quando
 # atendido pelo catch-all (mas funcionava pelo `root`) — só descobrimos em
 # produção. Trocamos por `index_path.read` + `render plain:`.
+#
+# Em CI o frontend não está buildado (test job não roda `npm run build`), então
+# criamos um SPA shell mínimo no setup pra exercitar o controller. Em dev
+# local o arquivo real costuma estar no lugar — o setup faz backup e
+# restaura.
 class StaticSpaServingTest < ActionDispatch::IntegrationTest
+  SHELL = <<~HTML
+    <!doctype html>
+    <html><body><div id="root">spa-shell-fixture-content-padded-pra-passar-do-cutoff-de-100-bytes</div></body></html>
+  HTML
+
+  setup do
+    @index_path = Rails.public_path.join("index.html")
+    @backup = @index_path.exist? ? @index_path.read : nil
+    @index_path.write(SHELL)
+  end
+
+  teardown do
+    if @backup
+      @index_path.write(@backup)
+    else
+      @index_path.delete if @index_path.exist?
+    end
+  end
+
   test "GET / serves the SPA index.html with HTML content type" do
     get "/", headers: { "Accept" => "text/html" }
     assert_response :ok

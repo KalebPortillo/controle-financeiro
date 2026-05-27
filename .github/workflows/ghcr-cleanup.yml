@@ -1,0 +1,49 @@
+name: ghcr-cleanup
+
+# Limpa imagens antigas do GHCR (controle-financeiro) para evitar crescimento
+# indefinido do registry a cada deploy.
+#
+# Estratégia:
+#   - Roda após cada deploy bem-sucedido (workflow_run) e semanalmente.
+#   - Mantém as 5 versões mais recentes com tag (deploys nominais).
+#   - Apaga todos os manifests sem tag (dangling — builds intermediários).
+#
+# Permissão necessária: packages:write no token do repositório.
+
+on:
+  workflow_run:
+    workflows: [deploy]
+    types: [completed]
+  schedule:
+    # Toda segunda-feira às 04:00 UTC (fora do horário de deploy)
+    - cron: '0 4 * * 1'
+  workflow_dispatch:   # permite rodar manualmente pela UI
+
+permissions:
+  packages: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Apagar imagens sem tag (dangling)
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: controle-financeiro
+          package-type: container
+          # Apaga apenas versões sem nenhuma tag
+          delete-only-untagged-versions: true
+          # Mantém ao menos 1 para não falhar se não houver nenhuma
+          min-versions-to-keep: 1
+
+      - name: Manter só as 5 versões com tag mais recentes
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: controle-financeiro
+          package-type: container
+          # Apaga versões com tag mais antigas
+          delete-only-untagged-versions: false
+          min-versions-to-keep: 5
+          # Ignora latest, staging-latest e production-latest (tags especiais)
+          ignore-versions: '^(latest|staging-latest|production-latest)$'

@@ -18,7 +18,9 @@ export function initSentry() {
         blockAllMedia: true,
       }),
     ],
-    tracesSampleRate: 0.1,
+    // Desativado pré-MVP — sem usuários reais, traces consomem quota sem valor.
+    // Subir para 0.1 quando RF16+ estiver em uso.
+    tracesSampleRate: 0.0,
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 1.0,
     sendDefaultPii: false,

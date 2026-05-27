@@ -9,9 +9,9 @@ Sentry.init do |config|
   # Captura exceções e breadcrumbs do Rails (controllers, jobs, etc).
   config.breadcrumbs_logger = [ :active_support_logger, :http_logger ]
 
-  # Performance: amostra 10% das transações em todos os envs.
-  # Subir em prod conforme volume permitir.
-  config.traces_sample_rate = 0.1
+  # Performance: desativado pré-MVP (sem usuários reais, traces consomem
+  # quota sem valor). Subir para 0.1 em prod quando RF16+ estiver em uso.
+  config.traces_sample_rate = 0.0
 
   # PII off por default — usuários têm dados financeiros sensíveis.
   config.send_default_pii = false

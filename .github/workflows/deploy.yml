@@ -13,9 +13,10 @@ name: deploy
 #   SSH_PRIVATE_KEY           — chave ed25519 autorizada no oracle-app-box
 #   TAILSCALE_OAUTH_CLIENT_ID — OAuth client do tailnet (tag:ci)
 #   TAILSCALE_OAUTH_SECRET    — OAuth secret do tailnet (tag:ci)
-#   KAMAL_DB_PASSWORD_STAGING    — senha do role portilho no Postgres nativo
-#   KAMAL_DB_PASSWORD_PRODUCTION — senha do role portilho no Postgres nativo
 #   SENTRY_DSN_BACKEND        — DSN Sentry do backend Rails
+#
+# Nota: DB password NÃO é secret do GHA — vem do ~/.pgpass do oracle-app-box
+# via SSH (ver backend/.kamal/secrets-common).
 #
 # - push em main → deploy automático em staging
 # - tag v*       → deploy em production (com aprovação obrigatória)

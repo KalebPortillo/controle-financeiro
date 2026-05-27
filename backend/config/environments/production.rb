@@ -21,14 +21,17 @@ Rails.application.configure do
   # Store uploaded files on the local file system (see config/storage.yml for options).
   config.active_storage.service = :local
 
-  # Assume all access to the app is happening through a SSL-terminating reverse proxy.
-  # config.assume_ssl = true
+  # Cloudflare termina TLS na borda e cloudflared/kamal-proxy falam HTTP
+  # interno com o app. `assume_ssl = true` faz o Rails confiar no
+  # X-Forwarded-Proto upstream e gerar cookies/redirects como se a request
+  # tivesse chegado em HTTPS — assim `force_ssl` não vira loop de redirect.
+  config.assume_ssl = true
 
-  # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
-  # config.force_ssl = true
+  # Força cookies secure + HSTS. Defesa em profundidade caso a borda mude.
+  config.force_ssl = true
 
-  # Skip http-to-https redirect for the default health check endpoint.
-  # config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
+  # Healthcheck do kamal-proxy bate em http://app:80/up; não pode redirect.
+  config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
 
   # Log to STDOUT with the current request id as a default log tag.
   config.log_tags = [ :request_id ]

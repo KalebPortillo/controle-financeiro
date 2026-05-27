@@ -90,4 +90,33 @@ class AuthFlowTest < ActionDispatch::IntegrationTest
     get "/api/v1/sessions/current"
     assert_response :unauthorized
   end
+
+  # ---- test_sign_in (E2E bypass) ---------------------------------------
+
+  test "POST /auth/test_sign_in creates and signs in a user" do
+    assert_difference "User.count", 1 do
+      post "/api/v1/auth/test_sign_in", params: { email: "test@example.com", name: "Tester" }, as: :json
+    end
+    assert_response :no_content
+
+    get "/api/v1/sessions/current"
+    assert_response :ok
+    body = JSON.parse(response.body)
+    assert_equal "test@example.com", body.dig("user", "email")
+    assert_equal "Tester",           body.dig("user", "name")
+  end
+
+  test "POST /auth/test_sign_in is idempotent (same email logs the same user)" do
+    post "/api/v1/auth/test_sign_in", params: { email: "kaleb@example.com" }, as: :json
+    get "/api/v1/sessions/current"
+    first_id = JSON.parse(response.body).dig("user", "id")
+
+    delete "/api/v1/sessions/current"
+
+    assert_no_difference "User.count" do
+      post "/api/v1/auth/test_sign_in", params: { email: "kaleb@example.com" }, as: :json
+    end
+    get "/api/v1/sessions/current"
+    assert_equal first_id, JSON.parse(response.body).dig("user", "id")
+  end
 end

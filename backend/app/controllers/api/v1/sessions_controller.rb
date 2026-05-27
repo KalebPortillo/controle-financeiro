@@ -44,6 +44,26 @@ class Api::V1::SessionsController < ApplicationController
     render json: { active_workspace_id: workspace.id }
   end
 
+  # POST /api/v1/auth/test_sign_in { email, name? }
+  # Atalho para Playwright (E2E). Cria/loga user via o MESMO service que o
+  # callback OAuth real (Users::CreateWithPersonalWorkspace) — diferença é
+  # só que pulamos o handshake Google. Rota disponível apenas em
+  # non-production (gate em routes.rb).
+  def test_sign_in
+    auth = OmniAuth::AuthHash.new(
+      provider: "test",
+      uid:      "test-#{params[:email]}",
+      info: {
+        email: params[:email],
+        name:  params[:name].presence || "Test User",
+        image: nil
+      }
+    )
+    user = Users::CreateWithPersonalWorkspace.call(auth)
+    sign_in(user)
+    head :no_content
+  end
+
   private
 
   def serialize_user(user)

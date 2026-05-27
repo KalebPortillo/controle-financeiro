@@ -16,10 +16,21 @@ export default defineConfig({
       '/cable':  { target: 'ws://localhost:3000', ws: true },
     },
   },
+  preview: {
+    // Mesmo proxy do dev — usado pelos E2E (Playwright bate em vite preview).
+    proxy: {
+      '/api/v1': 'http://localhost:3000',
+      '/up':     'http://localhost:3000',
+      '/cable':  { target: 'ws://localhost:3000', ws: true },
+    },
+  },
   test: {
     environment: 'happy-dom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // Vitest cobre unit/component tests em src/. Playwright (E2E) vive em
+    // tests/e2e/ e roda via `npm run test:e2e`.
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],

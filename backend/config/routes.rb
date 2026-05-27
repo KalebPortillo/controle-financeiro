@@ -9,6 +9,11 @@ Rails.application.routes.draw do
       # Sentry probe: rota só existe fora de produção para evitar spam de quota.
       get "test_error", to: "errors#trigger" unless Rails.env.production?
 
+      # E2E auth bypass — só em non-production. Permite Playwright pular o
+      # handshake Google e logar direto via `Users::CreateWithPersonalWorkspace`
+      # (mesmo caminho do callback OAuth real).
+      post "auth/test_sign_in", to: "sessions#test_sign_in" unless Rails.env.production?
+
       # Auth (Google OAuth via OmniAuth). O `auth/:provider` (request-phase)
       # é montado pelo middleware OmniAuth::Builder; aqui declaramos o
       # callback e a rota de failure.

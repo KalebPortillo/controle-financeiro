@@ -98,3 +98,98 @@ jobs:
 
       - name: Vitest
         run: npm run test:run
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: controle_financeiro
+          POSTGRES_PASSWORD: dev
+          POSTGRES_DB: controle_financeiro_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U controle_financeiro"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      RAILS_ENV:   test
+      DB_HOST:     localhost
+      DB_PORT:     5433
+      DB_USERNAME: controle_financeiro
+      DB_PASSWORD: dev
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.3.5
+          working-directory: backend
+          bundler-cache: true
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22.11.0
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browsers + deps
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Prepare test database
+        working-directory: backend
+        run: bin/rails db:prepare
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Start Rails (test env, background)
+        working-directory: backend
+        run: |
+          bin/rails server -p 3000 -e test --daemon
+          # Espera ficar de pé
+          for i in $(seq 1 20); do
+            curl -sS http://localhost:3000/up && exit 0
+            sleep 1
+          done
+          echo "Rails não subiu em 20s"
+          cat tmp/pids/server.log 2>/dev/null || true
+          exit 1
+
+      - name: Start Vite preview (background)
+        working-directory: frontend
+        run: |
+          npx vite preview --port 5173 --strictPort &
+          for i in $(seq 1 20); do
+            curl -sS http://localhost:5173 -o /dev/null && exit 0
+            sleep 1
+          done
+          echo "Vite preview não subiu em 20s"
+          exit 1
+
+      - name: Playwright (golden paths)
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_REUSE_SERVERS: "1"
+        run: npx playwright test --reporter=list
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7

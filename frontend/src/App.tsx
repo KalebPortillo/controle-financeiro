@@ -1,91 +1,45 @@
-import { useEffect, useState } from 'react'
-import { Wallet, Loader2, CircleCheck, CircleAlert } from 'lucide-react'
+import { Routes, Route, useSearchParams, Navigate } from 'react-router'
+import { LoginPage } from './auth/LoginPage'
+import { RequireAuth } from './auth/RequireAuth'
+import { DashboardPage } from './workspace/DashboardPage'
+import { useSession } from './auth/useSession'
 
-type Health = {
-  status: string
-  version: string
-  ruby: string
-  rails: string
-  time: string
-}
-
-function App() {
-  const [health, setHealth] = useState<Health | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch('/api/v1/health')
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json() as Promise<Health>
-      })
-      .then(setHealth)
-      .catch((err: Error) => setError(err.message))
-  }, [])
-
-  const triggerJsError = () => {
-    throw new Error(`Test JS error — Sentry probe (${new Date().toISOString()})`)
-  }
-
+/**
+ * Roteamento:
+ *   /login — pública. Mostra a tela de login (sempre, mesmo já logado:
+ *            o user pode estar testando "como é entrar").
+ *   /      — protegida. RequireAuth manda pra /login se não tem sessão.
+ *
+ * O callback OAuth (/api/v1/auth/google_oauth2/callback) é tratado pelo
+ * Rails; ele finaliza redirecionando pra '/'. Quando chegamos em '/' com
+ * uma sessão ativa, RequireAuth deixa passar.
+ */
+export default function App() {
   return (
-    <main className="min-h-screen bg-white text-neutral-900 flex flex-col items-center justify-center p-8 font-sans">
-      <div className="max-w-md w-full space-y-6">
-        <header className="flex items-center gap-3">
-          <Wallet className="w-7 h-7 text-neutral-900" strokeWidth={1.75} />
-          <h1 className="text-2xl font-bold tracking-tight">Controle Financeiro</h1>
-        </header>
-
-        <p className="text-sm text-neutral-500 leading-relaxed">
-          Pre-MVP smoke test. Backend Rails 8 + frontend Vite/React, atrás do
-          Cloudflare proxy + kamal-proxy. Próximo: TDD do RF16 (auth + workspace).
-        </p>
-
-        <section className="rounded-md border border-neutral-200 p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            {health?.status === 'ok' ? (
-              <CircleCheck className="w-4 h-4 text-green-600" strokeWidth={2} />
-            ) : error ? (
-              <CircleAlert className="w-4 h-4 text-red-600" strokeWidth={2} />
-            ) : (
-              <Loader2 className="w-4 h-4 text-neutral-400 animate-spin" strokeWidth={2} />
-            )}
-            <span className="text-sm font-semibold">Backend health</span>
-          </div>
-          {health && (
-            <dl className="text-xs font-mono text-neutral-700 space-y-1">
-              <div className="flex gap-2">
-                <dt className="text-neutral-400 w-16">status:</dt>
-                <dd>{health.status}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="text-neutral-400 w-16">rails:</dt>
-                <dd>{health.rails}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="text-neutral-400 w-16">ruby:</dt>
-                <dd>{health.ruby}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="text-neutral-400 w-16">time:</dt>
-                <dd>{health.time}</dd>
-              </div>
-            </dl>
-          )}
-          {error && <p className="text-xs text-red-600">{error}</p>}
-        </section>
-
-        {import.meta.env.MODE !== 'production' && (
-          <button
-            type="button"
-            onClick={triggerJsError}
-            className="text-xs text-neutral-400 hover:text-neutral-700 underline cursor-pointer"
-          >
-            Trigger test error (Sentry probe)
-          </button>
-        )}
-      </div>
-    </main>
+    <Routes>
+      <Route path="/login" element={<LoginRoute />} />
+      <Route
+        path="/"
+        element={
+          <RequireAuth>
+            <DashboardPage />
+          </RequireAuth>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
 
-export default App
+/**
+ * Se o user já tem sessão (ex.: navegou pra /login depois de logado),
+ * manda pra dashboard. Se veio com ?auth_error=... do callback, repassa
+ * pro LoginPage como aviso.
+ */
+function LoginRoute() {
+  const [params] = useSearchParams()
+  const { data, isLoading } = useSession()
+  if (isLoading) return null
+  if (data) return <Navigate to="/" replace />
+  return <LoginPage error={params.get('auth_error')} />
+}

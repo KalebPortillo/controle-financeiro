@@ -1,18 +1,38 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
 
 /*
- * Design tokens canônicos vivem em design-system/project/colors_and_type.css.
- * O wiring deles aqui acontece numa fatia futura (quando começar a construir a UI real).
- * Por enquanto: Tailwind defaults + Geist Sans via Google Fonts.
+ * Tokens canônicos vivem em src/styles/tokens.css (cópia de
+ * design-system/project/colors_and_type.css). Aqui só expomos os tokens
+ * como utilitários do Tailwind 4 (bg-card, text-muted-foreground, etc.).
+ * Dark theme é trocado em runtime via [data-theme="dark"] no <html>.
  */
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
-
 @theme {
-  --font-sans: "Geist", system-ui, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, monospace;
-}
+  --color-background:            var(--background);
+  --color-foreground:            var(--foreground);
+  --color-card:                  var(--card);
+  --color-card-foreground:       var(--card-foreground);
+  --color-popover:               var(--popover);
+  --color-popover-foreground:    var(--popover-foreground);
+  --color-muted:                 var(--muted);
+  --color-muted-foreground:      var(--muted-foreground);
+  --color-border:                var(--border);
+  --color-input:                 var(--input);
+  --color-ring:                  var(--ring);
+  --color-primary:               var(--primary);
+  --color-primary-foreground:    var(--primary-foreground);
+  --color-secondary:             var(--secondary);
+  --color-secondary-foreground:  var(--secondary-foreground);
+  --color-accent:                var(--accent);
+  --color-accent-foreground:     var(--accent-foreground);
+  --color-success:               var(--success);
+  --color-success-foreground:    var(--success-foreground);
+  --color-warning:               var(--warning);
+  --color-warning-foreground:    var(--warning-foreground);
+  --color-destructive:           var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
 
-body {
-  margin: 0;
-  font-family: var(--font-sans);
+  --font-sans:    "Geist", "Inter", system-ui, sans-serif;
+  --font-mono:    "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+  --font-display: "Space Grotesk", "Geist", system-ui, sans-serif;
 }

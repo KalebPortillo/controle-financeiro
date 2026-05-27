@@ -1,33 +1,28 @@
 # Kamal — destination "production".
+# Roda na oracle-app-box em container isolado.
+# Postgres é nativo no host — sem accessory. Conexão via host.docker.internal.
 
 env:
   clear:
     RAILS_ENV: production
     APP_HOST: wallet.portilho.cc
-    DB_HOST: controle-financeiro-postgres-production
-    DB_USERNAME: controle_financeiro
+    # host.docker.internal → 172.17.0.1 (gateway da bridge Docker).
+    # Kamal 2.x adiciona --add-host=host.docker.internal:host-gateway automaticamente.
+    DB_HOST: host.docker.internal
+    DB_USERNAME: portilho
 
 proxy:
   host: wallet.portilho.cc
 
+# Storage em ~/apps/controle-financeiro/data/ conforme convenção oracle-app-box.
+# Diretório criado pelo helper `newapp controle-financeiro`.
 volumes:
-  - "controle_financeiro_production_storage:/rails/storage"
+  - /home/portilho/apps/controle-financeiro/data/storage:/rails/storage
 
 builder:
   args:
     VITE_SENTRY_DSN: https://3b525cd80caf345ef6a17537d974d054@o4511457451966464.ingest.us.sentry.io/4511457488666625
 
-# Accessory com sufixo do destination — ver explicação em deploy.staging.yml.
-accessories:
-  postgres-production:
-    image: postgres:16-alpine
-    host: vps.portilho.cc
-    port: "127.0.0.1:5435:5432"
-    env:
-      clear:
-        POSTGRES_USER: controle_financeiro
-        POSTGRES_DB: controle_financeiro_production
-      secret:
-        - POSTGRES_PASSWORD
-    directories:
-      - data:/var/lib/postgresql/data
+# Sem accessory postgres — Postgres 16 roda nativo no host oracle-app-box.
+# Databases criados via: ssh oracle-app-box newapp controle-financeiro
+# Solid stack DBs (_cache/_queue/_cable): bin/rails db:create após o primeiro setup.

@@ -10,16 +10,16 @@ image: kalebportillo/controle-financeiro
 
 # Single-VPS deploy: ambos destinos rodam na mesma máquina, em containers
 # distintos. Kamal proxy roteia por Host header.
-# vps.portilho.cc = A record sem proxy CF apontando pro IP público da VPS.
+# oracle-app-box = hostname Tailscale da VPS Oracle Cloud ARM64 (sa-saopaulo-1).
 servers:
   web:
-    - vps.portilho.cc
+    - oracle-app-box
 
 # kamal-proxy expõe porta 80/443 do host e roteia por Host header pros
-# containers das apps. Cloudflare termina TLS antes do tunnel; kamal-proxy
-# fala plain HTTP com o cloudflared local.
+# containers das apps. TLS via Let's Encrypt (ACME HTTP-01) — porta 80 precisa
+# estar aberta. app_port: 80 porque Thruster (./bin/thrust) escuta na 80.
 proxy:
-  ssl: false
+  ssl: true
   app_port: 80
   healthcheck:
     path: /up
@@ -51,7 +51,7 @@ env:
 # Context = raiz do monorepo (precisa ver backend/ + frontend/ no Dockerfile).
 builder:
   arch: arm64
-  remote: ssh://portilho@vps.portilho.cc
+  remote: ssh://portilho@oracle-app-box
   context: ..
   dockerfile: ../Dockerfile
 

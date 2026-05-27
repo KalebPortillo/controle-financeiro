@@ -28,5 +28,15 @@ module Backend
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+
+    # Sessão via cookie + cookies signed/encrypted são necessários pra
+    # OmniAuth (state param + sessão pós-login). API mode não inclui
+    # esse middleware por padrão — adicionamos manualmente. Config do
+    # cookie em si vive em config/initializers/session_store.rb.
+    config.middleware.use ActionDispatch::Cookies
+    config.middleware.use ActionDispatch::Session::CookieStore,
+                          key: "_controle_financeiro_session",
+                          same_site: :lax,
+                          httponly: true
   end
 end

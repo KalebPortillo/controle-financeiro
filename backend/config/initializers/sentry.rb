@@ -1,6 +1,8 @@
 # Sentry — error tracking + performance.
 # DSN vem de ENV["SENTRY_DSN"]. Sem DSN, o SDK fica inerte (não envia nada).
+# Em teste fica inerte por padrão — não queremos eventos saindo durante CI.
 return if ENV["SENTRY_DSN"].blank?
+return if Rails.env.test?
 
 Sentry.init do |config|
   config.dsn = ENV["SENTRY_DSN"]

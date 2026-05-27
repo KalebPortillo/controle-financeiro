@@ -147,7 +147,7 @@ Esta v1.0 fecha todos os pontos de produto após duas iterações com o usuário
 - **RF15.3** **Desktop com experiência diferenciada**: telas maiores aproveitam o espaço com tabelas largas, gráficos lado a lado, painéis múltiplos (não é só "mobile esticado").
 
 ### RF16. Autenticação e workspace
-- **RF16.1** Login individual por usuário (email + senha; login social pode entrar no futuro).
+- **RF16.1** Login individual por usuário via **Google OAuth (OIDC)**. Sem cadastro de senha local — usuário entra com a conta Google. Email do Google é a identidade canônica do usuário.
 - **RF16.2** **Workspace** = espaço financeiro compartilhado. Contém contas, gastos, tags, categorias, orçamentos.
 - **RF16.3** Convite **por email cadastrado**: o usuário convidado primeiro cria sua conta no app; depois o dono do workspace adiciona pelo email já existente. (Trade-off: dois passos para a esposa, mas evita lidar com tokens de convite de uso único.)
 - **RF16.4** Membros do workspace são **editores plenos**: ambos podem aceitar, editar e remover qualquer gasto, criar/editar tags, categorias e orçamentos. Sem distinção de papéis no MVP.
@@ -234,7 +234,7 @@ Esta v1.0 fecha todos os pontos de produto após duas iterações com o usuário
 | Histórico inicial | Usuário escolhe a data de início; default sugerido = 1º de janeiro do ano corrente. |
 | Hierarquia de tags | Tags planas + Categorias como entidade separada (recomendação adotada). |
 | Plataforma | Web app responsivo, mobile-first, com desktop diferenciado. |
-| Login | Individual por usuário; workspace compartilhado por convite. |
+| Login | Individual via **Google OAuth** (OIDC); workspace compartilhado por convite. Sem senha local no MVP. |
 | Hospedagem | Self-hosted na VPS Oracle Cloud do usuário. |
 | Permissões no workspace | Ambos editores plenos. Sem papéis no MVP. |
 | Vínculo de estorno | Sistema sugere, usuário sempre confirma. Sem auto-vínculo no MVP. |

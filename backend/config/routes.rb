@@ -8,6 +8,22 @@ Rails.application.routes.draw do
       get "health", to: "health#show"
       # Sentry probe: rota só existe fora de produção para evitar spam de quota.
       get "test_error", to: "errors#trigger" unless Rails.env.production?
+
+      # Auth (Google OAuth via OmniAuth). O `auth/:provider` (request-phase)
+      # é montado pelo middleware OmniAuth::Builder; aqui declaramos o
+      # callback e a rota de failure.
+      get "auth/:provider/callback", to: "sessions#create"
+      get "auth/failure",            to: "sessions#failure"
+
+      # Sessão "current": user atual + logout + troca de workspace ativo.
+      get    "sessions/current",                  to: "sessions#show"
+      delete "sessions/current",                  to: "sessions#destroy"
+      post   "sessions/current/select_workspace", to: "sessions#select_workspace"
+
+      # Workspaces (RF16.2–RF16.5).
+      resources :workspaces, only: [ :index, :show, :create, :update ] do
+        resources :memberships, only: [ :index, :create, :destroy ]
+      end
     end
   end
 

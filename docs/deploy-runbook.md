@@ -289,6 +289,50 @@ Lista canônica (mantida em sync com `.github/workflows/deploy.yml`):
 > **NUNCA** use `--body -` esperando que ele leia stdin: ele armazena o caractere
 > literal `-`. Use `--body "$valor"` ou omita `--body` para ler stdin.
 
+## E2E (Playwright) como gate de deploy
+
+Os deploys agora dependem de um job `e2e` paralelo a `backend`/`frontend`
+(em `.github/workflows/test.yml`). Se `e2e` quebrar, `deploy-staging` e
+`deploy-production` não disparam.
+
+Os testes vivem em `frontend/tests/e2e/` e exercitam fluxos chave do RF16
+(login → dashboard → logout, convite por email, sessão persistente). **Não**
+exercitam o handshake real com o Google — usam um bypass:
+
+```
+POST /api/v1/auth/test_sign_in { email, name? }
+```
+
+Essa rota só existe em non-production (gate `unless Rails.env.production?` em
+`routes.rb`). Ela chama o **mesmo** `Users::CreateWithPersonalWorkspace` que o
+callback OAuth — então o user criado tem workspace pessoal idêntico ao fluxo
+real, só pulamos a UI do Google.
+
+### Rodar local
+
+```bash
+cd frontend
+npm run test:e2e:install   # uma vez — instala chromium + libs do SO
+npm run test:e2e           # ~40s; webServer config sobe Rails + Vite preview
+```
+
+Se ver `Tailscale up failed: invalid key` ou similares apontando pra rede:
+isso é Playwright tentando bater no tailnet — nada disso aqui, deve ser
+hostname errado, cheque `vite.config.ts → preview.proxy`.
+
+### Quando o E2E falhar em CI
+
+O job upload o `playwright-report/` como artefato (retention 7 dias). Baixa
+pelo UI do Actions → tem traces + screenshots + vídeo do request falhando.
+
+Casos típicos:
+- **Selector ambíguo** (texto aparece em 2 lugares no DOM) — usar `locator()`
+  com escopo (`page.locator('header').getByText(...)`), `getByTestId`, ou `.first()`.
+- **Race condition** — Playwright já usa `waitFor` implícito em `expect()`, mas
+  reload + nav às vezes precisa `waitUntil: 'networkidle'` no `page.goto`.
+- **Banco em estado inesperado** — testes geram emails únicos com `Date.now()`;
+  se estiver vazando, conferir se cada teste limpa cookie antes de logar.
+
 ## Validação rápida pós-deploy
 
 ```bash
@@ -310,4 +354,5 @@ curl -sS -o /dev/null -w "%{http_code}\n" https://wallet.portilho.cc/api/v1/sess
 
 ---
 
-**Status:** v1.0 — extraído do histórico de deploy do RF16 (2026-05-26 a 2026-05-27).
+**Status:** v1.1 — adicionada seção "E2E como gate de deploy" cobrindo o bypass
+`test_sign_in`, fluxo local, e diagnóstico de falhas em CI.

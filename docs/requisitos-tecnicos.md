@@ -1,4 +1,4 @@
-# Controle Financeiro — Requisitos Técnicos (v1.4)
+# Controle Financeiro — Requisitos Técnicos (v1.5)
 
 ## Contexto
 
@@ -235,7 +235,26 @@ controle-financeiro/
 ### Ferramentas — frontend
 - **Vitest** + **Testing Library (React)** para unitário e componente.
 - **MSW (Mock Service Worker)** para mockar API.
-- **Playwright** para end-to-end em fluxos críticos.
+- **Playwright** para end-to-end em fluxos críticos — vive em `frontend/tests/e2e/`,
+  configurado em `frontend/playwright.config.ts`. Roda contra Rails (test env) + Vite preview.
+
+### Estratégia de E2E
+
+Os E2E **não** testam o handshake real com o Google (UI muda e exige conta real);
+exercitam o resto da pilha (rota → cookie de sessão → frontend renderizado) num browser real.
+
+- **Bypass de auth em non-production**: `POST /api/v1/auth/test_sign_in` (gated por
+  `unless Rails.env.production?` em `routes.rb`) cria/loga user via o **mesmo**
+  `Users::CreateWithPersonalWorkspace` que o callback OAuth — então o user fica com
+  workspace pessoal idêntico ao fluxo real. Playwright usa esse endpoint pra entrar
+  no app sem passar pela tela do Google.
+- **Escopo (golden paths)**: visitor anônimo redireciona pra `/login`; user logado
+  vê dashboard; logout volta pra login; sessão persiste após reload; convite por
+  email cadastrado adiciona membro; convite por email não cadastrado mostra erro
+  amigável. **Sem edge cases** — esses ficam em testes específicos quando entrarem
+  em conflito.
+- **Quando rodar**: `npm run test:e2e` local (~40s); job dedicado no CI gateia
+  todos os deploys (`needs: test` em deploy.yml inclui o job e2e).
 
 ### Pirâmide e proporção alvo
 - **70% unitários**.
@@ -294,9 +313,11 @@ controle-financeiro/
 
 ### Gates obrigatórios para merge
 - ✅ Lint sem warnings novos.
-- ✅ Testes verdes.
+- ✅ Testes verdes (Minitest backend + Vitest frontend + **Playwright E2E golden paths**).
 - ✅ Cobertura ≥ threshold.
 - ✅ Pelo menos um teste novo se a PR adiciona comportamento.
+- ✅ Deploys (staging em push em `main`, production em tag `v*`) só disparam após
+  o job de E2E passar.
 
 ## Autenticação e autorização
 
@@ -425,4 +446,7 @@ Nenhum em requisitos técnicos. Todas as decisões fechadas (ver tabela "Decisõ
 - Estratégia de testes garante que cada RF do PRD tem rede de segurança.
 - Nenhuma decisão técnica fechada deixa um RF inviável.
 
-**Status:** v1.4 — RF16 (auth Google OAuth + workspace) marcado como implementado e em produção em `v0.2.0-rf16-auth`. Status detalhado das peças do RF16 na seção "Autenticação e autorização". Lições e armadilhas de campo do CI/deploy ficam em [`docs/deploy-runbook.md`](./deploy-runbook.md).
+**Status:** v1.5 — adicionada estratégia detalhada de E2E (Playwright + bypass route +
+CI gate) à seção "Estratégia de testes". RF16 (auth Google OAuth + workspace) em
+produção em `v0.2.0-rf16-auth`. Lições e armadilhas de campo do CI/deploy ficam
+em [`docs/deploy-runbook.md`](./deploy-runbook.md).

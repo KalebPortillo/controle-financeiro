@@ -13,13 +13,18 @@ image: kalebportillo/controle-financeiro
 # oracle-app-box = hostname Tailscale da VPS Oracle Cloud ARM64 (sa-saopaulo-1).
 servers:
   web:
-    - oracle-app-box
+    hosts:
+      - oracle-app-box
+    options:
+      # No Linux, host.docker.internal não é resolvido automaticamente —
+      # precisa injetar o gateway da bridge Docker explicitamente.
+      add-host: "host.docker.internal:host-gateway"
 
 # kamal-proxy expõe porta 80/443 do host e roteia por Host header pros
-# containers das apps. TLS via Let's Encrypt (ACME HTTP-01) — porta 80 precisa
-# estar aberta. app_port: 80 porque Thruster (./bin/thrust) escuta na 80.
+# containers das apps. TLS é gerido pelo Cloudflare (proxy ativo nos A records);
+# kamal-proxy recebe HTTP plain do edge CF. app_port: 80 porque Thruster escuta na 80.
 proxy:
-  ssl: true
+  ssl: false
   app_port: 80
   healthcheck:
     path: /up

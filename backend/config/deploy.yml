@@ -21,10 +21,11 @@ servers:
       add-host: "host.docker.internal:host-gateway"
 
 # kamal-proxy expõe porta 80/443 do host e roteia por Host header pros
-# containers das apps. TLS é gerido pelo Cloudflare (proxy ativo nos A records);
-# kamal-proxy recebe HTTP plain do edge CF. app_port: 80 porque Thruster escuta na 80.
+# containers das apps. TLS via Let's Encrypt (ACME HTTP-01) — porta 80 aberta.
+# DNS A records apontam direto pro IP público (sem proxy Cloudflare).
+# app_port: 80 porque Thruster escuta na 80.
 proxy:
-  ssl: false
+  ssl: true
   app_port: 80
   healthcheck:
     path: /up

@@ -1,0 +1,103 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.pluggy.ai/auth
+    body:
+      encoding: UTF-8
+      string: '{"clientId":"<PLUGGY_CLIENT_ID>","clientSecret":"<PLUGGY_CLIENT_SECRET>"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - controle-financeiro/1.0
+      Host:
+      - api.pluggy.ai
+      Content-Type:
+      - application/json
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Thu, 28 May 2026 03:24:58 GMT
+      Content-Type:
+      - application/json; charset=utf-8
+      Content-Length:
+      - '711'
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      X-Request-Id:
+      - 14c62603-9ddf-499b-95ef-886a3768dd39
+      Ratelimit-Policy:
+      - 360;w=60
+      Ratelimit-Limit:
+      - '360'
+      Ratelimit-Remaining:
+      - '357'
+      Ratelimit-Reset:
+      - '60'
+      Etag:
+      - W/"2c7-l31yjy98s/hl1pxYVwZzH6/gbVg"
+      Vary:
+      - Accept-Encoding
+    body:
+      encoding: UTF-8
+      string: '{"apiKey":"<PLUGGY_API_KEY>"}'
+  recorded_at: Thu, 28 May 2026 03:24:58 GMT
+- request:
+    method: post
+    uri: https://api.pluggy.ai/auth
+    body:
+      encoding: UTF-8
+      string: '{"clientId":"<PLUGGY_CLIENT_ID>","clientSecret":"<PLUGGY_CLIENT_SECRET>"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - controle-financeiro/1.0
+      Host:
+      - api.pluggy.ai
+      Content-Type:
+      - application/json
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Thu, 28 May 2026 03:24:58 GMT
+      Content-Type:
+      - application/json; charset=utf-8
+      Content-Length:
+      - '711'
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      X-Request-Id:
+      - e947f718-d0ca-4ab7-943d-9b2e737f80c8
+      Ratelimit-Policy:
+      - 360;w=60
+      Ratelimit-Limit:
+      - '360'
+      Ratelimit-Remaining:
+      - '356'
+      Ratelimit-Reset:
+      - '60'
+      Etag:
+      - W/"2c7-+sJO+Q0qqicgbU69qHV54ILz1Rg"
+      Vary:
+      - Accept-Encoding
+    body:
+      encoding: UTF-8
+      string: '{"apiKey":"<PLUGGY_API_KEY>"}'
+  recorded_at: Thu, 28 May 2026 03:24:58 GMT
+recorded_with: VCR 6.4.0

@@ -1,0 +1,53 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.pluggy.ai/auth
+    body:
+      encoding: UTF-8
+      string: '{"clientId":"00000000-0000-4000-8000-000000000000","clientSecret":"wrong-secret"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - controle-financeiro/1.0
+      Host:
+      - api.pluggy.ai
+      Content-Type:
+      - application/json
+  response:
+    status:
+      code: 401
+      message: Unauthorized
+    headers:
+      Date:
+      - Thu, 28 May 2026 03:24:58 GMT
+      Content-Type:
+      - application/json; charset=utf-8
+      Content-Length:
+      - '142'
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      X-Request-Id:
+      - 89c75403-1544-462f-9398-1d30eee45a91
+      Ratelimit-Policy:
+      - 360;w=60
+      Ratelimit-Limit:
+      - '360'
+      Ratelimit-Remaining:
+      - '355'
+      Ratelimit-Reset:
+      - '60'
+      Etag:
+      - W/"8e-H+knHRd8Oft0QeKDNfwWRAJbFCA"
+      Vary:
+      - Accept-Encoding
+    body:
+      encoding: UTF-8
+      string: '{"message":"client keys are invalid","code":401,"codeDescription":"CLIENT_KEYS_UNAUTHORIZED","errorId":"89c75403-1544-462f-9398-1d30eee45a91"}'
+  recorded_at: Thu, 28 May 2026 03:24:58 GMT
+recorded_with: VCR 6.4.0

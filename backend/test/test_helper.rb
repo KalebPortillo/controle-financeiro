@@ -2,6 +2,44 @@ ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
 require "webmock/minitest"
+require "vcr"
+
+# VCR — grava interações HTTP reais (uma vez) e replaya depois. Usamos
+# pra testar adapters de provider externo (Pluggy, Gemini) sem dependência
+# de rede em CI nem custar quota.
+#
+# Cassettes em test/vcr_cassettes/<provider>/<scenario>.yml.
+# Re-gravar: REC=once bin/rails test test/... (ou ALL_RECORD_MODE=new_episodes).
+VCR.configure do |c|
+  c.cassette_library_dir = "test/vcr_cassettes"
+  c.hook_into :webmock
+  c.default_cassette_options = {
+    record: ENV.fetch("VCR_RECORD", "none").to_sym,
+    # method + uri é suficiente — incluir `body` exigiria que CI tivesse as
+    # mesmas credenciais reais usadas no record (já que `filter_sensitive_data`
+    # substitui o valor mas o matching ainda compara contra o ENV atual).
+    match_requests_on: %i[method uri]
+  }
+  c.allow_http_connections_when_no_cassette = false
+
+  # Filtra segredos do request/response antes de serializar pro disco.
+  c.filter_sensitive_data("<PLUGGY_CLIENT_ID>")     { ENV["PLUGGY_CLIENT_ID"] }
+  c.filter_sensitive_data("<PLUGGY_CLIENT_SECRET>") { ENV["PLUGGY_CLIENT_SECRET"] }
+
+  # Mascara o apiKey JWT em todo lugar que ele aparece:
+  #   - response body do /auth ({ "apiKey": "jwt..." })
+  #   - request header X-API-KEY das chamadas autenticadas
+  # JWTs sandbox expiram em ~2h, mas cassettes vão pro git — scrub é higiene.
+  c.before_record do |interaction|
+    body = interaction.response.body
+    if body && body.include?('"apiKey"')
+      interaction.response.body = body.gsub(/"apiKey"\s*:\s*"[^"]+"/, '"apiKey":"<PLUGGY_API_KEY>"')
+    end
+    %w[X-API-KEY X-Api-Key].each do |h|
+      interaction.request.headers[h] = [ "<PLUGGY_API_KEY>" ] if interaction.request.headers&.key?(h)
+    end
+  end
+end
 
 # OmniAuth em modo de teste — preenchemos `OmniAuth.config.mock_auth[:google_oauth2]`
 # por teste (no helper sign_in_as ou direto). Sem isso, qualquer chamada de

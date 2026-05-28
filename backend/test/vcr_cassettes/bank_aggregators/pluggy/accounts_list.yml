@@ -1,0 +1,107 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.pluggy.ai/auth
+    body:
+      encoding: UTF-8
+      string: '{"clientId":"<PLUGGY_CLIENT_ID>","clientSecret":"<PLUGGY_CLIENT_SECRET>"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - controle-financeiro/1.0
+      Host:
+      - api.pluggy.ai
+      Content-Type:
+      - application/json
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Thu, 28 May 2026 03:24:58 GMT
+      Content-Type:
+      - application/json; charset=utf-8
+      Content-Length:
+      - '711'
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      X-Request-Id:
+      - 3ee6d1a6-6aee-4be4-b140-81fcb95607de
+      Ratelimit-Policy:
+      - 360;w=60
+      Ratelimit-Limit:
+      - '360'
+      Ratelimit-Remaining:
+      - '358'
+      Ratelimit-Reset:
+      - '60'
+      Etag:
+      - W/"2c7-ZbytDAKqv1TjcDnf6HqkEdQvaIo"
+      Vary:
+      - Accept-Encoding
+    body:
+      encoding: UTF-8
+      string: '{"apiKey":"<PLUGGY_API_KEY>"}'
+  recorded_at: Thu, 28 May 2026 03:24:58 GMT
+- request:
+    method: get
+    uri: https://api.pluggy.ai/accounts?itemId=6d662866-386f-4523-8e31-fd3dcc4d1a96
+    body:
+      encoding: US-ASCII
+      string: ''
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - controle-financeiro/1.0
+      Host:
+      - api.pluggy.ai
+      X-Api-Key:
+      - "<PLUGGY_API_KEY>"
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Thu, 28 May 2026 03:24:58 GMT
+      Content-Type:
+      - application/json; charset=utf-8
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      X-Request-Id:
+      - ea193fac-1389-4baa-b71b-a71119896aa3
+      Ratelimit-Policy:
+      - 360;w=60
+      Ratelimit-Limit:
+      - '360'
+      Ratelimit-Remaining:
+      - '359'
+      Ratelimit-Reset:
+      - '60'
+      Etag:
+      - W/"55c-KtPg3Aw7ZkpnmE7iDeiNvP5p9kI"
+      Vary:
+      - Accept-Encoding
+    body:
+      encoding: ASCII-8BIT
+      string: '{"total":2,"totalPages":1,"page":1,"results":[{"id":"6f91809e-cf34-433a-a01c-a4b852a974ce","type":"BANK","subtype":"CHECKING_ACCOUNT","name":"Conta
+        Corrente","balance":7090,"currencyCode":"BRL","itemId":"6d662866-386f-4523-8e31-fd3dcc4d1a96","number":"0001/12345-0","createdAt":"2026-05-28T00:19:15.725Z","updatedAt":"2026-05-28T00:19:15.758Z","marketingName":"GOLD
+        Conta Corrente","taxNumber":"416.799.495-00","owner":"John Doe","bankData":{"transferNumber":"123/0001/12345-0","closingBalance":7090,"automaticallyInvestedBalance":709,"overdraftContractedLimit":null,"overdraftUsedLimit":null,"unarrangedOverdraftAmount":null},"creditData":null},{"id":"f692b1f9-4780-493a-bc5c-afca14f9fa8c","type":"CREDIT","subtype":"CREDIT_CARD","name":"Mastercard
+        Black","balance":-167.7,"currencyCode":"BRL","itemId":"6d662866-386f-4523-8e31-fd3dcc4d1a96","number":"9437","createdAt":"2026-05-28T00:19:15.790Z","updatedAt":"2026-05-28T00:19:15.826Z","marketingName":"PLUGGY
+        UNICLASS MASTERCARD BLACK","taxNumber":null,"owner":null,"bankData":null,"creditData":{"level":"BLACK","brand":"MASTERCARD","balanceCloseDate":"2026-05-28","balanceDueDate":"2026-06-02","availableCreditLimit":300000,"balanceForeignCurrency":null,"minimumPayment":33.54,"creditLimit":300000,"isLimitFlexible":false,"holderType":"MAIN","status":"ACTIVE","disaggregatedCreditLimits":null,"additionalCards":null}}]}'
+  recorded_at: Thu, 28 May 2026 03:24:58 GMT
+recorded_with: VCR 6.4.0

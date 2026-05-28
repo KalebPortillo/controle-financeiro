@@ -1,0 +1,132 @@
+require "net/http"
+require "uri"
+require "json"
+
+module BankAggregators
+  # Cliente HTTP minimal para a API do Pluggy (https://api.pluggy.ai).
+  #
+  # Responsabilidades:
+  #   - trocar (client_id, client_secret) por apiKey via POST /auth e cachear
+  #     em memória pelo lifetime da instância
+  #   - chamar endpoints autenticados com header `X-API-KEY`
+  #   - em 401, fazer refresh do apiKey + retry uma única vez
+  #
+  # Não responsável: persistência, mapeamento pra ActiveRecord, agendamento
+  # de sync. Isso vive em camadas acima (jobs, services específicos).
+  class Pluggy
+    BASE_URL    = "https://api.pluggy.ai".freeze
+    USER_AGENT  = "controle-financeiro/1.0".freeze
+    TIMEOUT_SEC = 15
+
+    # Connector IDs estáticos no Pluggy. Não chamamos /connectors em runtime —
+    # o widget Pluggy Connect cuida da escolha; só precisamos referenciar nos
+    # nossos fluxos (sandbox em dev/test, Nubank em prod).
+    CONNECTORS = {
+      sandbox_basic: 2,
+      nubank:        612
+    }.freeze
+
+    def initialize(client_id:, client_secret:)
+      @client_id     = client_id
+      @client_secret = client_secret
+    end
+
+    # JWT que autentica subsequentes requests. Cacheado depois da primeira chamada.
+    def api_key
+      @api_key ||= authenticate!
+    end
+
+    # Lista accounts de um item (item = conexão Pluggy com banco).
+    # Cada item: { id:, type:, name:, number?:, balance?:, currency_code? }.
+    def list_accounts(item_id:)
+      payload = get("/accounts", { itemId: item_id })
+      payload.fetch("results").map { |a| account_view(a) }
+    end
+
+    # Lista transações de uma account a partir de uma data.
+    # Cada item: { id:, amount:, currency_code:, date:, description:, raw: }.
+    def list_transactions(account_id:, from:, to: nil)
+      params = { accountId: account_id, from: from.to_s }
+      params[:to] = to.to_s if to
+      payload = get("/transactions", params)
+      payload.fetch("results").map { |t| transaction_view(t) }
+    end
+
+    private
+
+    def authenticate!
+      res = post("/auth", { clientId: @client_id, clientSecret: @client_secret })
+      res.fetch("apiKey")
+    end
+
+    def get(path, query = {})
+      request(Net::HTTP::Get, path, query: query, authenticated: true, retry_on_401: true)
+    end
+
+    def post(path, body)
+      request(Net::HTTP::Post, path, body: body, authenticated: false)
+    end
+
+    def request(klass, path, query: {}, body: nil, authenticated:, retry_on_401: false)
+      uri = URI.join(BASE_URL, path)
+      uri.query = URI.encode_www_form(query) if query.any?
+
+      req = klass.new(uri)
+      req["Accept"]       = "application/json"
+      req["User-Agent"]   = USER_AGENT
+      req["X-API-KEY"]    = api_key if authenticated
+      if body
+        req["Content-Type"] = "application/json"
+        req.body            = body.to_json
+      end
+
+      response = http.request(req)
+
+      case response.code.to_i
+      when 200..299
+        response.body.empty? ? {} : JSON.parse(response.body)
+      when 401
+        if authenticated && retry_on_401
+          @api_key = nil
+          request(klass, path, query: query, body: body, authenticated: true, retry_on_401: false)
+        else
+          raise AuthenticationError, "Pluggy rejected credentials (HTTP 401)"
+        end
+      when 400, 403, 404, 422
+        raise ItemError, "Pluggy refused request: HTTP #{response.code} — #{response.body[0, 200]}"
+      else
+        raise UpstreamError.new(status: response.code, body: response.body)
+      end
+    end
+
+    def http
+      @http ||= Net::HTTP.new("api.pluggy.ai", 443).tap do |h|
+        h.use_ssl       = true
+        h.open_timeout  = TIMEOUT_SEC
+        h.read_timeout  = TIMEOUT_SEC
+      end
+    end
+
+    def account_view(a)
+      {
+        id:            a.fetch("id"),
+        type:          a["type"],
+        name:          a["name"] || a["marketingName"],
+        number:        a["number"],
+        balance:       a["balance"],
+        currency_code: a["currencyCode"]
+      }
+    end
+
+    def transaction_view(t)
+      {
+        id:            t.fetch("id"),
+        amount:        t.fetch("amount"),
+        currency_code: t["currencyCode"],
+        date:          t["date"],
+        description:   t["description"] || t["descriptionRaw"],
+        raw:           t
+      }
+    end
+  end
+end

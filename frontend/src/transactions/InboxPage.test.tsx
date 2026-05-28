@@ -37,6 +37,7 @@ function tx(overrides: Partial<InboxTransaction> = {}): InboxTransaction {
     status: 'pending',
     source: 'automatic_sync',
     lock_version: 0,
+    tags: [],
     ...overrides,
   }
 }
@@ -99,6 +100,48 @@ describe('<InboxPage />', () => {
         expect.objectContaining({ method: 'POST' })
       )
     )
+  })
+
+  it('renders existing tags as chips on a row', async () => {
+    setupFetch({
+      '/api/v1/transactions?status=pending': {
+        status: 200,
+        body: {
+          transactions: [tx({ tags: [{ id: 'tg1', name: 'Mercado', color: null, icon: null }] })],
+          pending_count: 1,
+        },
+      },
+    })
+    renderInbox()
+    await waitFor(() => expect(screen.getByTestId('row-tag-tg1')).toHaveTextContent('Mercado'))
+  })
+
+  it('adds a tag via the editor and PATCHes tag_ids', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/transactions?status=pending': {
+        status: 200,
+        body: { transactions: [tx({ lock_version: 2 })], pending_count: 1 },
+      },
+      'GET /api/v1/tags': {
+        status: 200,
+        body: { tags: [{ id: 'tg1', name: 'Mercado', color: null, icon: null, usage_count: 0 }] },
+      },
+      'PATCH /api/v1/transactions/t1': { status: 200, body: { transaction: tx() } },
+    })
+    renderInbox()
+    const user = userEvent.setup()
+    const row = await screen.findByTestId('inbox-row-t1')
+    await user.click(within(row).getByTestId('edit-t1'))
+    await user.type(within(row).getByTestId('tag-input-t1'), 'merc')
+    await user.click(await within(row).findByTestId('tag-suggest-tg1'))
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(
+        (c) => c[0] === '/api/v1/transactions/t1' && c[1]?.method === 'PATCH'
+      )
+      expect(call).toBeTruthy()
+      expect(JSON.parse(call![1]!.body as string).tag_ids).toEqual(['tg1'])
+    })
   })
 
   it('edits title/amount and PATCHes with lock_version', async () => {

@@ -25,6 +25,7 @@ class Api::V1::TransactionsController < ApplicationController
   def update
     @transaction.lock_version = params[:lock_version] if params.key?(:lock_version)
     @transaction.assign_attributes(update_params)
+    apply_tags(@transaction, params[:tag_ids]) if params.key?(:tag_ids)
     @transaction.save!
     render json: { transaction: serialize(@transaction) }
   rescue ActiveRecord::StaleObjectError
@@ -61,6 +62,13 @@ class Api::V1::TransactionsController < ApplicationController
 
   def update_params
     params.permit(:improved_title, :amount_cents, :occurred_at)
+  end
+
+  # Substitui as tags da transação (RF5.2). Escopado no workspace: ids de outro
+  # workspace são silenciosamente ignorados.
+  def apply_tags(transaction, tag_ids)
+    ids = Array(tag_ids).map(&:to_s)
+    transaction.tags = current_workspace.tags.where(id: ids)
   end
 
   # Default da inbox é pending; aceita override por status válido.
@@ -100,7 +108,8 @@ class Api::V1::TransactionsController < ApplicationController
       improved_title:       t.improved_title,
       status:               t.status,
       source:               t.source,
-      lock_version:         t.lock_version
+      lock_version:         t.lock_version,
+      tags:                 t.tags.order(:name).map { |tag| { id: tag.id, name: tag.name, color: tag.color, icon: tag.icon } }
     }
   end
 end

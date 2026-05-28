@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_28_190000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_28_200100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -73,6 +73,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_190000) do
     t.index ["workspace_id"], name: "index_bank_connections_on_workspace_id"
     t.check_constraint "provider::text = ANY (ARRAY['pluggy'::character varying, 'manual'::character varying]::text[])", name: "bank_connections_provider_check"
     t.check_constraint "status::text = ANY (ARRAY['connected'::character varying, 'syncing'::character varying, 'expired'::character varying, 'error'::character varying, 'disconnected'::character varying]::text[])", name: "bank_connections_status_check"
+  end
+
+  create_table "tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "color"
+    t.datetime "created_at", null: false
+    t.string "icon"
+    t.citext "name", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "workspace_id", null: false
+    t.index ["workspace_id", "name"], name: "index_tags_on_workspace_id_and_name", unique: true
+    t.index ["workspace_id"], name: "index_tags_on_workspace_id"
+  end
+
+  create_table "transaction_tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.uuid "tag_id", null: false
+    t.uuid "transaction_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["tag_id"], name: "index_transaction_tags_on_tag_id"
+    t.index ["transaction_id", "tag_id"], name: "index_transaction_tags_on_transaction_id_and_tag_id", unique: true
+    t.index ["transaction_id"], name: "index_transaction_tags_on_transaction_id"
   end
 
   create_table "transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -152,6 +173,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_190000) do
   add_foreign_key "bank_connection_syncs", "bank_connections"
   add_foreign_key "bank_connections", "workspace_memberships", column: "owner_membership_id"
   add_foreign_key "bank_connections", "workspaces"
+  add_foreign_key "tags", "workspaces"
+  add_foreign_key "transaction_tags", "tags"
+  add_foreign_key "transaction_tags", "transactions"
   add_foreign_key "transactions", "accounts"
   add_foreign_key "transactions", "transactions", column: "parent_transaction_id"
   add_foreign_key "transactions", "workspace_memberships", column: "created_by_membership_id"

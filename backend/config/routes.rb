@@ -41,6 +41,9 @@ Rails.application.routes.draw do
       # Webhook do Pluggy (máquina→máquina; valida header secreto, sem sessão).
       post "webhooks/pluggy", to: "webhooks#pluggy"
 
+      # Tags (RF5) — etiquetas livres aplicáveis a transações.
+      resources :tags, only: [ :index, :create ]
+
       # Transactions (RF2 inbox + RF4) — listagem/leitura + workflow da inbox.
       resources :transactions, only: [ :index, :update, :destroy ] do
         member do

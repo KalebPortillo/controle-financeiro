@@ -4,6 +4,7 @@ import { WalletLogo } from '../components/WalletLogo'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { Card, CardBody } from '../components/Card'
+import { TagEditor } from './TagEditor'
 import {
   useInbox,
   useConsolidate,
@@ -92,6 +93,10 @@ function InboxRow({ transaction: t }: { transaction: InboxTransaction }) {
     setEditing(false)
   }
 
+  const applyTags = (tagIds: string[]) => {
+    update.mutate({ id: t.id, lock_version: t.lock_version, tag_ids: tagIds })
+  }
+
   return (
     <Card data-testid={`inbox-row-${t.id}`}>
       <CardBody className="py-3 space-y-2">
@@ -112,27 +117,49 @@ function InboxRow({ transaction: t }: { transaction: InboxTransaction }) {
           </div>
         </div>
 
+        {t.tags.length > 0 && !editing && (
+          <div className="flex flex-wrap gap-1">
+            {t.tags.map((tag) => (
+              <span
+                key={tag.id}
+                className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] text-foreground"
+                data-testid={`row-tag-${tag.id}`}
+              >
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        )}
+
         {editing && (
-          <div className="flex flex-wrap gap-2 items-center">
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Título"
-              data-testid={`edit-title-${t.id}`}
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2 items-center">
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Título"
+                data-testid={`edit-title-${t.id}`}
+              />
+              <Input
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                inputMode="decimal"
+                className="w-28"
+                data-testid={`edit-amount-${t.id}`}
+              />
+              <Button size="sm" onClick={saveEdit} disabled={busy} data-testid={`save-${t.id}`}>
+                Salvar
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditing(false)} disabled={busy}>
+                Cancelar
+              </Button>
+            </div>
+            <TagEditor
+              transactionId={t.id}
+              current={t.tags}
+              onChange={applyTags}
+              disabled={busy}
             />
-            <Input
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              inputMode="decimal"
-              className="w-28"
-              data-testid={`edit-amount-${t.id}`}
-            />
-            <Button size="sm" onClick={saveEdit} disabled={busy} data-testid={`save-${t.id}`}>
-              Salvar
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setEditing(false)} disabled={busy}>
-              Cancelar
-            </Button>
           </div>
         )}
 

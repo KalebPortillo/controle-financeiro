@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 
+export type InboxTag = {
+  id: string
+  name: string
+  color: string | null
+  icon: string | null
+}
+
 export type InboxTransaction = {
   id: string
   account_id: string
@@ -14,6 +21,7 @@ export type InboxTransaction = {
   status: string
   source: string
   lock_version: number
+  tags: InboxTag[]
 }
 
 export type InboxPayload = {
@@ -68,6 +76,7 @@ export type UpdateInput = {
   improved_title?: string
   amount_cents?: number
   occurred_at?: string
+  tag_ids?: string[]
 }
 
 // Editar título/valor/data (RF2.3) com optimistic lock.

@@ -205,7 +205,7 @@ Histórico de alterações em uma transação. RF4.3 audit trail leve.
 
 **RFs**: RF4.3.
 
-### `tags`
+### `tags` ✅ implementado (RF5 slice 1)
 Etiqueta livre aplicável a transações.
 
 | coluna | tipo | constraints |
@@ -220,8 +220,9 @@ Etiqueta livre aplicável a transações.
 **Constraints**: UNIQUE (workspace_id, name).
 **RFs**: RF5.
 
-### `transaction_tags`
-M:N entre transação e tag.
+### `transaction_tags` ✅ implementado (RF5 slice 1)
+M:N entre transação e tag. (No model Ruby, a associação pro lado da transação
+chama-se `txn` — `transaction` colide com método interno do ActiveRecord.)
 
 | coluna | tipo | constraints |
 |---|---|---|

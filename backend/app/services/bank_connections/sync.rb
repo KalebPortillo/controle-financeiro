@@ -36,19 +36,40 @@ module BankConnections
         end
       end
 
+      finished = Time.current
       @connection.update!(
-        last_sync_at:               Time.current,
+        last_sync_at:               finished,
         status:                     "connected",
         error_message:              nil,
         last_sync_created_count:    created,
         last_sync_duplicate_count:  duplicated,
         last_sync_error_count:      errored,
-        last_sync_duration_seconds: (Time.current - started).round
+        last_sync_duration_seconds: (finished - started).round
       )
+      record_run!(started, finished, "success", created, duplicated, errored, nil)
       { created: created, duplicated: duplicated, errored: errored }
+    rescue StandardError => e
+      # Registra o run falho no histórico (RF21.7) e propaga — o SyncJob trata
+      # o status da conexão (expired/error) a partir da exceção.
+      record_run!(started, Time.current, "error", created, duplicated, errored, e.message)
+      raise
     end
 
     private
+
+    # Uma linha por execução de sync (RF21.7 — histórico das últimas N).
+    def record_run!(started, finished, status, created, duplicated, errored, error_message)
+      @connection.syncs.create!(
+        started_at:       started,
+        finished_at:      finished,
+        duration_seconds: (finished - started).round,
+        status:           status,
+        created_count:    created,
+        duplicate_count:  duplicated,
+        error_count:      errored,
+        error_message:    error_message
+      )
+    end
 
     # :created | :duplicated | :errored. Unicidade é garantida no DB
     # (external_transaction_id gerado); capturamos a violação pra contar como

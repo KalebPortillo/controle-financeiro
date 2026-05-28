@@ -40,6 +40,14 @@ function setupFetch(session: SessionFixture) {
         json: async () => ({ active_workspace_id: body.workspace_id }),
       } as Response
     }
+    // GlobalSyncIndicator no header busca isso; sem conexões → não renderiza nada.
+    if (input === '/api/v1/bank_connections') {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ connections: [], summary: { total: 0, connected: 0, syncing: 0, error: 0 } }),
+      } as Response
+    }
     throw new Error(`unmocked fetch: ${input}`)
   })
   globalThis.fetch = fetchMock as unknown as typeof fetch

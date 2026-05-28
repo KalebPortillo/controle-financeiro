@@ -149,7 +149,13 @@ Formato uniforme:
 - `POST /api/v1/bank_connections/sync_all` — dispara sync de todas as conexões do workspace (RF21.4). 202 + `{ enqueued: N }`.
 - `POST /api/v1/bank_connections/:id/reconnect` — gera connect_token de reconexão (RF21.8). `{ "connect_token": "..." }`.
 - `DELETE /api/v1/bank_connections/:id` — disconnect. 204.
-- ⏳ `GET /api/v1/bank_connections/:id/sync_history?limit=10` — **planejado (RF21.7)**, ainda não implementado.
+- `GET /api/v1/bank_connections/:id/sync_history?limit=10` — últimas N execuções de sync (RF21.7), mais recentes primeiro. `limit` clamped a 1–50. Cada item:
+  ```json
+  { "id": "...", "started_at": "...", "finished_at": "...", "duration_seconds": 12,
+    "status": "success", "created_count": 7, "duplicate_count": 2, "error_count": 0,
+    "error_message": null }
+  ```
+  (`status`: `success` | `error`. Persistido em `bank_connection_syncs`, uma linha por run do `SyncJob`.)
 
 **Canal Action Cable `BankConnectionsChannel`** (montado em `/cable`, auth por cookie de sessão) broadcasta `{ "event": "connection_updated", "bank_connection": {…} }` (mesmo schema acima) sempre que `status`/`last_sync_at` mudam — usado pelo painel `/contas` pra refletir progresso em tempo real sem polling. Escopado por `workspace_id` (subscribe valida membership).
 

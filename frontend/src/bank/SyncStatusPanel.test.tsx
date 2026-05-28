@@ -128,6 +128,40 @@ describe('<SyncStatusPanel />', () => {
     )
   })
 
+  it('toggles and loads the sync history for a connection', async () => {
+    setupFetch({
+      'GET /api/v1/bank_connections': {
+        status: 200,
+        body: { connections: [connection()], summary: { total: 1, connected: 1, syncing: 0, error: 0 } },
+      },
+      'GET /api/v1/bank_connections/c1/sync_history?limit=10': {
+        status: 200,
+        body: {
+          syncs: [
+            {
+              id: 's1',
+              started_at: '2026-05-28T10:00:00Z',
+              finished_at: '2026-05-28T10:00:12Z',
+              duration_seconds: 12,
+              status: 'success',
+              created_count: 7,
+              duplicate_count: 2,
+              error_count: 0,
+              error_message: null,
+            },
+          ],
+        },
+      },
+    })
+    renderPanel()
+    const user = userEvent.setup()
+    const row = await screen.findByTestId('connection-c1')
+    await user.click(within(row).getByTestId('history-toggle-c1'))
+
+    await waitFor(() => expect(screen.getByTestId('history-c1')).toBeInTheDocument())
+    expect(within(screen.getByTestId('history-c1')).getByText(/7 novas, 2 dup/)).toBeInTheDocument()
+  })
+
   it('"Sincronizar todas" posts to sync_all', async () => {
     const { fetchMock } = setupFetch({
       'GET /api/v1/bank_connections': {

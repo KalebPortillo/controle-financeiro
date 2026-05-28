@@ -130,6 +130,27 @@ Conexão via agregador (Pluggy) para sync automática.
 > Em `after_update_commit`, mudanças em `status`/`last_sync_at` disparam broadcast
 > no `BankConnectionsChannel` (Action Cable) pro painel de sync (RF21.3).
 
+### `bank_connection_syncs`
+Histórico de execuções de sync (RF21.7 — últimas N por conexão). O `Sync` grava
+uma linha por run, em sucesso ou erro.
+
+| coluna | tipo | constraints |
+|---|---|---|
+| id | uuid | PK |
+| bank_connection_id | uuid | FK NOT NULL |
+| started_at | timestamp | NOT NULL |
+| finished_at | timestamp | NULL |
+| duration_seconds | integer | NULL |
+| status | enum | NOT NULL — `success` \| `error` |
+| created_count | integer | NOT NULL default 0 |
+| duplicate_count | integer | NOT NULL default 0 |
+| error_count | integer | NOT NULL default 0 |
+| error_message | text | NULL |
+| created_at, updated_at | timestamp | |
+
+Índice: `(bank_connection_id, started_at)` — query "últimas N por conexão".
+**RFs**: RF21.7.
+
 ### `transactions`
 Coração do sistema: gasto, receita ou estorno. Vive no inbox ou consolidado.
 

@@ -1,11 +1,14 @@
+import { useState } from 'react'
 import { Card, CardBody, CardHeader } from '../components/Card'
 import { Button } from '../components/Button'
 import {
   useBankConnectionsList,
   useSyncConnection,
   useSyncAll,
+  useSyncHistory,
   type BankConnection,
   type ConnectionStatus,
+  type SyncRun,
 } from './useBankConnections'
 
 const STATUS_LABEL: Record<ConnectionStatus, string> = {
@@ -84,6 +87,7 @@ export function SyncStatusPanel() {
 
 function ConnectionRow({ connection: c }: { connection: BankConnection }) {
   const sync = useSyncConnection()
+  const [showHistory, setShowHistory] = useState(false)
   const institution = c.accounts[0]?.institution_label ?? 'Conexão'
   const accountNames = c.accounts.map((a) => a.name).join(' · ')
 
@@ -133,6 +137,55 @@ function ConnectionRow({ connection: c }: { connection: BankConnection }) {
           {c.status === 'syncing' ? 'Sincronizando…' : 'Sincronizar agora'}
         </Button>
       </div>
+
+      <button
+        type="button"
+        className="text-[11px] text-muted-foreground hover:text-foreground"
+        onClick={() => setShowHistory((v) => !v)}
+        data-testid={`history-toggle-${c.id}`}
+      >
+        {showHistory ? 'Ocultar histórico' : 'Histórico'}
+      </button>
+
+      {showHistory && <SyncHistory connectionId={c.id} />}
     </div>
+  )
+}
+
+function SyncHistory({ connectionId }: { connectionId: string }) {
+  const { data: runs, isLoading } = useSyncHistory(connectionId, true)
+
+  if (isLoading) return <p className="text-[11px] text-muted-foreground">Carregando histórico…</p>
+  if (!runs || runs.length === 0) {
+    return (
+      <p className="text-[11px] text-muted-foreground" data-testid={`history-empty-${connectionId}`}>
+        Nenhuma sincronização ainda.
+      </p>
+    )
+  }
+
+  return (
+    <ul className="space-y-1 border-t border-border pt-2" data-testid={`history-${connectionId}`}>
+      {runs.map((run) => (
+        <HistoryRow key={run.id} run={run} />
+      ))}
+    </ul>
+  )
+}
+
+function HistoryRow({ run }: { run: SyncRun }) {
+  const ok = run.status === 'success'
+  return (
+    <li className="flex items-center justify-between gap-2 text-[11px]">
+      <span className="text-muted-foreground" title={run.started_at}>
+        {relativeTime(run.started_at)}
+        {run.duration_seconds != null && ` · ${run.duration_seconds}s`}
+      </span>
+      <span className={ok ? 'text-muted-foreground' : 'text-destructive'}>
+        {ok
+          ? `${run.created_count} novas, ${run.duplicate_count} dup`
+          : (run.error_message ?? 'erro')}
+      </span>
+    </li>
   )
 }

@@ -44,6 +44,18 @@ export type BankConnectionsList = {
   summary: ConnectionsSummary
 }
 
+export type SyncRun = {
+  id: string
+  started_at: string
+  finished_at: string | null
+  duration_seconds: number | null
+  status: 'success' | 'error'
+  created_count: number
+  duplicate_count: number
+  error_count: number
+  error_message: string | null
+}
+
 export const bankConnectionsKey = ['bank_connections'] as const
 
 // Busca o token curto-prazo que o widget Pluggy Connect precisa.
@@ -106,6 +118,19 @@ export function useSyncAll() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: bankConnectionsKey })
     },
+  })
+}
+
+// Histórico das últimas N syncs de uma conexão (RF21.7). `enabled` só dispara
+// o fetch quando o usuário expande o histórico no painel.
+export function useSyncHistory(connectionId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['sync_history', connectionId],
+    enabled,
+    queryFn: () =>
+      apiFetch<{ syncs: SyncRun[] }>(
+        `/api/v1/bank_connections/${connectionId}/sync_history?limit=10`
+      ).then((r) => r.syncs),
   })
 }
 

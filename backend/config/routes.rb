@@ -50,6 +50,7 @@ Rails.application.routes.draw do
         member do
           post "sync"
           post "reconnect"
+          get  "sync_history"
         end
       end
     end

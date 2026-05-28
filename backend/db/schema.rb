@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_28_113952) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_28_190000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -33,6 +33,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_113952) do
     t.index ["workspace_id"], name: "index_accounts_on_workspace_id"
     t.check_constraint "institution::text = ANY (ARRAY['nubank'::character varying, 'inter'::character varying, 'itau'::character varying, 'santander'::character varying, 'bb'::character varying, 'sandbox'::character varying, 'manual'::character varying]::text[])", name: "accounts_institution_check"
     t.check_constraint "kind::text = ANY (ARRAY['checking'::character varying, 'credit_card'::character varying]::text[])", name: "accounts_kind_check"
+  end
+
+  create_table "bank_connection_syncs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "bank_connection_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "created_count", default: 0, null: false
+    t.integer "duplicate_count", default: 0, null: false
+    t.integer "duration_seconds"
+    t.integer "error_count", default: 0, null: false
+    t.text "error_message"
+    t.datetime "finished_at"
+    t.datetime "started_at", null: false
+    t.string "status", null: false
+    t.datetime "updated_at", null: false
+    t.index ["bank_connection_id", "started_at"], name: "idx_on_bank_connection_id_started_at_de63f7aa5b"
+    t.index ["bank_connection_id"], name: "index_bank_connection_syncs_on_bank_connection_id"
   end
 
   create_table "bank_connections", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -133,6 +149,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_113952) do
   add_foreign_key "accounts", "bank_connections"
   add_foreign_key "accounts", "workspace_memberships", column: "owner_membership_id"
   add_foreign_key "accounts", "workspaces"
+  add_foreign_key "bank_connection_syncs", "bank_connections"
   add_foreign_key "bank_connections", "workspace_memberships", column: "owner_membership_id"
   add_foreign_key "bank_connections", "workspaces"
   add_foreign_key "transactions", "accounts"

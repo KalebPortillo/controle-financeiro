@@ -1,6 +1,6 @@
 class Api::V1::BankConnectionsController < ApplicationController
   before_action :require_authentication!
-  before_action :set_connection, only: [ :show, :sync, :reconnect, :destroy ]
+  before_action :set_connection, only: [ :show, :sync, :reconnect, :destroy, :sync_history ]
 
   # GET /api/v1/bank_connections — lista + summary agregado (RF21).
   def index
@@ -32,6 +32,13 @@ class Api::V1::BankConnectionsController < ApplicationController
       BankConnections::SyncJob.perform_later(c.id)
     end
     render json: { enqueued: connections.size }, status: :accepted
+  end
+
+  # GET /api/v1/bank_connections/:id/sync_history?limit=10 — últimas N execuções (RF21.7).
+  def sync_history
+    limit = params.fetch(:limit, 10).to_i.clamp(1, 50)
+    runs  = @connection.syncs.recent.limit(limit)
+    render json: { syncs: runs.map { |s| serialize_sync(s) } }
   end
 
   # POST /api/v1/bank_connections/:id/reconnect — token de reconexão (RF21.8).
@@ -113,5 +120,19 @@ class Api::V1::BankConnectionsController < ApplicationController
 
   def serialize(connection)
     BankConnections::Serializer.call(connection)
+  end
+
+  def serialize_sync(s)
+    {
+      id:               s.id,
+      started_at:       s.started_at.iso8601,
+      finished_at:      s.finished_at&.iso8601,
+      duration_seconds: s.duration_seconds,
+      status:           s.status,
+      created_count:    s.created_count,
+      duplicate_count:  s.duplicate_count,
+      error_count:      s.error_count,
+      error_message:    s.error_message
+    }
   end
 end

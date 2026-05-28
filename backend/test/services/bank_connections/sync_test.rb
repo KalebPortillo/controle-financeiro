@@ -91,4 +91,44 @@ class BankConnections::SyncTest < ActiveSupport::TestCase
     assert_equal 0, result2[:created]
     assert_equal 2, result2[:duplicated]
   end
+
+  # Provider que estoura ao listar — simula token expirado / falha de rede.
+  class FailingProvider
+    def list_transactions(**)
+      raise BankAggregators::Error, "falha no provider"
+    end
+  end
+
+  test "grava um BankConnectionSync de sucesso com contadores (RF21.7)" do
+    connection, _ = setup_connection_with_account
+    provider = FakeProvider.new(by_account: {
+      "acc-1" => [ txn("tx-1", -10.0, "A"), txn("tx-2", -20.0, "B") ]
+    })
+
+    assert_difference -> { connection.syncs.count }, 1 do
+      BankConnections::Sync.call(connection: connection, provider: provider)
+    end
+
+    run = connection.syncs.recent.first
+    assert_equal "success", run.status
+    assert_equal 2, run.created_count
+    assert_equal 0, run.duplicate_count
+    assert_not_nil run.started_at
+    assert_not_nil run.finished_at
+    assert_not_nil run.duration_seconds
+  end
+
+  test "grava um BankConnectionSync de erro e re-levanta quando o provider falha" do
+    connection, _ = setup_connection_with_account
+
+    assert_difference -> { connection.syncs.count }, 1 do
+      assert_raises(BankAggregators::Error) do
+        BankConnections::Sync.call(connection: connection, provider: FailingProvider.new)
+      end
+    end
+
+    run = connection.syncs.recent.first
+    assert_equal "error", run.status
+    assert_equal "falha no provider", run.error_message
+  end
 end

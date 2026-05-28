@@ -84,6 +84,40 @@ class BankConnectionsManagementTest < ActionDispatch::IntegrationTest
     assert_equal "syncing", b.reload.status
   end
 
+  # --- sync_history (RF21.7) --------------------------------------------
+
+  test "GET /bank_connections/:id/sync_history lista as últimas execuções (mais recentes primeiro)" do
+    c = connection
+    create(:bank_connection_sync, bank_connection: c, status: "success",
+                                  started_at: 2.hours.ago, created_count: 3)
+    create(:bank_connection_sync, bank_connection: c, status: "error",
+                                  started_at: 10.minutes.ago, error_message: "token expirado")
+
+    get "/api/v1/bank_connections/#{c.id}/sync_history?limit=10"
+    assert_response :ok
+    syncs = JSON.parse(response.body)["syncs"]
+
+    assert_equal 2, syncs.size
+    assert_equal "error",   syncs.first["status"]   # mais recente primeiro
+    assert_equal "token expirado", syncs.first["error_message"]
+    assert_equal "success", syncs.last["status"]
+    assert_equal 3, syncs.last["created_count"]
+  end
+
+  test "GET sync_history respeita o limit" do
+    c = connection
+    create_list(:bank_connection_sync, 3, bank_connection: c)
+    get "/api/v1/bank_connections/#{c.id}/sync_history?limit=2"
+    assert_response :ok
+    assert_equal 2, JSON.parse(response.body)["syncs"].size
+  end
+
+  test "GET sync_history de outro workspace → 404" do
+    other = connection(workspace: create(:workspace))
+    get "/api/v1/bank_connections/#{other.id}/sync_history"
+    assert_response :not_found
+  end
+
   # --- reconnect --------------------------------------------------------
 
   test "POST /bank_connections/:id/reconnect devolve connect_token do item" do

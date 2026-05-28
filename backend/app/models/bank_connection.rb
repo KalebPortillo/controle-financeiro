@@ -6,6 +6,7 @@ class BankConnection < ApplicationRecord
   belongs_to :owner_membership, class_name: "WorkspaceMembership"
 
   has_many :accounts, dependent: :nullify
+  has_many :syncs, class_name: "BankConnectionSync", dependent: :delete_all
 
   validates :provider,               presence: true, inclusion: { in: PROVIDERS }
   validates :status,                 presence: true, inclusion: { in: STATUSES }

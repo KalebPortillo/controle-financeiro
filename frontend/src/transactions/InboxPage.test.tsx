@@ -155,13 +155,12 @@ describe('<InboxPage />', () => {
     expect(screen.queryByTestId('sheet-accept-t1')).not.toBeInTheDocument()
   })
 
-  it('swiping a row right rejects it', async () => {
-    const { fetchMock } = setupFetch({
+  it('swiping a row right selects it (shows the bulk action bar)', async () => {
+    setupFetch({
       'GET /api/v1/transactions?status=pending': {
         status: 200,
         body: { transactions: [tx()], pending_count: 1 },
       },
-      'POST /api/v1/transactions/t1/reject': { status: 200, body: { transaction: tx() } },
     })
     renderInbox()
     const row = await screen.findByTestId('inbox-row-t1')
@@ -169,12 +168,8 @@ describe('<InboxPage />', () => {
     fireEvent.pointerMove(row, { clientX: 240, pointerId: 1 })
     fireEvent.pointerUp(row, { clientX: 240, pointerId: 1 })
 
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/v1/transactions/t1/reject',
-        expect.objectContaining({ method: 'POST' })
-      )
-    )
+    // selecionou → barra de ações em massa aparece
+    await waitFor(() => expect(screen.getByTestId('bulk-accept')).toBeInTheDocument())
   })
 
   it('bulk-accepts selected rows', async () => {

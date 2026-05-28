@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CreditCard } from 'lucide-react'
+import { CreditCard, Check, CheckSquare } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Money } from '../components/Money'
 import { TagChip } from '../components/TagChip'
@@ -93,8 +93,20 @@ export function InboxPage() {
             <SwipeableRow
               key={t.id}
               testid={`inbox-row-${t.id}`}
-              onConfirm={() => consolidate.mutate(t.id)}
-              onReject={() => reject.mutate(t.id)}
+              swipeLeft={{
+                onAction: () => consolidate.mutate(t.id),
+                label: 'Aceitar',
+                icon: <Check size={16} />,
+                idleClass: 'bg-success/30 text-success',
+                armedClass: 'bg-[var(--success-vivid)] text-white',
+              }}
+              swipeRight={{
+                onAction: () => toggle(t.id),
+                label: selected.has(t.id) ? 'Desmarcar' : 'Selecionar',
+                icon: <CheckSquare size={16} />,
+                idleClass: 'bg-accent/30 text-accent',
+                armedClass: 'bg-accent text-accent-foreground',
+              }}
               onClick={() => open(t)}
             >
               <RowContent

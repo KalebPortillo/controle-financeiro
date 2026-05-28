@@ -1,24 +1,31 @@
 import { useRef, useState, type ReactNode, type PointerEvent } from 'react'
-import { Check, X } from 'lucide-react'
 
 // Deslize além deste ponto (px) arma a ação ao soltar.
 const THRESHOLD = 90
 
+export type SwipeAction = {
+  onAction: () => void
+  label: string
+  icon: ReactNode
+  idleClass: string // cor antes do limiar
+  armedClass: string // cor passando o limiar (vai efetuar ao soltar)
+}
+
 /**
  * Linha com swipe-to-action (padrão mobile). Arrastar revela um fundo colorido:
- * esquerda → aceitar (verde), direita → rejeitar (vermelho). Passando o limiar,
+ * pra esquerda dispara `swipeLeft`, pra direita `swipeRight`. Passando o limiar,
  * o fundo intensifica indicando que soltar efetua a ação. Um toque sem arrasto
- * dispara onClick (abrir detalhe). Funciona com mouse e touch (pointer events).
+ * dispara onClick. Funciona com mouse e touch (pointer events).
  */
 export function SwipeableRow({
-  onConfirm,
-  onReject,
+  swipeLeft,
+  swipeRight,
   onClick,
   children,
   testid,
 }: {
-  onConfirm: () => void
-  onReject: () => void
+  swipeLeft: SwipeAction
+  swipeRight: SwipeAction
   onClick: () => void
   children: ReactNode
   testid?: string
@@ -43,7 +50,6 @@ export function SwipeableRow({
     if (startX.current === null) return
     const d = e.clientX - startX.current
     if (Math.abs(d) > 4) moved.current = true
-    // Resistência leve nas pontas, limita o curso.
     setDx(Math.max(-160, Math.min(160, d)))
   }
 
@@ -52,8 +58,8 @@ export function SwipeableRow({
     const d = dx
     startX.current = null
     setDragging(false)
-    if (d <= -THRESHOLD) onConfirm()
-    else if (d >= THRESHOLD) onReject()
+    if (d <= -THRESHOLD) swipeLeft.onAction()
+    else if (d >= THRESHOLD) swipeRight.onAction()
     setDx(0)
   }
 
@@ -63,8 +69,8 @@ export function SwipeableRow({
     if (!wasDrag) onClick()
   }
 
-  const armedConfirm = dx <= -THRESHOLD // esquerda
-  const armedReject = dx >= THRESHOLD // direita
+  const armedLeft = dx <= -THRESHOLD // arrastando pra esquerda
+  const armedRight = dx >= THRESHOLD // arrastando pra direita
 
   return (
     <div
@@ -75,34 +81,34 @@ export function SwipeableRow({
       onPointerUp={onPointerUp}
       onPointerCancel={finish}
     >
-      {/* fundo rejeitar — revelado ao arrastar pra direita (lado esquerdo) */}
+      {/* fundo do swipe-right — revelado ao arrastar pra direita (lado esquerdo) */}
       <div
         className={`absolute inset-y-0 left-0 flex items-center gap-2 pl-4 text-sm font-medium transition-colors ${
-          armedReject ? 'bg-destructive text-destructive-foreground' : 'bg-destructive/30 text-destructive'
+          armedRight ? swipeRight.armedClass : swipeRight.idleClass
         }`}
         style={{ width: Math.max(0, dx) }}
         aria-hidden
       >
         {dx > 24 && (
           <>
-            <X size={16} />
-            {armedReject && <span>Rejeitar</span>}
+            {swipeRight.icon}
+            {armedRight && <span>{swipeRight.label}</span>}
           </>
         )}
       </div>
 
-      {/* fundo aceitar — revelado ao arrastar pra esquerda (lado direito) */}
+      {/* fundo do swipe-left — revelado ao arrastar pra esquerda (lado direito) */}
       <div
         className={`absolute inset-y-0 right-0 flex items-center justify-end gap-2 pr-4 text-sm font-medium transition-colors ${
-          armedConfirm ? 'bg-[var(--success-vivid)] text-white' : 'bg-success/30 text-success'
+          armedLeft ? swipeLeft.armedClass : swipeLeft.idleClass
         }`}
         style={{ width: Math.max(0, -dx) }}
         aria-hidden
       >
         {dx < -24 && (
           <>
-            {armedConfirm && <span>Aceitar</span>}
-            <Check size={16} />
+            {armedLeft && <span>{swipeLeft.label}</span>}
+            {swipeLeft.icon}
           </>
         )}
       </div>

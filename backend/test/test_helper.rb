@@ -1,4 +1,12 @@
 ENV["RAILS_ENV"] ||= "test"
+
+# Credenciais dummy de provider em test — webmock/VCR interceptam o HTTP,
+# então os valores não importam, só precisam existir pros constructors
+# (BankAggregators::Pluggy faz ENV.fetch). Se as reais estiverem no env
+# (ex.: ao re-gravar cassettes com VCR_RECORD), elas têm precedência.
+ENV["PLUGGY_CLIENT_ID"]     ||= "test-pluggy-client-id"
+ENV["PLUGGY_CLIENT_SECRET"] ||= "test-pluggy-client-secret"
+
 require_relative "../config/environment"
 require "rails/test_help"
 require "webmock/minitest"
@@ -32,8 +40,12 @@ VCR.configure do |c|
   # JWTs sandbox expiram em ~2h, mas cassettes vão pro git — scrub é higiene.
   c.before_record do |interaction|
     body = interaction.response.body
-    if body && body.include?('"apiKey"')
-      interaction.response.body = body.gsub(/"apiKey"\s*:\s*"[^"]+"/, '"apiKey":"<PLUGGY_API_KEY>"')
+    if body
+      # apiKey (/auth) e accessToken (/connect_token) são JWTs — o accessToken
+      # inclusive carrega o clientId em base64 no payload, então scrub total.
+      body = body.gsub(/"apiKey"\s*:\s*"[^"]+"/,      '"apiKey":"<PLUGGY_API_KEY>"')
+      body = body.gsub(/"accessToken"\s*:\s*"[^"]+"/, '"accessToken":"<PLUGGY_CONNECT_TOKEN>"')
+      interaction.response.body = body
     end
     %w[X-API-KEY X-Api-Key].each do |h|
       interaction.request.headers[h] = [ "<PLUGGY_API_KEY>" ] if interaction.request.headers&.key?(h)

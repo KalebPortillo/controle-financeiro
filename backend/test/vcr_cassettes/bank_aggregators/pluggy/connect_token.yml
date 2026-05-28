@@ -1,0 +1,97 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.pluggy.ai/auth
+    body:
+      encoding: UTF-8
+      string: '{"clientId":"<PLUGGY_CLIENT_ID>","clientSecret":"<PLUGGY_CLIENT_SECRET>"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - controle-financeiro/1.0
+      Host:
+      - api.pluggy.ai
+      Content-Type:
+      - application/json
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Thu, 28 May 2026 03:34:02 GMT
+      Content-Type:
+      - application/json; charset=utf-8
+      Content-Length:
+      - '711'
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      X-Request-Id:
+      - cfa5a722-1f33-4fd0-9214-be13513308a7
+      Ratelimit-Policy:
+      - 360;w=60
+      Ratelimit-Limit:
+      - '360'
+      Ratelimit-Remaining:
+      - '354'
+      Ratelimit-Reset:
+      - '9'
+      Etag:
+      - W/"2c7-aowNuXPbKn2/2A/g5BmYMxmvbZ8"
+      Vary:
+      - Accept-Encoding
+    body:
+      encoding: UTF-8
+      string: '{"apiKey":"<PLUGGY_API_KEY>"}'
+  recorded_at: Thu, 28 May 2026 03:34:02 GMT
+- request:
+    method: post
+    uri: https://api.pluggy.ai/connect_token
+    body:
+      encoding: UTF-8
+      string: "{}"
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - controle-financeiro/1.0
+      Host:
+      - api.pluggy.ai
+      X-Api-Key:
+      - "<PLUGGY_API_KEY>"
+      Content-Type:
+      - application/json
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Thu, 28 May 2026 03:34:02 GMT
+      Content-Type:
+      - application/json; charset=utf-8
+      Content-Length:
+      - '910'
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      X-Request-Id:
+      - cfb9dc0b-db36-4b07-a8af-c9d471723d66
+      Etag:
+      - W/"38e-55K4l79hUhgAub/w/DnSm9mDkdk"
+      Vary:
+      - Accept-Encoding
+    body:
+      encoding: UTF-8
+      string: '{"accessToken":"<PLUGGY_CONNECT_TOKEN>"}'
+  recorded_at: Thu, 28 May 2026 03:34:02 GMT
+recorded_with: VCR 6.4.0

@@ -1,0 +1,96 @@
+---
+http_interactions:
+- request:
+    method: post
+    uri: https://api.pluggy.ai/auth
+    body:
+      encoding: UTF-8
+      string: '{"clientId":"<PLUGGY_CLIENT_ID>","clientSecret":"<PLUGGY_CLIENT_SECRET>"}'
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - controle-financeiro/1.0
+      Host:
+      - api.pluggy.ai
+      Content-Type:
+      - application/json
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Thu, 28 May 2026 03:34:02 GMT
+      Content-Type:
+      - application/json; charset=utf-8
+      Content-Length:
+      - '711'
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      X-Request-Id:
+      - 52357ede-94ed-4866-bc2d-bf0efd00268a
+      Ratelimit-Policy:
+      - 360;w=60
+      Ratelimit-Limit:
+      - '360'
+      Ratelimit-Remaining:
+      - '355'
+      Ratelimit-Reset:
+      - '9'
+      Etag:
+      - W/"2c7-bxneuSAjQT/e7xbmbtIK4jjBM7o"
+      Vary:
+      - Accept-Encoding
+    body:
+      encoding: UTF-8
+      string: '{"apiKey":"<PLUGGY_API_KEY>"}'
+  recorded_at: Thu, 28 May 2026 03:34:02 GMT
+- request:
+    method: get
+    uri: https://api.pluggy.ai/items/6d662866-386f-4523-8e31-fd3dcc4d1a96
+    body:
+      encoding: US-ASCII
+      string: ''
+    headers:
+      Accept-Encoding:
+      - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+      Accept:
+      - application/json
+      User-Agent:
+      - controle-financeiro/1.0
+      Host:
+      - api.pluggy.ai
+      X-Api-Key:
+      - "<PLUGGY_API_KEY>"
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Date:
+      - Thu, 28 May 2026 03:34:02 GMT
+      Content-Type:
+      - application/json; charset=utf-8
+      Transfer-Encoding:
+      - chunked
+      Connection:
+      - keep-alive
+      Access-Control-Allow-Origin:
+      - "*"
+      X-Request-Id:
+      - bc08110c-2d00-4ecb-bd40-cccd764f414c
+      Etag:
+      - W/"68b-axgBLGuhLUoxYw9QGW4UaRdZch8"
+      Vary:
+      - Accept-Encoding
+    body:
+      encoding: ASCII-8BIT
+      string: !binary |-
+        eyJpZCI6IjZkNjYyODY2LTM4NmYtNDUyMy04ZTMxLWZkM2RjYzRkMWE5NiIsImNvbm5lY3RvciI6eyJpZCI6MiwibmFtZSI6IlBsdWdneSBCYW5rIiwicHJpbWFyeUNvbG9yIjoiZWYyOTRiIiwiaW5zdGl0dXRpb25VcmwiOiJodHRwczovL3BsdWdneS5haSIsImNvdW50cnkiOiJCUiIsInR5cGUiOiJQRVJTT05BTF9CQU5LIiwiY3JlZGVudGlhbHMiOlt7ImxhYmVsIjoiVXNlciIsIm5hbWUiOiJ1c2VyIiwidHlwZSI6InRleHQiLCJwbGFjZWhvbGRlciI6IiIsInZhbGlkYXRpb24iOiJedXNlci0uezIsNTB9JCIsInZhbGlkYXRpb25NZXNzYWdlIjoiTyB1c2VyIGRldmUgY29tZcOnYXIgY29tIFwidXNlci1cIiIsIm9wdGlvbmFsIjpmYWxzZX0seyJsYWJlbCI6IlBhc3N3b3JkIiwibmFtZSI6InBhc3N3b3JkIiwidHlwZSI6InBhc3N3b3JkIiwicGxhY2Vob2xkZXIiOiIiLCJ2YWxpZGF0aW9uIjoiXi57NiwyMH0kIiwidmFsaWRhdGlvbk1lc3NhZ2UiOiJBIHNlbmhhIGRldmUgdGVyIGVudHJlIDYgZSAyMCBjYXJhY3RlcmVzIiwib3B0aW9uYWwiOmZhbHNlfV0sImltYWdlVXJsIjoiaHR0cHM6Ly9jZG4ucGx1Z2d5LmFpL2Fzc2V0cy9jb25uZWN0b3ItaWNvbnMvc2FuZGJveC5zdmciLCJoYXNNRkEiOmZhbHNlLCJoZWFsdGgiOnsic3RhdHVzIjoiT05MSU5FIiwic3RhZ2UiOm51bGx9LCJwcm9kdWN0cyI6WyJBQ0NPVU5UUyIsIkNSRURJVF9DQVJEUyIsIlRSQU5TQUNUSU9OUyIsIlBBWU1FTlRfREFUQSIsIklOVkVTVE1FTlRTIiwiSU5WRVNUTUVOVFNfVFJBTlNBQ1RJT05TIiwiSURFTlRJVFkiLCJMT0FOUyIsIkFDQ09VTlRfU1RBVEVNRU5UUyJdLCJjcmVhdGVkQXQiOiIyMDIwLTA5LTA3VDAwOjA4OjA2LjU4OFoiLCJpc1NhbmRib3giOnRydWUsImlzT3BlbkZpbmFuY2UiOmZhbHNlLCJ1cGRhdGVkQXQiOiIyMDI2LTA1LTI4VDAzOjI3OjE5Ljk1MloiLCJzdXBwb3J0c1BheW1lbnRJbml0aWF0aW9uIjpmYWxzZSwic3VwcG9ydHNTY2hlZHVsZWRQYXltZW50cyI6ZmFsc2UsInN1cHBvcnRzU21hcnRUcmFuc2ZlcnMiOmZhbHNlLCJzdXBwb3J0c0JvbGV0b01hbmFnZW1lbnQiOmZhbHNlLCJzdXBwb3J0c0F1dG9tYXRpY1BpeCI6ZmFsc2V9LCJjcmVhdGVkQXQiOiIyMDI2LTA1LTI4VDAwOjE4OjU3LjI1MFoiLCJ1cGRhdGVkQXQiOiIyMDI2LTA1LTI4VDAwOjE5OjE2LjA0NloiLCJzdGF0dXMiOiJVUERBVEVEIiwiZXhlY3V0aW9uU3RhdHVzIjoiU1VDQ0VTUyIsImxhc3RVcGRhdGVkQXQiOiIyMDI2LTA1LTI4VDAwOjE5OjE2LjA0NFoiLCJ3ZWJob29rVXJsIjpudWxsLCJlcnJvciI6bnVsbCwiY2xpZW50VXNlcklkIjpudWxsLCJjb25zZWN1dGl2ZUZhaWxlZExvZ2luQXR0ZW1wdHMiOjAsInN0YXR1c0RldGFpbCI6bnVsbCwicGFyYW1ldGVyIjpudWxsLCJ1c2VyQWN0aW9uIjpudWxsLCJuZXh0QXV0b1N5bmNBdCI6bnVsbCwiYXV0b1N5bmNEaXNhYmxlZEF0IjpudWxsLCJjb25zZW50RXhwaXJlc0F0IjpudWxsLCJwcm9kdWN0cyI6WyJBQ0NPVU5UUyIsIkNSRURJVF9DQVJEUyIsIlRSQU5TQUNUSU9OUyIsIlBBWU1FTlRfREFUQSIsIklOVkVTVE1FTlRTIiwiSU5WRVNUTUVOVFNfVFJBTlNBQ1RJT05TIiwiSURFTlRJVFkiLCJCUk9LRVJBR0VfTk9URSIsIkxPQU5TIiwiRVhDSEFOR0VfT1BFUkFUSU9OUyJdLCJvYXV0aFJlZGlyZWN0VXJpIjpudWxsfQ==
+  recorded_at: Thu, 28 May 2026 03:34:02 GMT
+recorded_with: VCR 6.4.0

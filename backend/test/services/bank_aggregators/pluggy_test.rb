@@ -73,6 +73,28 @@ class BankAggregators::PluggyTest < ActiveSupport::TestCase
     end
   end
 
+  # --- connect_token ----------------------------------------------------
+
+  test "create_connect_token devolve um accessToken pro widget" do
+    VCR.use_cassette("bank_aggregators/pluggy/connect_token") do
+      token = provider.create_connect_token
+      assert token.is_a?(String)
+      assert token.present?
+    end
+  end
+
+  # --- get_item ---------------------------------------------------------
+
+  test "get_item devolve id, connector_id, connector_name, status" do
+    VCR.use_cassette("bank_aggregators/pluggy/item_get") do
+      item = provider.get_item(item_id: SANDBOX_ITEM_ID)
+      assert_equal SANDBOX_ITEM_ID, item[:id]
+      assert item.key?(:connector_id)
+      assert item.key?(:connector_name)
+      assert item.key?(:status)
+    end
+  end
+
   # --- error handling ---------------------------------------------------
 
   test "lança AuthenticationError quando credentials inválidas" do

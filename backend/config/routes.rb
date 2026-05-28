@@ -29,6 +29,11 @@ Rails.application.routes.draw do
       resources :workspaces, only: [ :index, :show, :create, :update ] do
         resources :memberships, only: [ :index, :create, :destroy ]
       end
+
+      # Bank connections (RF1) — conexão via Pluggy.
+      resources :bank_connections, only: [ :create ] do
+        post "connect_token", on: :collection
+      end
     end
   end
 

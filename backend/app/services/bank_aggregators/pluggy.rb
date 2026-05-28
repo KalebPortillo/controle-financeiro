@@ -36,6 +36,26 @@ module BankAggregators
       @api_key ||= authenticate!
     end
 
+    # Token curto-prazo que o widget Pluggy Connect (frontend) usa pra abrir
+    # o fluxo de conexão. `options` aceita ex.: { itemId: ... } pra reconectar.
+    def create_connect_token(options = {})
+      payload = request(Net::HTTP::Post, "/connect_token",
+                        body: options, authenticated: true, retry_on_401: true)
+      payload.fetch("accessToken")
+    end
+
+    # Detalhes de um item (conexão). { id:, connector_id:, connector_name:, status: }.
+    def get_item(item_id:)
+      payload = get("/items/#{item_id}")
+      connector = payload["connector"] || {}
+      {
+        id:             payload.fetch("id"),
+        connector_id:   connector["id"],
+        connector_name: connector["name"],
+        status:         payload["status"]
+      }
+    end
+
     # Lista accounts de um item (item = conexão Pluggy com banco).
     # Cada item: { id:, type:, name:, number?:, balance?:, currency_code? }.
     def list_accounts(item_id:)

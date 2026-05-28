@@ -1,6 +1,6 @@
 class Account < ApplicationRecord
   KINDS        = %w[checking credit_card].freeze
-  INSTITUTIONS = %w[nubank inter itau santander bb manual].freeze
+  INSTITUTIONS = %w[nubank inter itau santander bb sandbox manual].freeze
 
   belongs_to :workspace
   belongs_to :owner_membership, class_name: "WorkspaceMembership"

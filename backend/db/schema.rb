@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_28_032718) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_28_033431) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -31,7 +31,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_032718) do
     t.index ["bank_connection_id"], name: "index_accounts_on_bank_connection_id"
     t.index ["owner_membership_id"], name: "index_accounts_on_owner_membership_id"
     t.index ["workspace_id"], name: "index_accounts_on_workspace_id"
-    t.check_constraint "institution::text = ANY (ARRAY['nubank'::character varying, 'inter'::character varying, 'itau'::character varying, 'santander'::character varying, 'bb'::character varying, 'manual'::character varying]::text[])", name: "accounts_institution_check"
+    t.check_constraint "institution::text = ANY (ARRAY['nubank'::character varying, 'inter'::character varying, 'itau'::character varying, 'santander'::character varying, 'bb'::character varying, 'sandbox'::character varying, 'manual'::character varying]::text[])", name: "accounts_institution_check"
     t.check_constraint "kind::text = ANY (ARRAY['checking'::character varying, 'credit_card'::character varying]::text[])", name: "accounts_kind_check"
   end
 

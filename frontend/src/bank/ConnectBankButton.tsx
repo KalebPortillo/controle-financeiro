@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { PluggyConnect } from 'react-pluggy-connect'
 import { Button } from '../components/Button'
+import { useAppConfig } from '../api/useAppConfig'
 import {
   useConnectToken,
   useCreateBankConnection,
@@ -26,6 +27,7 @@ export function ConnectBankButton({
 }) {
   const connectToken = useConnectToken()
   const createConnection = useCreateBankConnection()
+  const { data: appConfig } = useAppConfig()
   const [token, setToken] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
 
@@ -73,7 +75,11 @@ export function ConnectBankButton({
       {token && (
         <PluggyConnect
           connectToken={token}
-          includeSandbox={import.meta.env.MODE !== 'production'}
+          // Sandbox-vs-real vem do backend por RAILS_ENV (não de build-time).
+          // Em staging: sandbox ligado + connectorIds restrito aos de teste.
+          // Em prod: sem sandbox e sem whitelist (todos os bancos reais).
+          includeSandbox={appConfig?.pluggy.include_sandbox ?? false}
+          connectorIds={appConfig?.pluggy.connector_ids ?? undefined}
           onSuccess={handleSuccess}
           onClose={() => setToken(null)}
           onError={() => {

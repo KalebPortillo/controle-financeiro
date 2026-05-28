@@ -5,10 +5,24 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConnectBankButton } from './ConnectBankButton'
 
 // Mock do widget Pluggy — não queremos carregar o iframe externo no teste.
-// Renderizamos um botão "fake" que dispara onSuccess com um item fixo.
+// Expõe as props relevantes como data-attrs pra podermos asseverá-las, e
+// dispara onSuccess com um item fixo no clique.
 vi.mock('react-pluggy-connect', () => ({
-  PluggyConnect: ({ onSuccess }: { onSuccess: (d: { item: { id: string } }) => void }) => (
-    <button data-testid="fake-pluggy-widget" onClick={() => onSuccess({ item: { id: 'item-xyz' } })}>
+  PluggyConnect: ({
+    onSuccess,
+    includeSandbox,
+    connectorIds,
+  }: {
+    onSuccess: (d: { item: { id: string } }) => void
+    includeSandbox?: boolean
+    connectorIds?: number[]
+  }) => (
+    <button
+      data-testid="fake-pluggy-widget"
+      data-include-sandbox={String(includeSandbox)}
+      data-connector-ids={JSON.stringify(connectorIds ?? null)}
+      onClick={() => onSuccess({ item: { id: 'item-xyz' } })}
+    >
       fake widget
     </button>
   ),
@@ -18,6 +32,16 @@ function setupFetch() {
   const calls: Array<{ url: string; init?: RequestInit }> = []
   const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
     calls.push({ url, init })
+    if (url === '/api/v1/app_config') {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          environment: 'staging',
+          pluggy: { include_sandbox: true, connector_ids: [2] },
+        }),
+      } as Response
+    }
     if (url === '/api/v1/bank_connections/connect_token') {
       return { ok: true, status: 200, json: async () => ({ connect_token: 'tok-1' }) } as Response
     }
@@ -55,6 +79,16 @@ describe('<ConnectBankButton />', () => {
     const user = userEvent.setup()
     await user.click(screen.getByTestId('connect-bank-button'))
     await waitFor(() => expect(screen.getByTestId('fake-pluggy-widget')).toBeInTheDocument())
+  })
+
+  it('passes runtime sandbox config from /app_config to the widget', async () => {
+    setupFetch()
+    renderButton()
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('connect-bank-button'))
+    const widget = await screen.findByTestId('fake-pluggy-widget')
+    await waitFor(() => expect(widget).toHaveAttribute('data-include-sandbox', 'true'))
+    expect(widget).toHaveAttribute('data-connector-ids', '[2]')
   })
 
   it('on widget success, posts the item and reports connected', async () => {

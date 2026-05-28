@@ -10,6 +10,10 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       get "health", to: "health#show"
+
+      # Config pública (runtime) lida pelo frontend no boot — ex.: sandbox do
+      # Pluggy ligado fora de produção. Decisão por RAILS_ENV, não por build.
+      get "app_config", to: "app_config#show"
       # Sentry probe: rota só existe fora de produção para evitar spam de quota.
       get "test_error", to: "errors#trigger" unless Rails.env.production?
 

@@ -77,9 +77,8 @@ module ActiveSupport
 end
 
 # Rack::Attack desligado por default em test — testes de auth_flow/etc hit
-# /api/v1/auth/* várias vezes e consumiam o counter, fazendo o teste de
-# rate-limit falhar dependendo da ordem de execução. O teste específico
-# do Rack::Attack re-habilita no `setup`.
+# /api/v1/auth/* várias vezes e consumiriam o counter. O RackAttackTest
+# re-habilita no `setup`, com store dedicado + tempo congelado pra isolamento.
 Rack::Attack.enabled = false
 
 module ActionDispatch

@@ -2,14 +2,21 @@ require "test_helper"
 
 class RackAttackTest < ActionDispatch::IntegrationTest
   setup do
-    # Cada teste começa com cache limpo pra não vazar contagem entre runs.
-    Rack::Attack.cache.store.clear
+    # Store DEDICADO por teste (não o global compartilhado) — imune a clears/
+    # incrementos de outros testes que batem em /api/v1/auth/* concorrentemente.
+    @original_store = Rack::Attack.cache.store
+    Rack::Attack.cache.store = ActiveSupport::Cache::MemoryStore.new
     @original_enabled = Rack::Attack.enabled
     Rack::Attack.enabled = true
+    # Congela o tempo: o throttle conta por janela de 1 min; sem isso, os 11
+    # requests podem cruzar a virada do minuto e a contagem reseta no meio.
+    travel_to Time.current
   end
 
   teardown do
+    travel_back
     Rack::Attack.enabled = @original_enabled
+    Rack::Attack.cache.store = @original_store
   end
 
   test "throttles bursts on /api/v1/auth/* per IP" do

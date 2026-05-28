@@ -37,6 +37,10 @@ module BankConnections
       end
 
       finished = Time.current
+      # Grava o histórico ANTES do update! — o update! dispara o broadcast
+      # (after_update_commit) que faz o frontend refetchar o histórico; se a
+      # linha não existisse ainda, daria corrida e o painel veria o estado velho.
+      record_run!(started, finished, "success", created, duplicated, errored, nil)
       @connection.update!(
         last_sync_at:               finished,
         status:                     "connected",
@@ -46,7 +50,6 @@ module BankConnections
         last_sync_error_count:      errored,
         last_sync_duration_seconds: (finished - started).round
       )
-      record_run!(started, finished, "success", created, duplicated, errored, nil)
       { created: created, duplicated: duplicated, errored: errored }
     rescue StandardError => e
       # Registra o run falho no histórico (RF21.7) e propaga — o SyncJob trata

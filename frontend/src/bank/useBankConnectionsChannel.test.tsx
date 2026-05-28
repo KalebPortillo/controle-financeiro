@@ -84,6 +84,22 @@ describe('useBankConnectionsChannel', () => {
     })
   })
 
+  it('invalidates the sync_history query for the updated connection', () => {
+    const qc = setup('w1')
+    const spy = vi.spyOn(qc, 'invalidateQueries')
+    const [, handlers] = hoisted.create.mock.calls[0] as [
+      unknown,
+      { received: (data: unknown) => void },
+    ]
+
+    handlers.received({
+      event: 'connection_updated',
+      bank_connection: conn({ id: 'c1', status: 'connected' }),
+    })
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['sync_history', 'c1'] })
+  })
+
   it('ignores events that are not connection_updated', () => {
     const qc = setup('w1')
     const [, handlers] = hoisted.create.mock.calls[0] as [

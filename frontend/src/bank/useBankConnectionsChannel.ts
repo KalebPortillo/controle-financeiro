@@ -49,6 +49,9 @@ export function useBankConnectionsChannel(workspaceId: string | null | undefined
               : [ ...prev.connections, data.bank_connection ]
             return { connections, summary: summarize(connections) }
           })
+          // O sync que terminou criou uma nova linha no histórico (RF21.7) —
+          // invalida pra refetchar se o painel de histórico estiver aberto.
+          qc.invalidateQueries({ queryKey: [ 'sync_history', data.bank_connection.id ] })
         },
       }
     )

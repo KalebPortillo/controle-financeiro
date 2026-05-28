@@ -29,4 +29,19 @@ class WorkspaceTest < ActiveSupport::TestCase
     assert_includes workspace.members, user_a
     assert_includes workspace.members, user_b
   end
+
+  test "destroy cascateia connections/accounts/transactions antes das memberships (sem FK violation)" do
+    workspace  = create(:workspace)
+    membership = create(:workspace_membership, workspace: workspace)
+    connection = create(:bank_connection, workspace: workspace, owner_membership: membership)
+    account    = create(:account, workspace: workspace, owner_membership: membership,
+                                  bank_connection: connection)
+    create(:transaction, workspace: workspace, account: account)
+
+    assert_nothing_raised { workspace.destroy! }
+    assert_not Workspace.exists?(workspace.id)
+    assert_not WorkspaceMembership.exists?(membership.id)
+    assert_not BankConnection.exists?(connection.id)
+    assert_not Account.exists?(account.id)
+  end
 end

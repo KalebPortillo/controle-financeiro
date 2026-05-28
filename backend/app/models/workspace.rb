@@ -1,10 +1,14 @@
 class Workspace < ApplicationRecord
   belongs_to :created_by_user, class_name: "User"
 
-  has_many :memberships, class_name: "WorkspaceMembership", dependent: :destroy
-  has_many :members, through: :memberships, source: :user
+  # Ordem importa: dependent: :destroy roda na ordem de declaração. Como
+  # bank_connections e accounts referenciam workspace_memberships via
+  # owner_membership_id, eles têm que ser destruídos ANTES das memberships,
+  # senão a FK estoura ao apagar o workspace.
   has_many :bank_connections, dependent: :destroy
   has_many :accounts, dependent: :destroy
+  has_many :memberships, class_name: "WorkspaceMembership", dependent: :destroy
+  has_many :members, through: :memberships, source: :user
 
   validates :name, presence: true
 end

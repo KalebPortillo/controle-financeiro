@@ -62,6 +62,22 @@ class BankConnectionsApiTest < ActionDispatch::IntegrationTest
     assert_equal %w[checking credit_card].sort, accounts.map { |a| a["kind"] }.sort
   end
 
+  test "POST /bank_connections enfileira o sync inicial" do
+    stub_request(:get, %r{https://api\.pluggy\.ai/items/item-job})
+      .to_return(status: 200, headers: { "Content-Type" => "application/json" },
+                 body: { id: "item-job", status: "UPDATED",
+                         connector: { id: 2, name: "Pluggy Bank" } }.to_json)
+    stub_request(:get, %r{https://api\.pluggy\.ai/accounts})
+      .to_return(status: 200, headers: { "Content-Type" => "application/json" },
+                 body: { results: [] }.to_json)
+
+    assert_enqueued_with(job: BankConnections::SyncJob) do
+      post "/api/v1/bank_connections",
+           params: { item_id: "item-job", history_since: "2026-01-01" }, as: :json
+    end
+    assert_response :created
+  end
+
   test "POST /bank_connections exige autenticação" do
     delete "/api/v1/sessions/current"
     post "/api/v1/bank_connections",

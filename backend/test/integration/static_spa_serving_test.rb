@@ -15,21 +15,17 @@ class StaticSpaServingTest < ActionDispatch::IntegrationTest
     <html><body><div id="root">spa-shell-fixture-content-padded-pra-passar-do-cutoff-de-100-bytes</div></body></html>
   HTML
 
-  setup do
-    @index_path = Rails.public_path.join("index.html")
-    # public/ pode não existir em CI (não é tracked pelo git quando vazio).
-    FileUtils.mkdir_p(@index_path.dirname)
-    @backup = @index_path.exist? ? @index_path.read : nil
-    @index_path.write(SHELL)
+  # Garante o fixture uma vez antes da suíte. NÃO deletamos no teardown porque
+  # `public/index.html` é um arquivo único no disco, compartilhado por TODOS os
+  # workers paralelos — deletar no meio do teste de outro worker causa 404
+  # intermitente. Escrever é idempotente (mesmo conteúdo), ler é sempre não-vazio.
+  def ensure_spa_shell
+    path = Rails.public_path.join("index.html")
+    FileUtils.mkdir_p(path.dirname)
+    path.write(SHELL) unless path.exist? && path.read.include?('<div id="root">')
   end
 
-  teardown do
-    if @backup
-      @index_path.write(@backup)
-    else
-      @index_path.delete if @index_path.exist?
-    end
-  end
+  setup { ensure_spa_shell }
 
   test "GET / serves the SPA index.html with HTML content type" do
     get "/", headers: { "Accept" => "text/html" }

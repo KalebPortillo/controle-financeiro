@@ -6,6 +6,8 @@ class Account < ApplicationRecord
   belongs_to :owner_membership, class_name: "WorkspaceMembership"
   belongs_to :bank_connection, optional: true
 
+  has_many :transactions, dependent: :destroy
+
   validates :name,        presence: true
   validates :kind,        presence: true, inclusion: { in: KINDS }
   validates :institution, presence: true, inclusion: { in: INSTITUTIONS }

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_28_033431) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_28_034357) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -54,6 +54,45 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_033431) do
     t.check_constraint "status::text = ANY (ARRAY['connected'::character varying, 'syncing'::character varying, 'expired'::character varying, 'error'::character varying, 'disconnected'::character varying]::text[])", name: "bank_connections_status_check"
   end
 
+  create_table "transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "ai_confidence", precision: 3, scale: 2
+    t.integer "amount_cents", null: false
+    t.datetime "consolidated_at"
+    t.datetime "created_at", null: false
+    t.uuid "created_by_membership_id"
+    t.string "currency", limit: 3, default: "BRL", null: false
+    t.string "direction", null: false
+    t.virtual "external_transaction_id", type: :text, as: "(source_metadata ->> 'id'::text)", stored: true
+    t.text "improved_title"
+    t.uuid "installment_group_id"
+    t.integer "installment_number", limit: 2
+    t.integer "installment_total", limit: 2
+    t.integer "lock_version", default: 0, null: false
+    t.date "occurred_at", null: false
+    t.text "original_description", null: false
+    t.uuid "parent_transaction_id"
+    t.datetime "rejected_at"
+    t.string "source", null: false
+    t.jsonb "source_metadata"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "workspace_id", null: false
+    t.index ["account_id", "external_transaction_id"], name: "index_transactions_on_account_and_external_id", unique: true, where: "(external_transaction_id IS NOT NULL)"
+    t.index ["account_id", "occurred_at"], name: "index_transactions_on_account_id_and_occurred_at"
+    t.index ["account_id"], name: "index_transactions_on_account_id"
+    t.index ["created_by_membership_id"], name: "index_transactions_on_created_by_membership_id"
+    t.index ["installment_group_id"], name: "index_transactions_on_installment_group_id"
+    t.index ["parent_transaction_id"], name: "index_transactions_on_parent_transaction_id"
+    t.index ["workspace_id", "status", "occurred_at"], name: "index_transactions_on_workspace_status_occurred", order: { occurred_at: :desc }
+    t.index ["workspace_id"], name: "index_transactions_on_workspace_id"
+    t.check_constraint "(installment_number IS NULL) = (installment_total IS NULL)", name: "transactions_installment_pair_check"
+    t.check_constraint "amount_cents > 0", name: "transactions_amount_positive"
+    t.check_constraint "direction::text = ANY (ARRAY['debit'::character varying, 'credit'::character varying]::text[])", name: "transactions_direction_check"
+    t.check_constraint "source::text = ANY (ARRAY['automatic_sync'::character varying, 'manual_import'::character varying, 'manual_entry'::character varying, 'installment_generated'::character varying]::text[])", name: "transactions_source_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'consolidated'::character varying, 'rejected'::character varying, 'split'::character varying]::text[])", name: "transactions_status_check"
+  end
+
   create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "avatar_url"
     t.datetime "created_at", null: false
@@ -91,6 +130,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_033431) do
   add_foreign_key "accounts", "workspaces"
   add_foreign_key "bank_connections", "workspace_memberships", column: "owner_membership_id"
   add_foreign_key "bank_connections", "workspaces"
+  add_foreign_key "transactions", "accounts"
+  add_foreign_key "transactions", "transactions", column: "parent_transaction_id"
+  add_foreign_key "transactions", "workspace_memberships", column: "created_by_membership_id"
+  add_foreign_key "transactions", "workspaces"
   add_foreign_key "workspace_memberships", "users"
   add_foreign_key "workspace_memberships", "workspaces"
   add_foreign_key "workspaces", "users", column: "created_by_user_id"

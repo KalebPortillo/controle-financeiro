@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_28_034357) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_28_113952) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -41,6 +41,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_034357) do
     t.text "error_message"
     t.string "external_connection_id", null: false
     t.datetime "last_sync_at"
+    t.integer "last_sync_created_count", default: 0, null: false
+    t.integer "last_sync_duplicate_count", default: 0, null: false
+    t.integer "last_sync_duration_seconds"
+    t.integer "last_sync_error_count", default: 0, null: false
+    t.datetime "next_sync_at"
     t.uuid "owner_membership_id", null: false
     t.string "provider", default: "pluggy", null: false
     t.string "status", default: "connected", null: false

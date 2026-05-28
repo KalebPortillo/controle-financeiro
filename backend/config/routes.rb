@@ -30,9 +30,16 @@ Rails.application.routes.draw do
         resources :memberships, only: [ :index, :create, :destroy ]
       end
 
-      # Bank connections (RF1) — conexão via Pluggy.
-      resources :bank_connections, only: [ :create ] do
-        post "connect_token", on: :collection
+      # Bank connections (RF1 + RF21) — conexão via Pluggy.
+      resources :bank_connections, only: [ :index, :show, :create, :destroy ] do
+        collection do
+          post "connect_token"
+          post "sync_all"
+        end
+        member do
+          post "sync"
+          post "reconnect"
+        end
       end
     end
   end

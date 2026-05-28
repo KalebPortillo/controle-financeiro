@@ -18,6 +18,8 @@ module BankConnections
     def call
       created = 0
       duplicated = 0
+      errored = 0
+      started = Time.current
 
       @connection.accounts.find_each do |account|
         next if account.external_id.blank?
@@ -26,23 +28,32 @@ module BankConnections
           account_id: account.external_id,
           from:       @connection.sync_history_since
         ).each do |t|
-          if import_transaction(account, t)
-            created += 1
-          else
-            duplicated += 1
+          case import_transaction(account, t)
+          when :created    then created += 1
+          when :duplicated then duplicated += 1
+          when :errored    then errored += 1
           end
         end
       end
 
-      @connection.update!(last_sync_at: Time.current, status: "connected", error_message: nil)
-      { created: created, duplicated: duplicated }
+      @connection.update!(
+        last_sync_at:               Time.current,
+        status:                     "connected",
+        error_message:              nil,
+        last_sync_created_count:    created,
+        last_sync_duplicate_count:  duplicated,
+        last_sync_error_count:      errored,
+        last_sync_duration_seconds: (Time.current - started).round
+      )
+      { created: created, duplicated: duplicated, errored: errored }
     end
 
     private
 
-    # Retorna true se criou, false se já existia (dedup). A unicidade é
-    # garantida no DB (external_transaction_id gerado); capturamos a violação
-    # pra contar como duplicado sem abortar o sync inteiro.
+    # :created | :duplicated | :errored. Unicidade é garantida no DB
+    # (external_transaction_id gerado); capturamos a violação pra contar como
+    # duplicado sem abortar o sync. Erros de dado isolados (ex.: data
+    # malformada) contam como :errored e não derrubam o lote.
     def import_transaction(account, t)
       amount = t.fetch(:amount).to_f
       Transaction.create!(
@@ -57,9 +68,12 @@ module BankConnections
         source:               "automatic_sync",
         source_metadata:      t[:raw] || { "id" => t[:id] }
       )
-      true
+      :created
     rescue ActiveRecord::RecordNotUnique
-      false
+      :duplicated
+    rescue ArgumentError, ActiveRecord::RecordInvalid => e
+      Rails.logger.warn("[Sync] transação ignorada (#{t[:id]}): #{e.message}")
+      :errored
     end
 
     def default_provider

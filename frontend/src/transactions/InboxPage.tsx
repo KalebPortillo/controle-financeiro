@@ -1,192 +1,197 @@
 import { useState } from 'react'
+import { CreditCard } from 'lucide-react'
 import { Button } from '../components/Button'
-import { Input } from '../components/Input'
-import { Card, CardBody } from '../components/Card'
-import { TagEditor } from './TagEditor'
+import { Money } from '../components/Money'
+import { TagChip } from '../components/TagChip'
 import {
   useInbox,
   useConsolidate,
   useReject,
-  useRemoveTransaction,
-  useUpdateTransaction,
   type InboxTransaction,
 } from './useInbox'
-
-function formatMoney(cents: number, currency = 'BRL'): string {
-  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency })
-}
+import { TransactionDetailSheet } from './TransactionDetailSheet'
 
 function formatDate(iso: string): string {
   const [, m, d] = iso.split('-')
   return `${d}/${m}`
 }
 
+function signedCents(t: InboxTransaction): number {
+  return t.direction === 'debit' ? -t.amount_cents : t.amount_cents
+}
+
 /**
- * Inbox (RF2) — revisa as transações que o sync trouxe (status pending) antes de
- * consolidar. Ações por item: aceitar, rejeitar, editar (título/valor), remover.
- * Tags/categoria/split entram quando RF5/RF6/RF10 existirem.
+ * Inbox (RF2) — tabela densa das transações pendentes (status pending) no padrão
+ * do design (ui_kits/app/InboxView.jsx). Clicar numa linha abre o detail sheet;
+ * seleção múltipla expõe a barra de ações em massa.
  */
 export function InboxPage() {
   const { data, isLoading } = useInbox()
+  const consolidate = useConsolidate()
+  const reject = useReject()
+
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
+
+  const transactions = data?.transactions ?? []
+  const active = transactions.find((t) => t.id === activeId) ?? null
+
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  const open = (t: InboxTransaction) => {
+    setActiveId(t.id)
+    setSheetOpen(true)
+  }
+
+  const bulkAccept = async () => {
+    await Promise.all([...selected].map((id) => consolidate.mutateAsync(id)))
+    setSelected(new Set())
+  }
+  const bulkReject = async () => {
+    await Promise.all([...selected].map((id) => reject.mutateAsync(id)))
+    setSelected(new Set())
+  }
+
+  const busy = consolidate.isPending || reject.isPending
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <section className="space-y-1">
-        <h1 className="font-sans text-2xl font-semibold tracking-tight">Inbox</h1>
-        <p className="text-sm text-muted-foreground">
-          {data?.pending_count ?? 0} pendente{(data?.pending_count ?? 0) === 1 ? '' : 's'} para revisar
-        </p>
-      </section>
-
-      <div className="space-y-2">
-        {isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
-        {!isLoading && (data?.transactions.length ?? 0) === 0 && (
-          <p className="text-sm text-muted-foreground" data-testid="inbox-empty">
-            Nada pendente. Tudo revisado.
+    <div className="max-w-4xl mx-auto">
+      <div className="flex items-end justify-between mb-4">
+        <div>
+          <h1 className="font-sans text-2xl font-semibold tracking-tight">Inbox</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {data?.pending_count ?? 0} pendente{(data?.pending_count ?? 0) === 1 ? '' : 's'} esperando revisão
           </p>
-        )}
-        {data?.transactions.map((t) => (
-          <InboxRow key={t.id} transaction={t} />
-        ))}
+        </div>
       </div>
+
+      {isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
+      {!isLoading && transactions.length === 0 && (
+        <p className="text-sm text-muted-foreground" data-testid="inbox-empty">
+          Nada pendente. Tudo revisado.
+        </p>
+      )}
+
+      {transactions.length > 0 && (
+        <div className="border border-border rounded-lg overflow-hidden">
+          <div className="hidden md:grid grid-cols-[32px_1fr_180px_120px] gap-3 px-4 py-2 text-[11px] uppercase tracking-wider font-medium text-muted-foreground border-b border-border">
+            <span />
+            <span>Descrição</span>
+            <span>Tags</span>
+            <span className="text-right">Valor</span>
+          </div>
+
+          {transactions.map((t) => (
+            <Row
+              key={t.id}
+              t={t}
+              selected={selected.has(t.id)}
+              active={activeId === t.id && sheetOpen}
+              onToggle={() => toggle(t.id)}
+              onOpen={() => open(t)}
+            />
+          ))}
+        </div>
+      )}
+
+      {selected.size > 0 && (
+        <div className="sticky bottom-4 mt-4 flex items-center justify-between gap-3 px-4 py-3 bg-card border border-border rounded-lg shadow-[var(--shadow-lg)]">
+          <div className="flex items-center gap-2.5 text-sm font-medium">
+            {selected.size} selecionado{selected.size > 1 ? 's' : ''}
+            <button
+              onClick={() => setSelected(new Set())}
+              className="text-xs text-muted-foreground underline"
+            >
+              limpar
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={bulkReject} disabled={busy} data-testid="bulk-reject">
+              Rejeitar
+            </Button>
+            <Button variant="primary" onClick={bulkAccept} disabled={busy} data-testid="bulk-accept">
+              Aceitar selecionados ({selected.size})
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <TransactionDetailSheet
+        transaction={active}
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+      />
     </div>
   )
 }
 
-function InboxRow({ transaction: t }: { transaction: InboxTransaction }) {
-  const consolidate = useConsolidate()
-  const reject = useReject()
-  const remove = useRemoveTransaction()
-  const update = useUpdateTransaction()
-
-  const [editing, setEditing] = useState(false)
-  const [title, setTitle] = useState(t.improved_title ?? '')
-  const [amount, setAmount] = useState((t.amount_cents / 100).toFixed(2))
-
-  const busy =
-    consolidate.isPending || reject.isPending || remove.isPending || update.isPending
-
-  const saveEdit = async () => {
-    const cents = Math.round(parseFloat(amount.replace(',', '.')) * 100)
-    await update.mutateAsync({
-      id: t.id,
-      lock_version: t.lock_version,
-      improved_title: title.trim() || undefined,
-      amount_cents: Number.isFinite(cents) ? cents : undefined,
-    })
-    setEditing(false)
-  }
-
-  const applyTags = (tagIds: string[]) => {
-    update.mutate({ id: t.id, lock_version: t.lock_version, tag_ids: tagIds })
-  }
-
+function Row({
+  t, selected, active, onToggle, onOpen,
+}: {
+  t: InboxTransaction
+  selected: boolean
+  active: boolean
+  onToggle: () => void
+  onOpen: () => void
+}) {
   return (
-    <Card data-testid={`inbox-row-${t.id}`}>
-      <CardBody className="py-3 space-y-2">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-sm font-medium text-foreground truncate">
-              {t.improved_title || t.original_description}
-            </div>
-            <div className="text-[11px] text-muted-foreground truncate">
-              {formatDate(t.occurred_at)} · {t.account_name ?? '—'}
-            </div>
-          </div>
-          <div
-            className={`text-sm font-medium shrink-0 ${t.direction === 'credit' ? 'text-success' : 'text-foreground'}`}
-          >
-            {t.direction === 'debit' ? '-' : '+'}
-            {formatMoney(t.amount_cents, t.currency)}
-          </div>
+    <div
+      onClick={onOpen}
+      data-testid={`inbox-row-${t.id}`}
+      className={`grid grid-cols-[32px_1fr_auto] md:grid-cols-[32px_1fr_180px_120px] gap-3 items-center px-4 py-3 border-b border-border last:border-b-0 cursor-pointer transition-colors hover:bg-muted ${
+        active ? 'bg-muted shadow-[inset_2px_0_0_0_var(--accent)]' : ''
+      } ${selected ? 'bg-[color-mix(in_srgb,var(--accent)_6%,transparent)]' : ''}`}
+    >
+      <label className="flex items-center" onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggle}
+          aria-label="Selecionar"
+          className="cursor-pointer accent-[var(--accent)]"
+          data-testid={`select-${t.id}`}
+        />
+      </label>
+
+      <div className="min-w-0">
+        <div className="text-[13px] font-medium truncate">
+          {t.improved_title || (
+            <span className="font-mono text-muted-foreground">{t.original_description}</span>
+          )}
         </div>
-
-        {t.tags.length > 0 && !editing && (
-          <div className="flex flex-wrap gap-1">
-            {t.tags.map((tag) => (
-              <span
-                key={tag.id}
-                className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] text-foreground"
-                data-testid={`row-tag-${tag.id}`}
-              >
-                {tag.name}
-              </span>
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
+          <CreditCard size={12} />
+          <span className="truncate">{t.account_name ?? '—'}</span>
+          <span className="text-border">·</span>
+          <span>{formatDate(t.occurred_at)}</span>
+        </div>
+        {t.tags.length > 0 && (
+          <div className="flex md:hidden items-center gap-1.5 mt-1.5 overflow-hidden">
+            {t.tags.slice(0, 2).map((tag) => (
+              <TagChip key={tag.id} name={tag.name} color={tag.color} />
             ))}
+            {t.tags.length > 2 && <span className="text-[11px] text-muted-foreground">+{t.tags.length - 2}</span>}
           </div>
         )}
+      </div>
 
-        {editing && (
-          <div className="space-y-2">
-            <div className="flex flex-wrap gap-2 items-center">
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Título"
-                data-testid={`edit-title-${t.id}`}
-              />
-              <Input
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                inputMode="decimal"
-                className="w-28"
-                data-testid={`edit-amount-${t.id}`}
-              />
-              <Button size="sm" onClick={saveEdit} disabled={busy} data-testid={`save-${t.id}`}>
-                Salvar
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setEditing(false)} disabled={busy}>
-                Cancelar
-              </Button>
-            </div>
-            <TagEditor
-              transactionId={t.id}
-              current={t.tags}
-              onChange={applyTags}
-              disabled={busy}
-            />
-          </div>
-        )}
+      <div className="hidden md:flex items-center gap-1.5 overflow-hidden">
+        {t.tags.slice(0, 2).map((tag) => (
+          <TagChip key={tag.id} name={tag.name} color={tag.color} />
+        ))}
+        {t.tags.length > 2 && <span className="text-[11px] text-muted-foreground">+{t.tags.length - 2}</span>}
+      </div>
 
-        {!editing && (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              onClick={() => consolidate.mutate(t.id)}
-              disabled={busy}
-              data-testid={`accept-${t.id}`}
-            >
-              Aceitar
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setEditing(true)}
-              disabled={busy}
-              data-testid={`edit-${t.id}`}
-            >
-              Editar
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => reject.mutate(t.id)}
-              disabled={busy}
-              data-testid={`reject-${t.id}`}
-            >
-              Rejeitar
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => remove.mutate(t.id)}
-              disabled={busy}
-              data-testid={`remove-${t.id}`}
-            >
-              Remover
-            </Button>
-          </div>
-        )}
-      </CardBody>
-    </Card>
+      <div className="text-right whitespace-nowrap">
+        <Money cents={signedCents(t)} signed className="font-semibold" />
+      </div>
+    </div>
   )
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
@@ -58,7 +58,7 @@ function renderInbox() {
 describe('<InboxPage />', () => {
   beforeEach(() => vi.restoreAllMocks())
 
-  it('lists pending transactions with description and amount', async () => {
+  it('lists pending transactions in the table', async () => {
     setupFetch({
       '/api/v1/transactions?status=pending': {
         status: 200,
@@ -81,18 +81,19 @@ describe('<InboxPage />', () => {
     await waitFor(() => expect(screen.getByTestId('inbox-empty')).toBeInTheDocument())
   })
 
-  it('"Aceitar" posts to consolidate', async () => {
+  it('opens the detail sheet on row click and accepts via consolidate', async () => {
     const { fetchMock } = setupFetch({
       'GET /api/v1/transactions?status=pending': {
         status: 200,
         body: { transactions: [tx()], pending_count: 1 },
       },
+      'GET /api/v1/tags': { status: 200, body: { tags: [] } },
       'POST /api/v1/transactions/t1/consolidate': { status: 200, body: { transaction: tx({ status: 'consolidated' }) } },
     })
     renderInbox()
     const user = userEvent.setup()
-    const row = await screen.findByTestId('inbox-row-t1')
-    await user.click(within(row).getByTestId('accept-t1'))
+    await user.click(await screen.findByTestId('inbox-row-t1'))
+    await user.click(await screen.findByTestId('sheet-accept-t1'))
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -102,64 +103,22 @@ describe('<InboxPage />', () => {
     )
   })
 
-  it('renders existing tags as chips on a row', async () => {
-    setupFetch({
-      '/api/v1/transactions?status=pending': {
-        status: 200,
-        body: {
-          transactions: [tx({ tags: [{ id: 'tg1', name: 'Mercado', color: null, icon: null }] })],
-          pending_count: 1,
-        },
-      },
-    })
-    renderInbox()
-    await waitFor(() => expect(screen.getByTestId('row-tag-tg1')).toHaveTextContent('Mercado'))
-  })
-
-  it('adds a tag via the editor and PATCHes tag_ids', async () => {
+  it('edits the title in the sheet and PATCHes with lock_version on blur', async () => {
     const { fetchMock } = setupFetch({
       'GET /api/v1/transactions?status=pending': {
         status: 200,
-        body: { transactions: [tx({ lock_version: 2 })], pending_count: 1 },
+        body: { transactions: [tx({ lock_version: 4 })], pending_count: 1 },
       },
-      'GET /api/v1/tags': {
-        status: 200,
-        body: { tags: [{ id: 'tg1', name: 'Mercado', color: null, icon: null, usage_count: 0 }] },
-      },
+      'GET /api/v1/tags': { status: 200, body: { tags: [] } },
       'PATCH /api/v1/transactions/t1': { status: 200, body: { transaction: tx() } },
     })
     renderInbox()
     const user = userEvent.setup()
-    const row = await screen.findByTestId('inbox-row-t1')
-    await user.click(within(row).getByTestId('edit-t1'))
-    await user.type(within(row).getByTestId('tag-input-t1'), 'merc')
-    await user.click(await within(row).findByTestId('tag-suggest-tg1'))
-
-    await waitFor(() => {
-      const call = fetchMock.mock.calls.find(
-        (c) => c[0] === '/api/v1/transactions/t1' && c[1]?.method === 'PATCH'
-      )
-      expect(call).toBeTruthy()
-      expect(JSON.parse(call![1]!.body as string).tag_ids).toEqual(['tg1'])
-    })
-  })
-
-  it('edits title/amount and PATCHes with lock_version', async () => {
-    const { fetchMock } = setupFetch({
-      'GET /api/v1/transactions?status=pending': {
-        status: 200,
-        body: { transactions: [tx({ lock_version: 3 })], pending_count: 1 },
-      },
-      'PATCH /api/v1/transactions/t1': { status: 200, body: { transaction: tx({ improved_title: 'Almoço' }) } },
-    })
-    renderInbox()
-    const user = userEvent.setup()
-    const row = await screen.findByTestId('inbox-row-t1')
-    await user.click(within(row).getByTestId('edit-t1'))
-    const title = within(row).getByTestId('edit-title-t1')
+    await user.click(await screen.findByTestId('inbox-row-t1'))
+    const title = await screen.findByTestId('sheet-title-t1')
     await user.clear(title)
     await user.type(title, 'Almoço')
-    await user.click(within(row).getByTestId('save-t1'))
+    await user.tab() // blur
 
     await waitFor(() => {
       const call = fetchMock.mock.calls.find(
@@ -167,8 +126,35 @@ describe('<InboxPage />', () => {
       )
       expect(call).toBeTruthy()
       const body = JSON.parse(call![1]!.body as string)
-      expect(body.lock_version).toBe(3)
+      expect(body.lock_version).toBe(4)
       expect(body.improved_title).toBe('Almoço')
+    })
+  })
+
+  it('bulk-accepts selected rows', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/transactions?status=pending': {
+        status: 200,
+        body: { transactions: [tx({ id: 't1' }), tx({ id: 't2' })], pending_count: 2 },
+      },
+      'POST /api/v1/transactions/t1/consolidate': { status: 200, body: { transaction: tx() } },
+      'POST /api/v1/transactions/t2/consolidate': { status: 200, body: { transaction: tx({ id: 't2' }) } },
+    })
+    renderInbox()
+    const user = userEvent.setup()
+    await user.click(await screen.findByTestId('select-t1'))
+    await user.click(await screen.findByTestId('select-t2'))
+    await user.click(await screen.findByTestId('bulk-accept'))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/transactions/t1/consolidate',
+        expect.objectContaining({ method: 'POST' })
+      )
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/transactions/t2/consolidate',
+        expect.objectContaining({ method: 'POST' })
+      )
     })
   })
 })

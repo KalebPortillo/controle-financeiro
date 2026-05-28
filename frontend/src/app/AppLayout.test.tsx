@@ -21,6 +21,10 @@ function setupFetch() {
     if (url.startsWith('/api/v1/transactions')) {
       return { ok: true, status: 200, json: async () => ({ transactions: [], pending_count: 0 }) } as Response
     }
+    // GlobalSyncIndicator no topbar busca isso; sem conexões → não renderiza nada.
+    if (url === '/api/v1/bank_connections') {
+      return { ok: true, status: 200, json: async () => ({ connections: [], summary: { total: 0, connected: 0, syncing: 0, error: 0 } }) } as Response
+    }
     throw new Error(`unmocked: ${url}`)
   }) as unknown as typeof fetch
 }

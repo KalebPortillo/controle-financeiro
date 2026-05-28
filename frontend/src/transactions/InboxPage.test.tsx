@@ -131,6 +131,28 @@ describe('<InboxPage />', () => {
     })
   })
 
+  it('accepts inline from the row without opening the sheet', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/transactions?status=pending': {
+        status: 200,
+        body: { transactions: [tx()], pending_count: 1 },
+      },
+      'POST /api/v1/transactions/t1/consolidate': { status: 200, body: { transaction: tx() } },
+    })
+    renderInbox()
+    const user = userEvent.setup()
+    await user.click(await screen.findByTestId('row-accept-t1'))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/transactions/t1/consolidate',
+        expect.objectContaining({ method: 'POST' })
+      )
+    )
+    // não abriu o sheet (sem campos de edição)
+    expect(screen.queryByTestId('sheet-accept-t1')).not.toBeInTheDocument()
+  })
+
   it('bulk-accepts selected rows', async () => {
     const { fetchMock } = setupFetch({
       'GET /api/v1/transactions?status=pending': {

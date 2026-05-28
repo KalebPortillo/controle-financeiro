@@ -1,7 +1,7 @@
 import { Link } from 'react-router'
+import { CreditCard, Tag as TagIcon, Folder, Upload, ChevronRight } from 'lucide-react'
 import { useSession, useLogout, useSelectWorkspace } from '../auth/useSession'
 import { Button } from '../components/Button'
-import { buttonClass } from '../components/buttonClass'
 import { Card, CardBody, CardHeader } from '../components/Card'
 import { MembersCard } from './MembersCard'
 import { ConnectBankButton } from '../bank/ConnectBankButton'
@@ -73,17 +73,48 @@ export function DashboardPage() {
             Conecte uma conta via Pluggy. As transações caem na inbox pra você revisar.
           </p>
         </CardHeader>
-        <CardBody className="pt-0 flex flex-wrap items-center gap-2">
+        <CardBody className="pt-0">
           <ConnectBankButton />
-          <Link
-            to="/contas"
-            className={buttonClass({ variant: 'outline', size: 'md' })}
-            data-testid="go-contas"
-          >
-            Status de sincronização
-          </Link>
         </CardBody>
       </Card>
+
+      <Card className="overflow-hidden">
+        <SectionRow to="/contas" icon={<CreditCard size={16} />} title="Contas e sincronização" sub="Pluggy + status de sync" testid="go-contas" />
+        <SectionRow to="/tags" icon={<TagIcon size={16} />} title="Tags" sub="planas, múltiplas por gasto" testid="go-tags" />
+        <SectionRow icon={<Folder size={16} />} title="Categorias" sub="agrega tags (em breve)" />
+        <SectionRow icon={<Upload size={16} />} title="Importações CSV / OFX" sub="upload de extratos (em breve)" />
+      </Card>
     </div>
+  )
+}
+
+function SectionRow({
+  to, icon, title, sub, testid,
+}: {
+  to?: string
+  icon: React.ReactNode
+  title: string
+  sub: string
+  testid?: string
+}) {
+  const inner = (
+    <>
+      <span className="text-muted-foreground">{icon}</span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-medium">{title}</span>
+        <span className="block text-xs text-muted-foreground">{sub}</span>
+      </span>
+      {to && <ChevronRight size={14} className="text-muted-foreground" />}
+    </>
+  )
+  const cls =
+    'flex items-center gap-3 px-4 py-3 border-b border-border last:border-b-0'
+  if (!to) {
+    return <div className={`${cls} opacity-50`}>{inner}</div>
+  }
+  return (
+    <Link to={to} className={`${cls} hover:bg-muted transition-colors`} data-testid={testid}>
+      {inner}
+    </Link>
   )
 }

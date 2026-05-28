@@ -15,6 +15,7 @@ import { WalletLogo } from '../components/WalletLogo'
 import { useTheme } from '../components/useTheme'
 import { useSession } from '../auth/useSession'
 import { InboxBadge } from '../transactions/InboxBadge'
+import { GlobalSyncIndicator } from '../bank/GlobalSyncIndicator'
 
 type NavItem = {
   id: string
@@ -135,7 +136,8 @@ function TopBar({ theme, onToggleTheme }: { theme: string; onToggleTheme: () => 
           className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-2 focus:outline-ring/30"
         />
       </div>
-      <div className="ml-auto flex items-center gap-1.5">
+      <div className="ml-auto flex items-center gap-3">
+        <GlobalSyncIndicator />
         <button
           onClick={onToggleTheme}
           aria-label="Alternar tema"

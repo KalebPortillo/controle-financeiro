@@ -41,6 +41,14 @@ Rails.application.routes.draw do
       # Webhook do Pluggy (máquina→máquina; valida header secreto, sem sessão).
       post "webhooks/pluggy", to: "webhooks#pluggy"
 
+      # Transactions (RF2 inbox + RF4) — listagem/leitura + workflow da inbox.
+      resources :transactions, only: [ :index, :update, :destroy ] do
+        member do
+          post "consolidate"
+          post "reject"
+        end
+      end
+
       # Bank connections (RF1 + RF21) — conexão via Pluggy.
       resources :bank_connections, only: [ :index, :show, :create, :destroy ] do
         collection do

@@ -48,6 +48,10 @@ function setupFetch(session: SessionFixture) {
         json: async () => ({ connections: [], summary: { total: 0, connected: 0, syncing: 0, error: 0 } }),
       } as Response
     }
+    // InboxBadge no header busca isso; 0 pendentes → não renderiza nada.
+    if (input.startsWith('/api/v1/transactions')) {
+      return { ok: true, status: 200, json: async () => ({ transactions: [], pending_count: 0 }) } as Response
+    }
     throw new Error(`unmocked fetch: ${input}`)
   })
   globalThis.fetch = fetchMock as unknown as typeof fetch

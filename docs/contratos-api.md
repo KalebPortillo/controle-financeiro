@@ -163,21 +163,25 @@ Formato uniforme:
 - `POST /api/v1/webhooks/pluggy` — máquina→máquina (Pluggy → app). **Sem sessão**; autentica pelo header `X-Webhook-Secret` (contra `PLUGGY_WEBHOOK_SECRET`, compare constant-time). Eventos de sync (`item/updated`, `transactions/created|updated`) enfileiram `SyncJob`; eventos de erro (`item/error`, `item/login_error`) marcam a conexão como `error`; item desconhecido / evento ignorado → 200 (ack) sem efeito.
 
 ### Transactions — listagem e leitura (RF2, RF4, RF13)
-- `GET /api/v1/transactions` — list. Filtros:
-  - `status` (`pending`, `consolidated`, `rejected`, `split`)
-  - `direction` (`debit`, `credit`)
-  - `account_id`
-  - `tag_id`
-  - `category_id`
-  - `owner_membership_id`
-  - `from`, `to` (datas)
-  - `q` (full-text em description/title)
-  - Default sort: `-occurred_at`.
-- `GET /api/v1/transactions/:id` — detalhe completo (com tags, category, splits, refund, history count).
-- `GET /api/v1/transactions/:id/edits` — histórico (RF4.3).
+> Inbox slice 1 implementada (sem tags/categoria/split — dependem de RF5/RF6/RF10).
+- `GET /api/v1/transactions` — list, escopado no workspace. Retorna
+  `{ transactions: [...], pending_count: N }` (RF2.4). Filtros implementados:
+  `status` (default `pending`), `direction`, `account_id`, `from`, `to`, `q`
+  (LIKE case-insensitive em description/title). Default sort: `-occurred_at`.
+  ⏳ Filtros `tag_id`/`category_id`/`owner_membership_id` quando RF5/RF6 existirem.
+  Item serializado: `id, account_id, account_name, direction, amount_cents,
+  currency, occurred_at, original_description, improved_title, status, source, lock_version`.
+- ⏳ `GET /api/v1/transactions/:id` — detalhe completo (com tags, category, splits, refund) — planejado.
+- ⏳ `GET /api/v1/transactions/:id/edits` — histórico (RF4.3) — planejado.
 
 ### Transactions — escrita e workflow inbox (RF2.3, RF12)
-- `POST /api/v1/transactions` — entrada manual (RF12). Body:
+- `PATCH /api/v1/transactions/:id` — edita `improved_title`, `amount_cents`,
+  `occurred_at`. Body inclui `lock_version` (optimistic lock; conflito → 409
+  `stale_object`). ⏳ `tag_ids`/`category_id` quando RF5/RF6 existirem.
+- `DELETE /api/v1/transactions/:id` — hard delete (RF2.3 remover). 204.
+- `POST /api/v1/transactions/:id/consolidate` — accept (RF2.3). Seta `consolidated_at`.
+- `POST /api/v1/transactions/:id/reject` — reject (RF2.3). Seta `rejected_at`.
+- ⏳ `POST /api/v1/transactions` — entrada manual (RF12) — planejado. Body:
   ```json
   {
     "account_id": "...",
@@ -190,10 +194,7 @@ Formato uniforme:
   }
   ```
   Status inicial = `consolidated` (RF12.3).
-- `PATCH /api/v1/transactions/:id` — body inclui `lock_version`. Campos editáveis: `improved_title`, `amount_cents`, `occurred_at`, `tag_ids` (substitui), `category_id`.
-- `DELETE /api/v1/transactions/:id` — hard delete.
-- `POST /api/v1/transactions/:id/consolidate` — accept (RF2.3).
-- `POST /api/v1/transactions/:id/reject` — reject (RF2.3).
+- ⏳ `POST /api/v1/transactions/:id/split` — planejado (RF2.3, depende de tags). Body:
 - `POST /api/v1/transactions/:id/split` — body:
   ```json
   {

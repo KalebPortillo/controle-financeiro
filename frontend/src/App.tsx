@@ -3,6 +3,7 @@ import { LoginPage } from './auth/LoginPage'
 import { RequireAuth } from './auth/RequireAuth'
 import { DashboardPage } from './workspace/DashboardPage'
 import { ContasPage } from './workspace/ContasPage'
+import { InboxPage } from './transactions/InboxPage'
 import { useSession } from './auth/useSession'
 
 /**
@@ -32,6 +33,14 @@ export default function App() {
         element={
           <RequireAuth>
             <ContasPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/inbox"
+        element={
+          <RequireAuth>
+            <InboxPage />
           </RequireAuth>
         }
       />

@@ -7,6 +7,7 @@ import { WalletLogo } from '../components/WalletLogo'
 import { MembersCard } from './MembersCard'
 import { ConnectBankButton } from '../bank/ConnectBankButton'
 import { GlobalSyncIndicator } from '../bank/GlobalSyncIndicator'
+import { InboxBadge } from '../transactions/InboxBadge'
 
 /**
  * Dashboard mínimo pós-login. RF16 só exige:
@@ -110,6 +111,7 @@ function Header({
           <span className="font-sans text-sm font-medium">Controle financeiro</span>
         </div>
         <div className="flex items-center gap-3">
+          <InboxBadge />
           <GlobalSyncIndicator />
           <div className="text-right leading-tight hidden sm:block">
             <div className="text-xs font-medium text-foreground">{session.user.name}</div>

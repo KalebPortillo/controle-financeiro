@@ -27,9 +27,10 @@ test('user logado vê o dashboard com nome + workspace', async ({ page, context 
   await goto(page, '/')
   await expect(page).toHaveURL('/')
   await expect(page.getByRole('heading', { name: /olá, kaleb/i })).toBeVisible()
-  await expect(page.getByText("Kaleb Portilho's workspace")).toBeVisible()
-  // O email aparece no header e no card de membros — header é o "id-card" oficial.
-  await expect(page.locator('header').getByText(email)).toBeVisible()
+  // Workspace + email vivem no rodapé da sidebar do app shell (o "id-card" oficial).
+  // O nome do workspace também aparece no corpo, então escopamos na sidebar.
+  await expect(page.locator('aside').getByText("Kaleb Portilho's workspace")).toBeVisible()
+  await expect(page.locator('aside').getByText(email)).toBeVisible()
 })
 
 test('logout volta pra tela de login', async ({ page, context }) => {

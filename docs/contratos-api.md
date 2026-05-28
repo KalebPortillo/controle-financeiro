@@ -224,9 +224,9 @@ Formato uniforme:
 - `GET    /api/v1/tags` — list do workspace com `usage_count`. `?q=` filtra por prefixo (autocomplete, case-insensitive via citext). Retorna `{ tags: [{ id, name, color, icon, usage_count }] }`.
 - `POST   /api/v1/tags` — body: `{ name, color, icon }`. 201 + `{ tag }`. Nome duplicado/vazio → 422.
 - Aplicação em transações: `PATCH /api/v1/transactions/:id` aceita `tag_ids` (substitui o conjunto; ids de outro workspace são ignorados). O serializer da transação passa a incluir `tags: [{ id, name, color, icon }]`.
-- ⏳ `PATCH /api/v1/tags/:id` — planejado.
-- ⏳ `DELETE /api/v1/tags/:id` — planejado (422 se em uso, orientando merge).
-- ⏳ `POST   /api/v1/tags/:id/merge` — planejado (`{ into_tag_id }`).
+- `PATCH /api/v1/tags/:id` — edita `name`/`color`/`icon`. Nome duplicado → 422.
+- `DELETE /api/v1/tags/:id` — 204 se não usada; **422 `tag_in_use`** se aplicada a alguma transação (orienta merge).
+- `POST  /api/v1/tags/:id/merge` — `{ into_tag_id }`. Move as relações pro destino (sem duplicar, respeitando o unique) e apaga a origem. Destino de outro workspace → 404.
 
 ### Categories (RF6)
 - `GET    /api/v1/categories` — list com tag_ids.

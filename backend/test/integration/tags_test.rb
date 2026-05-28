@@ -67,6 +67,79 @@ class TagsTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
   end
 
+  # --- update -----------------------------------------------------------
+
+  test "PATCH /tags/:id edita nome e cor" do
+    tag = create(:tag, workspace: @workspace, name: "Mercado")
+    patch "/api/v1/tags/#{tag.id}", params: { name: "Supermercado", color: "#f00" }, as: :json
+    assert_response :ok
+    tag.reload
+    assert_equal "Supermercado", tag.name
+    assert_equal "#f00", tag.color
+  end
+
+  test "PATCH /tags/:id com nome duplicado → 422" do
+    create(:tag, workspace: @workspace, name: "Lazer")
+    tag = create(:tag, workspace: @workspace, name: "Mercado")
+    patch "/api/v1/tags/#{tag.id}", params: { name: "lazer" }, as: :json
+    assert_response :unprocessable_entity
+  end
+
+  test "PATCH /tags de outro workspace → 404" do
+    foreign = create(:tag, workspace: create(:workspace), name: "Alheia")
+    patch "/api/v1/tags/#{foreign.id}", params: { name: "X" }, as: :json
+    assert_response :not_found
+  end
+
+  # --- delete -----------------------------------------------------------
+
+  test "DELETE /tags/:id remove tag não usada" do
+    tag = create(:tag, workspace: @workspace, name: "Sem uso")
+    assert_difference -> { Tag.count }, -1 do
+      delete "/api/v1/tags/#{tag.id}"
+    end
+    assert_response :no_content
+  end
+
+  test "DELETE /tags/:id em uso → 422 orientando merge" do
+    tag = create(:tag, workspace: @workspace, name: "Em uso")
+    account = create(:account, workspace: @workspace, owner_membership: @membership)
+    create(:transaction, workspace: @workspace, account: account).tags << tag
+
+    assert_no_difference -> { Tag.count } do
+      delete "/api/v1/tags/#{tag.id}"
+    end
+    assert_response :unprocessable_entity
+    assert_equal "tag_in_use", JSON.parse(response.body).dig("error", "code")
+  end
+
+  # --- merge ------------------------------------------------------------
+
+  test "POST /tags/:id/merge move relações pro destino e apaga origem" do
+    account = create(:account, workspace: @workspace, owner_membership: @membership)
+    src  = create(:tag, workspace: @workspace, name: "Comida")
+    dest = create(:tag, workspace: @workspace, name: "Alimentação")
+    t1 = create(:transaction, workspace: @workspace, account: account)
+    t2 = create(:transaction, workspace: @workspace, account: account)
+    t1.tags << src
+    t2.tags << [ src, dest ] # t2 já tem dest → não pode duplicar no merge
+
+    post "/api/v1/tags/#{src.id}/merge", params: { into_tag_id: dest.id }, as: :json
+    assert_response :ok
+
+    assert_not Tag.exists?(src.id)
+    assert_includes t1.reload.tags, dest
+    assert_equal [ dest.id ], t2.reload.tags.pluck(:id) # sem duplicar
+  end
+
+  test "merge com destino de outro workspace → 404" do
+    src = create(:tag, workspace: @workspace, name: "Comida")
+    foreign = create(:tag, workspace: create(:workspace), name: "Alheia")
+    post "/api/v1/tags/#{src.id}/merge", params: { into_tag_id: foreign.id }, as: :json
+    assert_response :not_found
+    assert Tag.exists?(src.id)
+  end
+
   # --- aplicar na transação (inbox) -------------------------------------
 
   test "PATCH /transactions/:id com tag_ids substitui as tags" do

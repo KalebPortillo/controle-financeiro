@@ -108,6 +108,17 @@ describe('<DashboardPage />', () => {
     })
   })
 
+  it('links to /contas to manage bank connections', async () => {
+    setupFetch(buildSession())
+    renderDashboard()
+
+    const link = await screen.findByTestId('go-contas')
+    // Precisa ser uma âncora navegável (<a href>), não um <button> aninhado —
+    // botão dentro de <Link> é HTML inválido e não navega.
+    expect(link.tagName).toBe('A')
+    expect(link).toHaveAttribute('href', '/contas')
+  })
+
   it('clicking "Sair" calls DELETE /sessions/current', async () => {
     const session = buildSession()
     const { fetchMock } = setupFetch(session)

@@ -1,8 +1,6 @@
 import { Link } from 'react-router'
 import { WalletLogo } from '../components/WalletLogo'
-import { Card, CardBody, CardHeader } from '../components/Card'
 import { SyncStatusPanel } from '../bank/SyncStatusPanel'
-import { ConnectBankButton } from '../bank/ConnectBankButton'
 import { useBankConnectionsChannel } from '../bank/useBankConnectionsChannel'
 import { useSession } from '../auth/useSession'
 
@@ -43,18 +41,6 @@ export function ContasPage() {
         </section>
 
         <SyncStatusPanel />
-
-        <Card>
-          <CardHeader>
-            <h2 className="font-sans text-sm font-medium">Conectar banco</h2>
-            <p className="text-xs text-muted-foreground">
-              Conecte uma conta via Pluggy. As transações caem na inbox pra você revisar.
-            </p>
-          </CardHeader>
-          <CardBody className="pt-0">
-            <ConnectBankButton />
-          </CardBody>
-        </Card>
       </div>
     </main>
   )

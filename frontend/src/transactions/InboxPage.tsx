@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CreditCard, Check, X } from 'lucide-react'
+import { CreditCard } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Money } from '../components/Money'
 import { TagChip } from '../components/TagChip'
@@ -10,6 +10,7 @@ import {
   type InboxTransaction,
 } from './useInbox'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
+import { SwipeableRow } from './SwipeableRow'
 
 function formatDate(iso: string): string {
   const [, m, d] = iso.split('-')
@@ -81,26 +82,28 @@ export function InboxPage() {
 
       {transactions.length > 0 && (
         <div className="border border-border rounded-lg overflow-hidden">
-          <div className="hidden md:grid grid-cols-[32px_1fr_150px_110px_88px] gap-3 px-4 py-2 text-[11px] uppercase tracking-wider font-medium text-muted-foreground border-b border-border">
+          <div className="hidden md:grid grid-cols-[32px_1fr_150px_110px] gap-3 px-4 py-2 text-[11px] uppercase tracking-wider font-medium text-muted-foreground border-b border-border">
             <span />
             <span>Descrição</span>
             <span>Tags</span>
             <span className="text-right">Valor</span>
-            <span />
           </div>
 
           {transactions.map((t) => (
-            <Row
+            <SwipeableRow
               key={t.id}
-              t={t}
-              selected={selected.has(t.id)}
-              active={activeId === t.id && sheetOpen}
-              busy={busy}
-              onToggle={() => toggle(t.id)}
-              onOpen={() => open(t)}
-              onAccept={() => consolidate.mutate(t.id)}
+              testid={`inbox-row-${t.id}`}
+              onConfirm={() => consolidate.mutate(t.id)}
               onReject={() => reject.mutate(t.id)}
-            />
+              onClick={() => open(t)}
+            >
+              <RowContent
+                t={t}
+                selected={selected.has(t.id)}
+                active={activeId === t.id && sheetOpen}
+                onToggle={() => toggle(t.id)}
+              />
+            </SwipeableRow>
           ))}
         </div>
       )}
@@ -136,32 +139,26 @@ export function InboxPage() {
   )
 }
 
-function Row({
-  t, selected, active, busy, onToggle, onOpen, onAccept, onReject,
+function RowContent({
+  t, selected, active, onToggle,
 }: {
   t: InboxTransaction
   selected: boolean
   active: boolean
-  busy: boolean
   onToggle: () => void
-  onOpen: () => void
-  onAccept: () => void
-  onReject: () => void
 }) {
-  const stop = (fn: () => void) => (e: React.MouseEvent) => {
-    e.stopPropagation()
-    fn()
-  }
-
   return (
     <div
-      onClick={onOpen}
-      data-testid={`inbox-row-${t.id}`}
-      className={`grid grid-cols-[28px_1fr_auto] md:grid-cols-[32px_1fr_150px_110px_88px] gap-3 items-center px-4 py-3 border-b border-border last:border-b-0 cursor-pointer transition-colors hover:bg-muted ${
+      className={`grid grid-cols-[28px_1fr_auto] md:grid-cols-[32px_1fr_150px_110px] gap-3 items-center px-4 py-3 transition-colors hover:bg-muted ${
         active ? 'bg-muted shadow-[inset_2px_0_0_0_var(--accent)]' : ''
       } ${selected ? 'bg-[color-mix(in_srgb,var(--accent)_6%,transparent)]' : ''}`}
     >
-      <label className="flex items-center" onClick={(e) => e.stopPropagation()}>
+      {/* checkbox não inicia swipe nem abre o detalhe */}
+      <label
+        className="flex items-center"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <input
           type="checkbox"
           checked={selected}
@@ -201,35 +198,8 @@ function Row({
         {t.tags.length > 2 && <span className="text-[11px] text-muted-foreground">+{t.tags.length - 2}</span>}
       </div>
 
-      <div className="hidden md:block text-right whitespace-nowrap">
+      <div className="text-right whitespace-nowrap">
         <Money cents={signedCents(t)} signed className="font-semibold" />
-      </div>
-
-      {/* ações rápidas — aceitar/rejeitar sem abrir o sheet */}
-      <div className="flex items-center justify-end gap-1 shrink-0">
-        <span className="md:hidden mr-1 whitespace-nowrap">
-          <Money cents={signedCents(t)} signed className="font-semibold text-[13px]" />
-        </span>
-        <button
-          onClick={stop(onReject)}
-          disabled={busy}
-          aria-label="Rejeitar"
-          title="Rejeitar"
-          data-testid={`row-reject-${t.id}`}
-          className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
-        >
-          <X size={15} />
-        </button>
-        <button
-          onClick={stop(onAccept)}
-          disabled={busy}
-          aria-label="Aceitar"
-          title="Aceitar"
-          data-testid={`row-accept-${t.id}`}
-          className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-success/10 hover:text-[var(--success-vivid)] disabled:opacity-40"
-        >
-          <Check size={15} />
-        </button>
       </div>
     </div>
   )

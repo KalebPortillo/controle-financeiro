@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
@@ -131,7 +131,7 @@ describe('<InboxPage />', () => {
     })
   })
 
-  it('accepts inline from the row without opening the sheet', async () => {
+  it('swiping a row left accepts it (consolidate), without opening the sheet', async () => {
     const { fetchMock } = setupFetch({
       'GET /api/v1/transactions?status=pending': {
         status: 200,
@@ -140,8 +140,11 @@ describe('<InboxPage />', () => {
       'POST /api/v1/transactions/t1/consolidate': { status: 200, body: { transaction: tx() } },
     })
     renderInbox()
-    const user = userEvent.setup()
-    await user.click(await screen.findByTestId('row-accept-t1'))
+    const row = await screen.findByTestId('inbox-row-t1')
+    // arrasta pra esquerda além do limiar e solta
+    fireEvent.pointerDown(row, { clientX: 240, pointerId: 1 })
+    fireEvent.pointerMove(row, { clientX: 100, pointerId: 1 })
+    fireEvent.pointerUp(row, { clientX: 100, pointerId: 1 })
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -149,8 +152,29 @@ describe('<InboxPage />', () => {
         expect.objectContaining({ method: 'POST' })
       )
     )
-    // não abriu o sheet (sem campos de edição)
     expect(screen.queryByTestId('sheet-accept-t1')).not.toBeInTheDocument()
+  })
+
+  it('swiping a row right rejects it', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/transactions?status=pending': {
+        status: 200,
+        body: { transactions: [tx()], pending_count: 1 },
+      },
+      'POST /api/v1/transactions/t1/reject': { status: 200, body: { transaction: tx() } },
+    })
+    renderInbox()
+    const row = await screen.findByTestId('inbox-row-t1')
+    fireEvent.pointerDown(row, { clientX: 100, pointerId: 1 })
+    fireEvent.pointerMove(row, { clientX: 240, pointerId: 1 })
+    fireEvent.pointerUp(row, { clientX: 240, pointerId: 1 })
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/transactions/t1/reject',
+        expect.objectContaining({ method: 'POST' })
+      )
+    )
   })
 
   it('bulk-accepts selected rows', async () => {

@@ -82,8 +82,8 @@ describe('<DashboardPage />', () => {
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /olá, kaleb/i })).toBeInTheDocument()
     )
+    // workspace ativo aparece no corpo; o email do usuário vive no shell (sidebar/topbar).
     expect(screen.getByText("Kaleb's workspace")).toBeInTheDocument()
-    expect(screen.getByText('kaleb@example.com')).toBeInTheDocument()
   })
 
   it('omits the workspace switcher when the user has a single workspace', async () => {

@@ -1,6 +1,7 @@
 import { Routes, Route, useSearchParams, Navigate } from 'react-router'
 import { LoginPage } from './auth/LoginPage'
 import { RequireAuth } from './auth/RequireAuth'
+import { AppLayout } from './app/AppLayout'
 import { DashboardPage } from './workspace/DashboardPage'
 import { ContasPage } from './workspace/ContasPage'
 import { InboxPage } from './transactions/InboxPage'
@@ -8,42 +9,27 @@ import { useSession } from './auth/useSession'
 
 /**
  * Roteamento:
- *   /login — pública. Mostra a tela de login (sempre, mesmo já logado:
- *            o user pode estar testando "como é entrar").
- *   /      — protegida. RequireAuth manda pra /login se não tem sessão.
+ *   /login — pública. Mostra a tela de login (sempre, mesmo já logado).
+ *   resto  — protegido, dentro do AppLayout (shell com sidebar/topbar/bottomnav).
  *
  * O callback OAuth (/api/v1/auth/google_oauth2/callback) é tratado pelo
- * Rails; ele finaliza redirecionando pra '/'. Quando chegamos em '/' com
- * uma sessão ativa, RequireAuth deixa passar.
+ * Rails; ele finaliza redirecionando pra '/'. RequireAuth gateia o shell.
  */
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginRoute />} />
       <Route
-        path="/"
         element={
           <RequireAuth>
-            <DashboardPage />
+            <AppLayout />
           </RequireAuth>
         }
-      />
-      <Route
-        path="/contas"
-        element={
-          <RequireAuth>
-            <ContasPage />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/inbox"
-        element={
-          <RequireAuth>
-            <InboxPage />
-          </RequireAuth>
-        }
-      />
+      >
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/inbox" element={<InboxPage />} />
+        <Route path="/contas" element={<ContasPage />} />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

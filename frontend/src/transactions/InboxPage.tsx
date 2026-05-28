@@ -1,6 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
-import { WalletLogo } from '../components/WalletLogo'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { Card, CardBody } from '../components/Card'
@@ -32,40 +30,26 @@ export function InboxPage() {
   const { data, isLoading } = useInbox()
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border bg-card">
-        <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 text-foreground">
-            <WalletLogo size={20} />
-            <span className="font-sans text-sm font-medium">Controle financeiro</span>
-          </Link>
-          <Link to="/" className="text-xs text-muted-foreground hover:text-foreground">
-            ← Voltar
-          </Link>
-        </div>
-      </header>
+    <div className="max-w-3xl mx-auto space-y-6">
+      <section className="space-y-1">
+        <h1 className="font-sans text-2xl font-semibold tracking-tight">Inbox</h1>
+        <p className="text-sm text-muted-foreground">
+          {data?.pending_count ?? 0} pendente{(data?.pending_count ?? 0) === 1 ? '' : 's'} para revisar
+        </p>
+      </section>
 
-      <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-        <section className="space-y-1">
-          <h1 className="font-sans text-xl font-semibold tracking-tight">Inbox</h1>
-          <p className="text-sm text-muted-foreground">
-            {data?.pending_count ?? 0} pendente{(data?.pending_count ?? 0) === 1 ? '' : 's'} para revisar.
+      <div className="space-y-2">
+        {isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
+        {!isLoading && (data?.transactions.length ?? 0) === 0 && (
+          <p className="text-sm text-muted-foreground" data-testid="inbox-empty">
+            Nada pendente. Tudo revisado.
           </p>
-        </section>
-
-        <div className="space-y-2">
-          {isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
-          {!isLoading && (data?.transactions.length ?? 0) === 0 && (
-            <p className="text-sm text-muted-foreground" data-testid="inbox-empty">
-              Nada pendente. Tudo revisado 🎉
-            </p>
-          )}
-          {data?.transactions.map((t) => (
-            <InboxRow key={t.id} transaction={t} />
-          ))}
-        </div>
+        )}
+        {data?.transactions.map((t) => (
+          <InboxRow key={t.id} transaction={t} />
+        ))}
       </div>
-    </main>
+    </div>
   )
 }
 

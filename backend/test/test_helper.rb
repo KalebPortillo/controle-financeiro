@@ -4,8 +4,9 @@ ENV["RAILS_ENV"] ||= "test"
 # então os valores não importam, só precisam existir pros constructors
 # (BankAggregators::Pluggy faz ENV.fetch). Se as reais estiverem no env
 # (ex.: ao re-gravar cassettes com VCR_RECORD), elas têm precedência.
-ENV["PLUGGY_CLIENT_ID"]     ||= "test-pluggy-client-id"
-ENV["PLUGGY_CLIENT_SECRET"] ||= "test-pluggy-client-secret"
+ENV["PLUGGY_CLIENT_ID"]      ||= "test-pluggy-client-id"
+ENV["PLUGGY_CLIENT_SECRET"]  ||= "test-pluggy-client-secret"
+ENV["PLUGGY_WEBHOOK_SECRET"] ||= "test-webhook-secret"
 
 require_relative "../config/environment"
 require "rails/test_help"

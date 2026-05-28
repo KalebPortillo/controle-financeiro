@@ -30,6 +30,9 @@ Rails.application.routes.draw do
         resources :memberships, only: [ :index, :create, :destroy ]
       end
 
+      # Webhook do Pluggy (máquina→máquina; valida header secreto, sem sessão).
+      post "webhooks/pluggy", to: "webhooks#pluggy"
+
       # Bank connections (RF1 + RF21) — conexão via Pluggy.
       resources :bank_connections, only: [ :index, :show, :create, :destroy ] do
         collection do

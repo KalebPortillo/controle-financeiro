@@ -117,6 +117,9 @@ jobs:
           SENTRY_DSN_BACKEND:         ${{ secrets.SENTRY_DSN_BACKEND }}
           GOOGLE_OAUTH_CLIENT_ID:     ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          PLUGGY_CLIENT_ID:           ${{ secrets.PLUGGY_CLIENT_ID }}
+          PLUGGY_CLIENT_SECRET:       ${{ secrets.PLUGGY_CLIENT_SECRET }}
+          PLUGGY_WEBHOOK_SECRET:      ${{ secrets.PLUGGY_WEBHOOK_SECRET }}
         run: |
           mkdir -p ~/.config/controle-financeiro
           umask 077
@@ -125,6 +128,9 @@ jobs:
           export SENTRY_DSN_BACKEND='${SENTRY_DSN_BACKEND}'
           export GOOGLE_OAUTH_CLIENT_ID='${GOOGLE_OAUTH_CLIENT_ID}'
           export GOOGLE_OAUTH_CLIENT_SECRET='${GOOGLE_OAUTH_CLIENT_SECRET}'
+          export PLUGGY_CLIENT_ID='${PLUGGY_CLIENT_ID}'
+          export PLUGGY_CLIENT_SECRET='${PLUGGY_CLIENT_SECRET}'
+          export PLUGGY_WEBHOOK_SECRET='${PLUGGY_WEBHOOK_SECRET}'
           EOF
           chmod 600 ~/.config/controle-financeiro/secrets.env
           # Smoke: confirma que as vars saem do source com tamanho > 0
@@ -208,6 +214,9 @@ jobs:
           SENTRY_DSN_BACKEND:         ${{ secrets.SENTRY_DSN_BACKEND }}
           GOOGLE_OAUTH_CLIENT_ID:     ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          PLUGGY_CLIENT_ID:           ${{ secrets.PLUGGY_CLIENT_ID }}
+          PLUGGY_CLIENT_SECRET:       ${{ secrets.PLUGGY_CLIENT_SECRET }}
+          PLUGGY_WEBHOOK_SECRET:      ${{ secrets.PLUGGY_WEBHOOK_SECRET }}
         run: |
           mkdir -p ~/.config/controle-financeiro
           umask 077
@@ -216,6 +225,9 @@ jobs:
           export SENTRY_DSN_BACKEND='${SENTRY_DSN_BACKEND}'
           export GOOGLE_OAUTH_CLIENT_ID='${GOOGLE_OAUTH_CLIENT_ID}'
           export GOOGLE_OAUTH_CLIENT_SECRET='${GOOGLE_OAUTH_CLIENT_SECRET}'
+          export PLUGGY_CLIENT_ID='${PLUGGY_CLIENT_ID}'
+          export PLUGGY_CLIENT_SECRET='${PLUGGY_CLIENT_SECRET}'
+          export PLUGGY_WEBHOOK_SECRET='${PLUGGY_WEBHOOK_SECRET}'
           EOF
           chmod 600 ~/.config/controle-financeiro/secrets.env
           # Smoke: confirma que as vars saem do source com tamanho > 0

@@ -1,4 +1,4 @@
-# Controle Financeiro — Contratos de API v1 (v1.1)
+# Controle Financeiro — Contratos de API v1 (v1.2)
 
 ## Contexto
 
@@ -77,6 +77,16 @@ Formato uniforme:
 ### Saúde
 - `GET /api/v1/health` — smoke pós-deploy. Public. Retorna `{ "status": "ok", "version": "..." }`.
 
+### Config (runtime)
+- `GET /api/v1/app_config` — public. Config decidida por `RAILS_ENV` (runtime, não
+  build), lida pelo frontend no boot. Como staging e produção rodam a mesma imagem,
+  o que difere entre eles (ex.: sandbox do Pluggy) vem daqui.
+  ```json
+  { "environment": "staging", "pluggy": { "include_sandbox": true, "connector_ids": [2] } }
+  ```
+  - staging/dev → `include_sandbox: true`, `connector_ids: [2]` (só Pluggy Bank sandbox).
+  - production → `include_sandbox: false`, `connector_ids: null` (todos os bancos reais).
+
 ### Sessão e auth (RF16.1)
 - `GET  /api/v1/auth/google` — inicia OAuth (302 para Google).
 - `GET  /api/v1/auth/google/callback` — Google callback, popula sessão, redirect para frontend.
@@ -101,7 +111,13 @@ Formato uniforme:
 - `DELETE /api/v1/accounts/:id` — 422 se houver transactions.
 
 ### Bank Connections (RF1.3–RF1.7, RF21)
-- `POST /api/v1/bank_connections` — body: `{ provider: "pluggy", item_id: "...", account_external_ids: [...], history_since: "2026-01-01" }`. Pluggy Connect (widget) roda no frontend; depois o frontend POSTa o resultado aqui.
+> Implementado nas Fatias 3a–5c. O schema abaixo reflete o serializer real
+> (`BankConnections::Serializer`), compartilhado entre o REST e o broadcast do Cable.
+- `POST /api/v1/bank_connections/connect_token` — gera o token curto-prazo que o
+  widget Pluggy Connect usa no frontend. Retorna `{ "connect_token": "..." }`.
+- `POST /api/v1/bank_connections` — body: `{ item_id: "...", history_since: "2026-01-01" }`.
+  O widget roda no frontend; ao concluir, o frontend POSTa o `item_id` aqui. Cria a
+  conexão (idempotente), popula accounts e dispara o sync inicial. 201 + `{ bank_connection }`.
 - `GET  /api/v1/bank_connections` — list com payload enriquecido (RF21):
   ```json
   {
@@ -109,30 +125,36 @@ Formato uniforme:
       {
         "id": "...",
         "provider": "pluggy",
-        "institution": "nubank",
-        "owner_membership_id": "...",
-        "accounts": [{ "id": "...", "kind": "credit_card", "name": "Nubank CC" }],
         "status": "connected",
+        "error_message": null,
+        "sync_history_since": "2026-01-01",
         "last_sync_at": "2026-05-26T06:00:00Z",
         "next_sync_at": "2026-05-27T06:00:00Z",
-        "last_sync_duration_seconds": 14,
         "last_sync_created_count": 23,
         "last_sync_duplicate_count": 2,
         "last_sync_error_count": 0,
-        "error_message": null
+        "last_sync_duration_seconds": 14,
+        "accounts": [
+          { "id": "...", "name": "Nubank CC", "kind": "credit_card",
+            "institution": "nubank", "institution_label": "Nubank", "currency": "BRL" }
+        ]
       }
     ],
-    "summary": { "total": 3, "connected": 2, "error": 1, "syncing": 0 }
+    "summary": { "total": 3, "connected": 2, "syncing": 0, "error": 1 }
   }
   ```
-- `GET  /api/v1/bank_connections/:id` — detalhe individual com mesmo schema acima.
-- `POST /api/v1/bank_connections/:id/sync` — força sync agora. 202 Accepted + retorna `{ job_id, started_at }`. Status sobe via Action Cable.
-- `POST /api/v1/bank_connections/sync_all` — dispara sync de todas as conexões ativas do workspace. 202.
-- `GET  /api/v1/bank_connections/:id/sync_history?limit=10` — últimas N execuções de sync com `{ started_at, finished_at, duration_seconds, status, created_count, duplicate_count, error_count, error_message }`.
-- `POST /api/v1/bank_connections/:id/reconnect` — refresh do token/MFA (handoff para Pluggy Connect quando aplicável).
-- `DELETE /api/v1/bank_connections/:id` — disconnect.
+  (`summary.error` agrega `error` + `expired`.)
+- `GET  /api/v1/bank_connections/:id` — detalhe individual (`{ bank_connection }`), mesmo schema.
+- `POST /api/v1/bank_connections/:id/sync` — força sync agora (RF21.3). 202 + `{ bank_connection }` já com `status: "syncing"`. O avanço seguinte sobe via Action Cable.
+- `POST /api/v1/bank_connections/sync_all` — dispara sync de todas as conexões do workspace (RF21.4). 202 + `{ enqueued: N }`.
+- `POST /api/v1/bank_connections/:id/reconnect` — gera connect_token de reconexão (RF21.8). `{ "connect_token": "..." }`.
+- `DELETE /api/v1/bank_connections/:id` — disconnect. 204.
+- ⏳ `GET /api/v1/bank_connections/:id/sync_history?limit=10` — **planejado (RF21.7)**, ainda não implementado.
 
-**Canal Action Cable `BankConnectionsChannel`** broadcasta eventos `connection_updated` com o objeto atualizado sempre que `status`/`last_sync_at` mudam — usado pelo painel para refletir progresso em tempo real sem polling.
+**Canal Action Cable `BankConnectionsChannel`** (montado em `/cable`, auth por cookie de sessão) broadcasta `{ "event": "connection_updated", "bank_connection": {…} }` (mesmo schema acima) sempre que `status`/`last_sync_at` mudam — usado pelo painel `/contas` pra refletir progresso em tempo real sem polling. Escopado por `workspace_id` (subscribe valida membership).
+
+### Webhooks (RF1, Fatia 5b)
+- `POST /api/v1/webhooks/pluggy` — máquina→máquina (Pluggy → app). **Sem sessão**; autentica pelo header `X-Webhook-Secret` (contra `PLUGGY_WEBHOOK_SECRET`, compare constant-time). Eventos de sync (`item/updated`, `transactions/created|updated`) enfileiram `SyncJob`; eventos de erro (`item/error`, `item/login_error`) marcam a conexão como `error`; item desconhecido / evento ignorado → 200 (ack) sem efeito.
 
 ### Transactions — listagem e leitura (RF2, RF4, RF13)
 - `GET /api/v1/transactions` — list. Filtros:
@@ -384,4 +406,10 @@ Formato uniforme:
 - Convenções (paginação, erros, timestamps, money) consistentes entre todas as rotas.
 - Frontend consegue, em teoria, montar telas para todos os fluxos a partir desses endpoints.
 
-**Status:** v1.1 — adicionados endpoints + payload enriquecido de Bank Connections para RF21 (sync status panel): `GET` retorna status agregado, `sync_all`, `sync_history`, `reconnect`, e canal `BankConnectionsChannel` para updates em tempo real.
+**Status:** v1.2 — Bank Connections (RF1+RF21) alinhado à implementação real
+(Fatias 3a–5c): `connect_token`, body/schema do serializer, resposta do `sync`,
+canal `BankConnectionsChannel` em `/cable`. Adicionados: endpoint de webhook Pluggy
+(`POST /webhooks/pluggy`, header secreto — Fatia 5b) e `GET /api/v1/app_config`
+(sandbox por runtime). `sync_history` marcado como planejado (RF21.7).
+
+v1.1 — adicionados endpoints + payload enriquecido de Bank Connections para RF21.

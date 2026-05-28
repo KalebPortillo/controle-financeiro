@@ -221,6 +221,16 @@ pelo teste `test/integration/static_spa_serving_test.rb`.
 isolado pra "push env vars"**. As env vars (clear + secret) sobem como parte de
 `kamal deploy` / `kamal setup`. Pra rodar idempotente, usar `kamal setup`.
 
+**Refresh de env SEM rebuildar o código** (ex.: secret nova num container que já
+roda): `kamal app boot -d <dest> --version=<versão-atual>`. O `Cli::App::Boot`
+faz `upload! role.secrets_io(host)` (re-renderiza o `secrets-common` local +
+sobe o env-file) **antes** do `docker run`, então reinicia a MESMA imagem com o
+env atualizado. Pega a versão atual com `kamal app version -d <dest>`. Usado pra
+injetar `PLUGGY_*` em staging antes do código que tinha a fiação estar deployado.
+**Cuidado**: o `env push` resolve TODAS as secret refs do `secrets-common` a
+partir do `secrets.env` local — se faltar alguma chave lá, sobe valor vazio e
+quebra a feature correspondente. Confira o `secrets.env` local antes.
+
 ### 13. `workflow_dispatch` no `deploy.yml`
 
 Sem isso, re-rodar um deploy sem novo commit obriga `gh run rerun <id>` (que
@@ -250,6 +260,48 @@ stack + Sentry init em ARM64. Subimos pra 60s em `deploy.yml`. Sintoma de
 timeout curto: deploy reverte porque o container "novo" não respondeu `/up` a
 tempo durante zero-downtime swap.
 
+### 17. Banco `cable` (Solid Cable) precisa existir antes de deployar Action Cable
+
+A partir da Fatia 5c (RF21, painel de sync em tempo real) a app usa Action Cable
+com **Solid Cable**, que grava num banco Postgres separado por ambiente
+(`controle_financeiro_<dest>_cable`). Esse banco **não é criado pelo deploy
+normal** — e os bancos solid (`cache`/`queue`/`cable`) são montados por **schema
+load** (`db/cable_schema.rb`), não por migrations (`db/cable_migrate` é vazio).
+
+Criar/preparar antes do primeiro deploy que usa Cable, por destino:
+
+```bash
+# Cria o(s) banco(s) que faltam + carrega o schema; nos que já existem só checa
+# migrations (não é destrutivo — NÃO use db:schema:load, que dropa tabelas).
+bundle exec kamal app exec -d staging --reuse "bin/rails db:prepare"
+```
+
+Sintoma se faltar: o `after_update_commit` de `BankConnection#broadcast_update`
+levanta exceção (banco cable inexistente) e **quebra o `SyncJob`** — a conexão
+fica presa em `syncing`. **Produção precisa do mesmo passo** (`controle_financeiro_production_cable`)
+ANTES de promover a Fatia 5c via tag `v*`.
+
+### 18. Sandbox vs real é config de RUNTIME, não de build
+
+Staging e produção são **promovidos da mesma imagem Docker**. Por isso qualquer
+flag de build-time (`import.meta.env.MODE`, fixado em `vite build` = `production`)
+fica idêntico nos dois — não dá pra diferenciar staging de prod no frontend por
+build.
+
+A decisão "sandbox-vs-banco-real" do Pluggy é **configuração de ambiente** e mora
+no backend, lida em runtime via `GET /api/v1/app_config` (decide por `RAILS_ENV`):
+
+- staging/dev → `include_sandbox: true`, `connector_ids: [2]` (só Pluggy Bank).
+- production → `include_sandbox: false`, `connector_ids: null` (só bancos reais).
+
+O frontend lê via `useAppConfig` e passa pro widget. Regra geral: **o que difere
+entre staging e prod vem de `RAILS_ENV`/config, nunca de build-time**, justamente
+porque a imagem é a mesma.
+
+> Banco real (Nubank `612`, MeuPluggy) via Open Finance exige **acesso de produção
+> habilitado na conta Pluggy** — sem isso, o `POST api.pluggy.ai/items` dá 400.
+> Teste ponta-a-ponta = sandbox Pluggy Bank com `user-ok`/`password-ok`.
+
 ---
 
 ## Setup completo do zero (recovery)
@@ -271,6 +323,8 @@ Se `oracle-app-box` for re-criada do nada:
 7. Validar ACL Tailscale tem regra `tag:ci → IP-novo/32:22`.
 8. Atualizar `/etc/hosts` no workflow CI com o IP novo do tailnet.
 9. `cd backend && bundle exec kamal setup -d staging`.
+10. `bundle exec kamal app exec -d staging --reuse "bin/rails db:prepare"` —
+    cria os bancos solid que faltam (inclui `cable`, necessário pro Action Cable).
 
 ## Setup do GHCR / GH Actions secrets
 
@@ -350,9 +404,17 @@ curl -sS -D - "https://wallet-staging.portilho.cc/api/v1/auth/google_oauth2" \
 
 # Sessão sem login → 401
 curl -sS -o /dev/null -w "%{http_code}\n" https://wallet.portilho.cc/api/v1/sessions/current
+
+# app_config: staging deve vir com sandbox ligado; produção, desligado.
+curl -sS https://wallet-staging.portilho.cc/api/v1/app_config
+#   → {"environment":"staging","pluggy":{"include_sandbox":true,"connector_ids":[2]}}
+curl -sS https://wallet.portilho.cc/api/v1/app_config
+#   → {"environment":"production","pluggy":{"include_sandbox":false,"connector_ids":null}}
 ```
 
 ---
 
-**Status:** v1.1 — adicionada seção "E2E como gate de deploy" cobrindo o bypass
-`test_sign_in`, fluxo local, e diagnóstico de falhas em CI.
+**Status:** v1.2 — RF1/RF21 (Pluggy connect + webhook + painel de sync via Action
+Cable) em staging. Adicionadas lições: banco `cable` (Solid Cable) via `db:prepare`
+antes de deployar Action Cable (#17), sandbox-vs-real como config de runtime via
+`/api/v1/app_config` (#18), e refresh de env sem rebuild com `kamal app boot --version` (#12).

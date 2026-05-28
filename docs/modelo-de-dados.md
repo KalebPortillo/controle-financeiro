@@ -108,18 +108,27 @@ Conexão via agregador (Pluggy) para sync automática.
 |---|---|---|
 | id | uuid | PK |
 | workspace_id | uuid | FK NOT NULL |
-| provider | enum | NOT NULL |
-| external_connection_id | string | NOT NULL |
-| credentials_ref | string | NOT NULL — chave em vault/Rails credentials, não o segredo direto |
-| last_sync_at | timestamp | NULL |
+| owner_membership_id | uuid | FK NOT NULL — quem conectou (workspace_memberships) |
+| provider | enum | NOT NULL default 'pluggy' |
+| external_connection_id | string | NOT NULL — unique por (provider, external_connection_id) |
+| credentials_ref | string | NULL — chave em vault/Rails credentials, não o segredo direto |
 | status | enum | NOT NULL default 'connected' |
 | error_message | text | NULL |
 | sync_history_since | date | NOT NULL — RF1.7 histórico inicial configurável |
+| last_sync_at | timestamp | NULL |
+| next_sync_at | timestamp | NULL — próxima sync agendada (RF21.2) |
+| last_sync_created_count | integer | NOT NULL default 0 — contadores da última sync (RF21.2) |
+| last_sync_duplicate_count | integer | NOT NULL default 0 |
+| last_sync_error_count | integer | NOT NULL default 0 |
+| last_sync_duration_seconds | integer | NULL |
 | created_at, updated_at | timestamp | |
 
 **Enum provider**: `pluggy`, `manual`.
-**Enum status**: `connected`, `expired`, `error`, `disabled`.
-**RFs**: RF1.3–RF1.7.
+**Enum status**: `connected`, `syncing`, `expired`, `error`, `disconnected` (check constraint).
+**RFs**: RF1.3–RF1.7, RF21.
+
+> Em `after_update_commit`, mudanças em `status`/`last_sync_at` disparam broadcast
+> no `BankConnectionsChannel` (Action Cable) pro painel de sync (RF21.3).
 
 ### `transactions`
 Coração do sistema: gasto, receita ou estorno. Vive no inbox ou consolidado.
@@ -456,4 +465,9 @@ Notificação in-app (RF17).
 - Constraints físicas (NOT NULL, FK, UNIQUE, CHECK) protegem o que dá pra proteger no DB; o resto fica em services + testes.
 - Índices cobrem as queries quentes (inbox, relatórios por período, agregação por tag/categoria).
 
-**Status:** v1.0 — fechado após revisão das 5 decisões pendentes (Active Storage, dedup Pluggy, particionamento, versionamento AI, fatura derivada).
+**Status:** v1.1 — `bank_connections` alinhado à implementação (Fatias 4–5c):
+`owner_membership_id`, contadores da última sync + `next_sync_at` (RF21.2),
+enum status real (`connected/syncing/expired/error/disconnected`), `credentials_ref`
+nullable, broadcast via Action Cable.
+
+v1.0 — fechado após revisão das 5 decisões pendentes (Active Storage, dedup Pluggy, particionamento, versionamento AI, fatura derivada).

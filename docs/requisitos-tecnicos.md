@@ -47,8 +47,14 @@ Esta v1.0 fecha todas as decisões técnicas após três iterações. Próxima f
 ### Background jobs e cache
 - **Solid Queue** (jobs) + **Solid Cache** (cache) em Postgres. Sem Redis.
 
-### Tempo real (RF17)
-- **Action Cable + Solid Cable**.
+### Tempo real (RF17, RF21)
+- **Action Cable + Solid Cable**. Montado em `/cable`, auth pelo cookie de sessão
+  encriptado (`ApplicationCable::Connection`). Em uso desde o RF21 (`BankConnectionsChannel`,
+  painel de sync).
+- **Pré-requisito de deploy:** o Solid Cable grava num banco próprio por ambiente
+  (`controle_financeiro_<env>_cable`), montado por **schema load** (`db/cable_schema.rb`).
+  Rodar `bin/rails db:prepare` no destino antes do primeiro deploy que usa Cable —
+  ver `docs/deploy-runbook.md` (#17).
 
 ## Integração com instituições financeiras
 
@@ -84,6 +90,26 @@ end
 ```
 
 Selecionada via config (`ENV['BANK_AGGREGATOR'] = 'pluggy'`). Trocar de provider = trocar a env var.
+
+### Status de implementação (RF1 + RF21 — em staging)
+
+Entregue em fatias TDD (3a–5c), deployado em staging:
+
+| Item | Estado |
+|---|---|
+| `BankAggregators::Pluggy` provider (api_key, accounts, transactions, connect_token, get_item) + VCR | ✅ |
+| `BankConnection` + `Account` models; `BankConnections::Create` (idempotente) | ✅ |
+| Connect flow: `POST /bank_connections/connect_token` + `POST /bank_connections` + widget Pluggy no frontend | ✅ |
+| `Transaction` model + `SyncJob` (Solid Queue): puxa transações → inbox (`pending`), dedup por (account, external id) | ✅ |
+| REST de gestão (RF21): index+summary, show, sync, sync_all, reconnect, destroy | ✅ |
+| Webhook `POST /webhooks/pluggy` — **header secreto `X-Webhook-Secret`** (Pluggy não assina HMAC), não o HMAC do plano original | ✅ |
+| Painel `/contas` (RF21.1–21.4) + `BankConnectionsChannel` (Action Cable) empurrando status em tempo real | ✅ |
+| **Sandbox por runtime**: `GET /api/v1/app_config` decide `include_sandbox`/`connector_ids` por `RAILS_ENV` (staging só sandbox, prod só real) — não build-time, pois staging/prod são a mesma imagem | ✅ |
+| `sync_history` (RF21.7), indicador global no header (RF21.5), notificação in-app de falha (RF21.6) | ⏳ pendente |
+
+> Banco real (Nubank `612`) via Open Finance exige acesso de produção na conta
+> Pluggy; teste em staging usa o **sandbox Pluggy Bank** (`user-ok`/`password-ok`,
+> connector `2`). Detalhes operacionais em `docs/deploy-runbook.md`.
 
 ### Importação manual por arquivo (RF20)
 
@@ -446,7 +472,11 @@ Nenhum em requisitos técnicos. Todas as decisões fechadas (ver tabela "Decisõ
 - Estratégia de testes garante que cada RF do PRD tem rede de segurança.
 - Nenhuma decisão técnica fechada deixa um RF inviável.
 
-**Status:** v1.5 — adicionada estratégia detalhada de E2E (Playwright + bypass route +
-CI gate) à seção "Estratégia de testes". RF16 (auth Google OAuth + workspace) em
-produção em `v0.2.0-rf16-auth`. Lições e armadilhas de campo do CI/deploy ficam
-em [`docs/deploy-runbook.md`](./deploy-runbook.md).
+**Status:** v1.6 — RF1 (Pluggy: connect + sync + webhook) e RF21 core (painel de
+sync via Action Cable) implementados em fatias TDD e deployados em **staging**.
+Adicionados: status de implementação RF1/RF21, sandbox por runtime config
+(`/api/v1/app_config`) e pré-requisito do banco `cable` (Solid Cable) no deploy.
+RF16 (auth Google OAuth + workspace) em produção em `v0.2.0-rf16-auth`. Lições e
+armadilhas de campo do CI/deploy ficam em [`docs/deploy-runbook.md`](./deploy-runbook.md).
+
+v1.5 — adicionada estratégia detalhada de E2E (Playwright + bypass route + CI gate).

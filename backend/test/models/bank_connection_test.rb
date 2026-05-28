@@ -49,4 +49,31 @@ class BankConnectionTest < ActiveSupport::TestCase
     assert build(:bank_connection, status: "error").error?
     assert build(:bank_connection, status: "syncing").syncing?
   end
+
+  test "broadcasta no canal do workspace quando o status muda (RF21.3)" do
+    conn = create(:bank_connection, status: "connected")
+    stream = BankConnectionsChannel.broadcasting_for(conn.workspace)
+
+    assert_broadcasts(stream, 1) do
+      conn.update!(status: "syncing")
+    end
+  end
+
+  test "broadcasta quando last_sync_at muda" do
+    conn = create(:bank_connection)
+    stream = BankConnectionsChannel.broadcasting_for(conn.workspace)
+
+    assert_broadcasts(stream, 1) do
+      conn.update!(last_sync_at: Time.current)
+    end
+  end
+
+  test "não broadcasta quando muda um atributo irrelevante" do
+    conn = create(:bank_connection)
+    stream = BankConnectionsChannel.broadcasting_for(conn.workspace)
+
+    assert_no_broadcasts(stream) do
+      conn.update!(credentials_ref: "ref-novo")
+    end
+  end
 end

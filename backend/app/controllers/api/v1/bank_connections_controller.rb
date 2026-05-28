@@ -2,12 +2,6 @@ class Api::V1::BankConnectionsController < ApplicationController
   before_action :require_authentication!
   before_action :set_connection, only: [ :show, :sync, :reconnect, :destroy ]
 
-  INSTITUTION_LABELS = {
-    "nubank" => "Nubank", "inter" => "Inter", "itau" => "Itaú",
-    "santander" => "Santander", "bb" => "Banco do Brasil",
-    "sandbox" => "Sandbox", "manual" => "Manual"
-  }.freeze
-
   # GET /api/v1/bank_connections — lista + summary agregado (RF21).
   def index
     connections = current_workspace.bank_connections.includes(:accounts).order(:created_at)
@@ -31,9 +25,12 @@ class Api::V1::BankConnectionsController < ApplicationController
 
   # POST /api/v1/bank_connections/sync_all — RF21.4. 202.
   def sync_all
-    connections = current_workspace.bank_connections
-    connections.update_all(status: "syncing", updated_at: Time.current)
-    connections.pluck(:id).each { |id| BankConnections::SyncJob.perform_later(id) }
+    connections = current_workspace.bank_connections.to_a
+    # update! por registro (não update_all) pra disparar o broadcast do painel.
+    connections.each do |c|
+      c.update!(status: "syncing")
+      BankConnections::SyncJob.perform_later(c.id)
+    end
     render json: { enqueued: connections.size }, status: :accepted
   end
 
@@ -115,28 +112,6 @@ class Api::V1::BankConnectionsController < ApplicationController
   end
 
   def serialize(connection)
-    {
-      id:                 connection.id,
-      provider:           connection.provider,
-      status:             connection.status,
-      error_message:      connection.error_message,
-      sync_history_since: connection.sync_history_since.iso8601,
-      last_sync_at:       connection.last_sync_at&.iso8601,
-      next_sync_at:       connection.next_sync_at&.iso8601,
-      last_sync_created_count:    connection.last_sync_created_count,
-      last_sync_duplicate_count:  connection.last_sync_duplicate_count,
-      last_sync_error_count:      connection.last_sync_error_count,
-      last_sync_duration_seconds: connection.last_sync_duration_seconds,
-      accounts: connection.accounts.sort_by(&:created_at).map { |a|
-        {
-          id:                a.id,
-          name:              a.name,
-          kind:              a.kind,
-          institution:       a.institution,
-          institution_label: INSTITUTION_LABELS[a.institution],
-          currency:          a.currency
-        }
-      }
-    }
+    BankConnections::Serializer.call(connection)
   end
 end

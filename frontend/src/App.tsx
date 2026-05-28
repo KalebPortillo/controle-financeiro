@@ -2,6 +2,7 @@ import { Routes, Route, useSearchParams, Navigate } from 'react-router'
 import { LoginPage } from './auth/LoginPage'
 import { RequireAuth } from './auth/RequireAuth'
 import { DashboardPage } from './workspace/DashboardPage'
+import { ContasPage } from './workspace/ContasPage'
 import { useSession } from './auth/useSession'
 
 /**
@@ -23,6 +24,14 @@ export default function App() {
         element={
           <RequireAuth>
             <DashboardPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/contas"
+        element={
+          <RequireAuth>
+            <ContasPage />
           </RequireAuth>
         }
       />

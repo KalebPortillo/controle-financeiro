@@ -1,9 +1,9 @@
+import { Link } from 'react-router'
 import { useSession, useLogout, useSelectWorkspace, type SessionPayload } from '../auth/useSession'
 import { Button } from '../components/Button'
 import { Card, CardBody, CardHeader } from '../components/Card'
 import { WalletLogo } from '../components/WalletLogo'
 import { MembersCard } from './MembersCard'
-import { ConnectBankButton } from '../bank/ConnectBankButton'
 
 /**
  * Dashboard mínimo pós-login. RF16 só exige:
@@ -61,23 +61,27 @@ export function DashboardPage() {
 
         {active && <MembersCard workspaceId={active.id} />}
 
-        <ConnectBankCard />
+        <AccountsCard />
       </div>
     </main>
   )
 }
 
-function ConnectBankCard() {
+function AccountsCard() {
   return (
     <Card>
       <CardHeader>
-        <h2 className="font-sans text-sm font-medium">Conectar banco</h2>
+        <h2 className="font-sans text-sm font-medium">Contas e sincronização</h2>
         <p className="text-xs text-muted-foreground">
-          Conecte uma conta via Pluggy. As transações caem na inbox pra você revisar.
+          Conecte bancos e acompanhe o status de sincronização das suas contas.
         </p>
       </CardHeader>
       <CardBody className="pt-0">
-        <ConnectBankButton />
+        <Link to="/contas">
+          <Button variant="outline" size="sm" data-testid="go-contas">
+            Gerenciar contas
+          </Button>
+        </Link>
       </CardBody>
     </Card>
   )

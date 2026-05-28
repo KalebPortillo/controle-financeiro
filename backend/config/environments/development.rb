@@ -62,8 +62,10 @@ Rails.application.configure do
   # Annotate rendered view with file names.
   config.action_view.annotate_rendered_view_with_filenames = true
 
-  # Uncomment if you wish to allow Action Cable access from any origin.
-  # config.action_cable.disable_request_forgery_protection = true
+  # Em dev o frontend roda no Vite (porta 5173) e faz proxy de /cable pro
+  # Rails — a origem do WebSocket é localhost:5173, não o host do backend.
+  # Libera o forgery check (same-machine). Em prod o SPA é same-origin.
+  config.action_cable.disable_request_forgery_protection = true
 
   # Raise error when a before_action's only/except options reference missing actions.
   config.action_controller.raise_on_missing_callback_actions = true

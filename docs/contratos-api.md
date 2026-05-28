@@ -370,7 +370,7 @@ Formato uniforme:
 | Tamanho máx de upload em `/imports` | **10 MB** por arquivo. Retorna 413 Payload Too Large acima disso. |
 | Filtros multi-valor | **`?campo_in=a,b`** (OR) e **`?campo_all=a,b`** (AND). Aplica-se a `tag_id_in`, `tag_id_all`, `account_id_in`, etc. |
 | Autenticação WebSocket | **Cookie de sessão** padrão Rails Action Cable. Frontend conecta no `/cable` sem header extra; sessão valida o membership. |
-| Webhooks Pluggy | **Já no MVP**. Endpoint `POST /api/v1/webhooks/pluggy` com assinatura **HMAC-SHA256** validada via shared secret nas Rails credentials. Evita polling caro e dá near-real-time. |
+| Webhooks Pluggy | **Já no MVP**. Endpoint `POST /api/v1/webhooks/pluggy`. **Na implementação (Fatia 5b)**: o Pluggy NÃO assina com HMAC, então a autenticação é via **header secreto compartilhado** `X-Webhook-Secret` (validado contra `PLUGGY_WEBHOOK_SECRET`, comparação constant-time) + IP whitelist. Evita polling caro e dá near-real-time. |
 
 ## Próximos passos
 

@@ -2,6 +2,10 @@ Rails.application.routes.draw do
   # Rails built-in health probe (200 se a app boota sem exceções).
   get "up" => "rails/health#show", as: :rails_health_check
 
+  # Action Cable — painel de sync (RF21) ouve aqui. Autentica via cookie de
+  # sessão (ApplicationCable::Connection). Frontend conecta em /cable.
+  mount ActionCable.server => "/cable"
+
   # API namespace v1.
   namespace :api do
     namespace :v1 do

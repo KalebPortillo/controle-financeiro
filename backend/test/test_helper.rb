@@ -70,6 +70,9 @@ module ActiveSupport
 
     # factory_bot syntax direto: `build(:user)` em vez de `FactoryBot.build(:user)`.
     include FactoryBot::Syntax::Methods
+
+    # assert_broadcasts / assert_no_broadcasts pros testes de Action Cable (RF21).
+    include ActionCable::TestHelper
   end
 end
 

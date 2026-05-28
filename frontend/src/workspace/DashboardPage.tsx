@@ -3,6 +3,7 @@ import { Button } from '../components/Button'
 import { Card, CardBody, CardHeader } from '../components/Card'
 import { WalletLogo } from '../components/WalletLogo'
 import { MembersCard } from './MembersCard'
+import { ConnectBankButton } from '../bank/ConnectBankButton'
 
 /**
  * Dashboard mínimo pós-login. RF16 só exige:
@@ -60,9 +61,25 @@ export function DashboardPage() {
 
         {active && <MembersCard workspaceId={active.id} />}
 
-        <EmptyState />
+        <ConnectBankCard />
       </div>
     </main>
+  )
+}
+
+function ConnectBankCard() {
+  return (
+    <Card>
+      <CardHeader>
+        <h2 className="font-sans text-sm font-medium">Conectar banco</h2>
+        <p className="text-xs text-muted-foreground">
+          Conecte uma conta via Pluggy. As transações caem na inbox pra você revisar.
+        </p>
+      </CardHeader>
+      <CardBody className="pt-0">
+        <ConnectBankButton />
+      </CardBody>
+    </Card>
   )
 }
 
@@ -102,16 +119,3 @@ function Header({
   )
 }
 
-function EmptyState() {
-  return (
-    <Card>
-      <CardBody className="py-10 text-center space-y-2">
-        <p className="text-sm font-medium text-foreground">Conecte uma conta para começar</p>
-        <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
-          A inbox aparece aqui assim que houver transações pra revisar.
-          A integração com Pluggy e o upload de CSV vêm nas próximas fatias.
-        </p>
-      </CardBody>
-    </Card>
-  )
-}

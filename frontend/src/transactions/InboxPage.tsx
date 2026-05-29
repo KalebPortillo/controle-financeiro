@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CreditCard, Check, CheckSquare, Sparkles } from 'lucide-react'
+import { CreditCard, Check, CheckSquare, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Money } from '../components/Money'
 import { TagChip } from '../components/TagChip'
@@ -99,7 +99,9 @@ export function InboxPage() {
             disabled={reanalyze.isPending}
             data-testid="reanalyze-btn"
           >
-            <Sparkles size={14} />
+            {reanalyze.isPending
+              ? <Loader2 size={14} className="animate-spin" />
+              : <Sparkles size={14} />}
             {reanalyze.isPending ? 'Analisando…' : 'Reanalisar com IA'}
           </Button>
         )}

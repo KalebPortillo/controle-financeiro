@@ -54,7 +54,7 @@ module AiSuggestion
 
     def onboarding_suggest(context)
       ctx_with_id = context.merge(id: @transaction.id)
-      results = @provider.suggest_batch(transactions_context: [ctx_with_id])
+      results = @provider.suggest_batch(transactions_context: [ ctx_with_id ])
       item = results.find { |r| r[:transaction_id].to_s == @transaction.id.to_s } || {}
       {
         improved_title:     item[:improved_title],

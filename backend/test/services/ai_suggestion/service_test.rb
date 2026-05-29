@@ -23,14 +23,14 @@ class AiSuggestion::ServiceTest < ActiveSupport::TestCase
            workspace: @workspace,
            descriptor_pattern: "mercado extra ltda",
            improved_title: "Mercado Extra",
-           tag_ids: [tag.id],
+           tag_ids: [ tag.id ],
            last_seen_at: Time.current)
 
     tx = make_transaction
     result = AiSuggestion::Service.call(transaction: tx, provider: FakeProvider.new)
 
     assert_equal "Mercado Extra", result[:improved_title]
-    assert_equal [tag.id], result[:suggested_tag_ids]
+    assert_equal [ tag.id ], result[:suggested_tag_ids]
     assert_equal "high", result[:confidence]
     assert_equal "learned", result[:source]
   end
@@ -40,7 +40,7 @@ class AiSuggestion::ServiceTest < ActiveSupport::TestCase
   test "calls provider and returns suggested tag ids" do
     tag = create(:tag, workspace: @workspace, name: "Telefonia")
     provider = FakeProvider.new(
-      suggest_result: { improved_title: "Vivo", suggested_tag_ids: [tag.id],
+      suggest_result: { improved_title: "Vivo", suggested_tag_ids: [ tag.id ],
                         new_tag_suggestion: nil, confidence: "high" }
     )
 
@@ -70,14 +70,14 @@ class AiSuggestion::ServiceTest < ActiveSupport::TestCase
   test "uses onboarding mode when workspace has no tags" do
     tx = make_transaction
     provider = FakeProvider.new(
-      batch_result: [{ transaction_id: tx.id, improved_title: "Mercado Extra",
-                       suggested_new_tags: ["Mercado"], confidence: "high" }]
+      batch_result: [ { transaction_id: tx.id, improved_title: "Mercado Extra",
+                       suggested_new_tags: [ "Mercado" ], confidence: "high" } ]
     )
 
     result = AiSuggestion::Service.call(transaction: tx, provider: provider)
 
     assert_equal "Mercado Extra", result[:improved_title]
-    assert_equal ["Mercado"], result[:suggested_new_tags]
+    assert_equal [ "Mercado" ], result[:suggested_new_tags]
     assert_equal "api_onboarding", result[:source]
   end
 

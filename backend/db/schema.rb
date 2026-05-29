@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_29_120100) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_29_200740) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -33,6 +33,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_29_120100) do
     t.index ["workspace_id"], name: "index_accounts_on_workspace_id"
     t.check_constraint "institution::text = ANY (ARRAY['nubank'::character varying, 'inter'::character varying, 'itau'::character varying, 'santander'::character varying, 'bb'::character varying, 'sandbox'::character varying, 'manual'::character varying]::text[])", name: "accounts_institution_check"
     t.check_constraint "kind::text = ANY (ARRAY['checking'::character varying, 'credit_card'::character varying]::text[])", name: "accounts_kind_check"
+  end
+
+  create_table "ai_learned_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "descriptor_pattern", null: false
+    t.text "improved_title"
+    t.datetime "last_seen_at", null: false
+    t.integer "match_count", default: 1, null: false
+    t.uuid "tag_ids", default: [], array: true
+    t.datetime "updated_at", null: false
+    t.uuid "workspace_id", null: false
+    t.index ["workspace_id", "descriptor_pattern"], name: "index_ai_learned_rules_on_workspace_and_pattern", unique: true
+    t.index ["workspace_id"], name: "index_ai_learned_rules_on_workspace_id"
   end
 
   create_table "bank_connection_syncs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -204,6 +217,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_29_120100) do
   add_foreign_key "accounts", "bank_connections"
   add_foreign_key "accounts", "workspace_memberships", column: "owner_membership_id"
   add_foreign_key "accounts", "workspaces"
+  add_foreign_key "ai_learned_rules", "workspaces"
   add_foreign_key "bank_connection_syncs", "bank_connections"
   add_foreign_key "bank_connections", "workspace_memberships", column: "owner_membership_id"
   add_foreign_key "bank_connections", "workspaces"

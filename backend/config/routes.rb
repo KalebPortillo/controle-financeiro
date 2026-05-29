@@ -58,7 +58,13 @@ Rails.application.routes.draw do
           post "reject"
           get  "edits"
         end
+        collection do
+          post "reanalyze"
+        end
       end
+
+      # AI learned rules (RF3.2) — ver e apagar regras aprendidas.
+      resources :ai_learned_rules, only: [ :index, :destroy ]
 
       # Reports (RF13) — analytics / dashboards.
       scope "/reports" do

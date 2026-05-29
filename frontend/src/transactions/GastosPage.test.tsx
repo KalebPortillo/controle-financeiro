@@ -28,6 +28,7 @@ function tx(o: Partial<InboxTransaction> = {}): InboxTransaction {
     occurred_at: '2026-05-19',
     original_description: 'MERCADO',
     improved_title: 'Mercado da semana',
+    ai_confidence: null,
     status: 'consolidated',
     source: 'automatic_sync',
     lock_version: 1,

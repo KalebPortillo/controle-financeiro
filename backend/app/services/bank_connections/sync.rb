@@ -80,7 +80,7 @@ module BankConnections
     # malformada) contam como :errored e não derrubam o lote.
     def import_transaction(account, t)
       amount = t.fetch(:amount).to_f
-      Transaction.create!(
+      tx = Transaction.create!(
         workspace:            account.workspace,
         account:              account,
         direction:            amount.negative? ? "debit" : "credit",
@@ -92,6 +92,7 @@ module BankConnections
         source:               "automatic_sync",
         source_metadata:      t[:raw] || { "id" => t[:id] }
       )
+      AiSuggestion::SuggestJob.perform_later(tx.id)
       :created
     rescue ActiveRecord::RecordNotUnique
       :duplicated

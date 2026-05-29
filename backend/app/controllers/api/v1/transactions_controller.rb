@@ -54,6 +54,7 @@ class Api::V1::TransactionsController < ApplicationController
     apply_tags(@transaction, params[:tag_ids]) if params.key?(:tag_ids)
     @transaction.save!
     record_edits!(scalar_changes, before_tags)
+    enqueue_learning_if_needed!(scalar_changes, before_tags)
     render json: { transaction: serialize(@transaction) }
   rescue ActiveRecord::StaleObjectError
     render json: { error: { code: "stale_object", message: "Transação alterada por outra pessoa. Recarregue." } },
@@ -86,6 +87,13 @@ class Api::V1::TransactionsController < ApplicationController
     render json: { edits: @transaction.edits.recent.map { |e| serialize_edit(e) } }
   end
 
+  # POST /api/v1/transactions/reanalyze — RF3.5 botão "Reanalisar com IA".
+  def reanalyze
+    pending_count = current_workspace.transactions.where(status: "pending").count
+    AiSuggestion::ReanalyzeJob.perform_later(current_workspace.id)
+    render json: { enqueued: true, pending_count: pending_count }, status: :accepted
+  end
+
   private
 
   def set_transaction
@@ -113,6 +121,23 @@ class Api::V1::TransactionsController < ApplicationController
       edited_by_membership: membership, field_name: "tags",
       old_value: before_tags, new_value: after_tags
     )
+  end
+
+  def confidence_label(value)
+    return nil if value.nil?
+    if value >= 0.8 then "high"
+    elsif value >= 0.5 then "medium"
+    else "low"
+    end
+  end
+
+  def enqueue_learning_if_needed!(scalar_changes, before_tags)
+    title_changed = scalar_changes.key?("improved_title")
+    tags_changed  = params.key?(:tag_ids) &&
+                    @transaction.tags.pluck(:id).sort != before_tags
+    return unless title_changed || tags_changed
+
+    AiSuggestion::RecordCorrectionJob.perform_later(@transaction.id)
   end
 
   def update_params
@@ -185,6 +210,7 @@ class Api::V1::TransactionsController < ApplicationController
       occurred_at:          t.occurred_at.iso8601,
       original_description: t.original_description,
       improved_title:       t.improved_title,
+      ai_confidence:        confidence_label(t.ai_confidence),
       status:               t.status,
       source:               t.source,
       lock_version:         t.lock_version,

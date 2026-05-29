@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CreditCard, Check, CheckSquare } from 'lucide-react'
+import { CreditCard, Check, CheckSquare, Sparkles } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Money } from '../components/Money'
 import { TagChip } from '../components/TagChip'
@@ -7,10 +7,29 @@ import {
   useInbox,
   useConsolidate,
   useReject,
+  useReanalyzeInbox,
   type InboxTransaction,
+  type AiConfidence,
 } from './useInbox'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
 import { SwipeableRow } from './SwipeableRow'
+
+function AiConfidenceBadge({ confidence }: { confidence: AiConfidence }) {
+  if (!confidence) return null
+  const styles: Record<NonNullable<AiConfidence>, string> = {
+    high:   'bg-green-50 text-green-700 border-green-200',
+    medium: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+    low:    'bg-red-50 text-red-700 border-red-200',
+  }
+  const labels: Record<NonNullable<AiConfidence>, string> = {
+    high: 'IA', medium: 'IA?', low: 'IA?'
+  }
+  return (
+    <span className={`inline-flex items-center rounded-sm border px-1 py-0 text-[10px] font-medium ${styles[confidence]}`}>
+      {labels[confidence]}
+    </span>
+  )
+}
 
 function formatDate(iso: string): string {
   const [, m, d] = iso.split('-')
@@ -60,6 +79,7 @@ export function InboxPage() {
     setSelected(new Set())
   }
 
+  const reanalyze = useReanalyzeInbox()
   const busy = consolidate.isPending || reject.isPending
 
   return (
@@ -71,6 +91,18 @@ export function InboxPage() {
             {data?.pending_count ?? 0} pendente{(data?.pending_count ?? 0) === 1 ? '' : 's'} esperando revisão
           </p>
         </div>
+        {(data?.pending_count ?? 0) > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => reanalyze.mutate()}
+            disabled={reanalyze.isPending}
+            data-testid="reanalyze-btn"
+          >
+            <Sparkles size={14} />
+            {reanalyze.isPending ? 'Analisando…' : 'Reanalisar com IA'}
+          </Button>
+        )}
       </div>
 
       {isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
@@ -182,10 +214,13 @@ function RowContent({
       </label>
 
       <div className="min-w-0">
-        <div className="text-[13px] font-medium truncate">
-          {t.improved_title || (
-            <span className="font-mono text-muted-foreground">{t.original_description}</span>
-          )}
+        <div className="flex items-center gap-1.5 truncate">
+          <span className="text-[13px] font-medium truncate">
+            {t.improved_title || (
+              <span className="font-mono text-muted-foreground">{t.original_description}</span>
+            )}
+          </span>
+          {t.ai_confidence && <AiConfidenceBadge confidence={t.ai_confidence} />}
         </div>
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
           <CreditCard size={12} />

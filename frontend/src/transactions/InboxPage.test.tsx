@@ -34,6 +34,7 @@ function tx(overrides: Partial<InboxTransaction> = {}): InboxTransaction {
     occurred_at: '2026-05-20',
     original_description: 'PADARIA CENTRAL',
     improved_title: null,
+    ai_confidence: null,
     status: 'pending',
     source: 'automatic_sync',
     lock_version: 0,

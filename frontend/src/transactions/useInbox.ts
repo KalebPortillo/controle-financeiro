@@ -8,6 +8,8 @@ export type InboxTag = {
   icon: string | null
 }
 
+export type AiConfidence = 'high' | 'medium' | 'low' | null
+
 export type InboxTransaction = {
   id: string
   account_id: string
@@ -18,6 +20,7 @@ export type InboxTransaction = {
   occurred_at: string
   original_description: string
   improved_title: string | null
+  ai_confidence: AiConfidence
   status: string
   source: string
   lock_version: number
@@ -120,6 +123,20 @@ export function useCreateManualTransaction() {
   return useInboxMutation((input: ManualEntryInput) =>
     apiFetch('/api/v1/transactions', { method: 'POST', body: input })
   )
+}
+
+// Reanalisar com IA (RF3.5) — enfileira job pra todas as transações pending.
+export function useReanalyzeInbox() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => apiFetch<{ enqueued: boolean; pending_count: number }>(
+      '/api/v1/transactions/reanalyze', { method: 'POST' }
+    ),
+    onSuccess: () => {
+      // Após ~3s o job terá processado parte das sugestões; recarrega a inbox
+      setTimeout(() => qc.invalidateQueries({ queryKey: transactionsKey }), 3000)
+    },
+  })
 }
 
 export type TransactionEdit = {

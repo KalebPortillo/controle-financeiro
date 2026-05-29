@@ -79,7 +79,7 @@ Doc complementar ao PRD v1.2, Requisitos Técnicos v1.1, Modelo de Dados v1.0 e 
 ### Componentes que entram no MVP
 - **Form**: `Input`, `Textarea`, `Select`, `Combobox` (para tag/categoria autocomplete), `Checkbox`, `RadioGroup`, `Switch`, `DatePicker`.
 - **Layout**: `Card`, `Sheet` (drawer mobile), `Dialog` (modal), `Tabs`, `ScrollArea`, `Separator`.
-- **Feedback**: `Toast` (Sonner), `Alert`, `Skeleton` (loading), `Progress`, `Badge`.
+- **Feedback**: `Toast` (Sonner), `Alert`, `Skeleton` (loading), `Progress`, `Badge`, `StepIndicator` (custom — círculos conectados, usado em Onboarding RF22).
 - **Data**: `Table`, `Pagination`, custom `TransactionRow` baseado em primitivas.
 - **Navegação**: `Sidebar` (desktop), `BottomNav` (mobile — custom, baseado em Tabs/NavigationMenu).
 - **Charts**: usar **Recharts** ou **Tremor** (Tremor combina muito bem com shadcn/ui). Recomendação: **Tremor** para charts financeiros prontos (donut, area, bar).
@@ -118,9 +118,172 @@ Doc complementar ao PRD v1.2, Requisitos Técnicos v1.1, Modelo de Dados v1.0 e 
 
 ### Auth (RF16)
 - **Login**: tela cheia, logo centralizado, único CTA "Entrar com Google". Fundo `background`, card central com `border`. Footer com link para "Política de privacidade" futura.
-- **Onboarding pós-login** (primeira vez):
-  - Se usuário não tem workspace: prompt "Criar seu workspace" → input nome (default: "Casa do {{first_name}}") → cria + entra.
-  - Se foi convidado: aceitar convite → entra.
+- **Primeiro login**:
+  - Usuário não tem workspace: cria automaticamente (`{{first_name}}'s workspace`) — sem prompt. Onboarding (RF22) cuida do resto.
+  - Convidado entra direto no inbox do workspace existente (não passa por onboarding).
+
+### Onboarding (RF22 — primeira vez do dono)
+
+Fluxo fullscreen, **fora do AppLayout** (sem sidebar/topbar/bottomnav). O usuário precisa de foco — qualquer chrome do app aqui é distração. Aplicam-se as hard rules normais (Lucide, sem gradiente, bordas em vez de sombras), mas o uso de espaço é diferente da inbox.
+
+**Shell comum a todos os passos:**
+
+```
+┌─────────────────────────────────────────┐
+│  [logo CF]            Pular onboarding  │  ← header fino
+│                                         │
+│   ●─────○─────○                         │  ← step indicator
+│   Conectar  Tags  Categorias            │
+│                                         │
+│   {{conteúdo do passo}}                 │
+│                                         │
+│              ┌─────────────┐            │
+│              │   Continuar │            │  ← CTA primário sticky bottom (mobile)
+│              └─────────────┘            │
+│  Pular este passo                       │  ← link secundário, esquerda
+└─────────────────────────────────────────┘
+```
+
+- **Step indicator**: 3 círculos conectados por linha. Atual = `accent` cheio; futuros = `border` vazio; passados = `accent` outlined com `Check` (Lucide). Texto curto embaixo de cada um.
+- **"Pular onboarding"** (canto superior direito) abre dialog de confirmação ("Tem certeza? Você pode rodar de novo depois em Mais."). Confirmado → marca `skipped`, vai pro inbox.
+- **"Pular este passo"** (link discreto no rodapé) avança sem confirmar — é decisão rápida.
+- **Largura**: container `max-w-2xl mx-auto`. Não usa toda a tela em desktop — o foco é a decisão.
+
+**Passo 1 — Conectar fonte de dados**
+
+```
+┌─────────────────────────────────────────┐
+│                                         │
+│         Conectar sua conta              │
+│                                         │
+│   A gente vai buscar seus gastos pra    │
+│   pré-categorizar tudo com IA antes     │
+│   de você revisar.                      │
+│                                         │
+│   ┌───────────────────────────────────┐ │
+│   │ [Building2]  Conectar banco       │ │  ← Botão grande primário
+│   │              via Pluggy           │ │
+│   └───────────────────────────────────┘ │
+│                                         │
+│   ┌───────────────────────────────────┐ │
+│   │ [Upload]  Importar arquivo (em   │ │  ← Secundário; bloqueado até RF20
+│   │           breve)                  │ │
+│   └───────────────────────────────────┘ │
+│                                         │
+│   Pular este passo                      │
+└─────────────────────────────────────────┘
+```
+
+- Botão "Conectar banco" abre o widget Pluggy direto (reusa `ConnectBankButton`).
+- Após sucesso, transição imediata para **estado de espera**:
+  ```
+  ┌─────────────────────────────────────────┐
+  │                                         │
+  │   [Loader2 spin]                        │
+  │                                         │
+  │   Buscando seus gastos…                 │
+  │   Pode levar até 1 minuto. Pode deixar  │
+  │   essa tela aberta — a gente avisa.     │
+  │                                         │
+  └─────────────────────────────────────────┘
+  ```
+  - Spinner Lucide `Loader2`, sem barra de progresso falsa.
+  - Texto secundário tem o tempo esperado pra setar expectativa.
+  - Quando sync termina + IA analisa, transição automática pro passo 2.
+  - Edge case "sync vazio": mensagem "Não encontramos transações ainda — você pode pular e voltar quando o sync rodar." + botão "Voltar pra inbox".
+
+**Passo 2 — Sugerir tags**
+
+```
+┌─────────────────────────────────────────┐
+│   Suas tags iniciais                    │
+│                                         │
+│   A IA sugeriu essas tags com base nos  │
+│   seus gastos. Aceite, edite ou recuse. │
+│                                         │
+│  ┌──────────────────────────────────┐   │
+│  │ [✓] [● violet] Mercado           │   │
+│  │      8 transações em mercados     │   │
+│  └──────────────────────────────────┘   │
+│  ┌──────────────────────────────────┐   │
+│  │ [✓] [● green ] Comida fora       │   │
+│  │      5 transações em restaurantes │   │
+│  └──────────────────────────────────┘   │
+│  ┌──────────────────────────────────┐   │
+│  │ [ ] [● blue  ] Transporte        │   │
+│  │      3 transações Uber/99        │   │
+│  └──────────────────────────────────┘   │
+│   …                                     │
+│                                         │
+│   [+ Mostrar mais sugestões]            │
+│                                         │
+│   [+ Adicionar tag manual]              │
+│                                         │
+│              ┌─────────────┐            │
+│              │   Continuar │            │
+│              └─────────────┘            │
+└─────────────────────────────────────────┘
+```
+
+- Cada sugestão é um **card horizontal** com:
+  - Checkbox para aceitar (default: marcado para os 5 primeiros, desmarcado pro resto).
+  - Bolinha de cor (random no design, opcional editar depois) + nome em **input inline editável** (clica no nome → edita).
+  - Linha de `rationale` abaixo, em `text-muted-foreground text-[11px]`.
+  - Ícone discreto `X` (Lucide) na direita pra recusar definitivamente (some o card).
+- **Mostrar mais sugestões**: botão `outline` que adiciona próximo lote de 10. Some quando não há mais.
+- **Adicionar tag manual**: abre um pequeno popover com input + cor seletor.
+- Botão **Continuar** está desabilitado se 0 tags aceitas (caso o usuário queira só prosseguir, usa "Pular este passo").
+- Mobile: cards full-width; desktop: mesmo layout porque já é compacto.
+
+**Passo 3 — Sugerir categorias**
+
+```
+┌─────────────────────────────────────────┐
+│   Suas categorias                       │
+│                                         │
+│   Categorias agrupam tags pra relatórios │
+│   e orçamentos. Edite como quiser.      │
+│                                         │
+│  ┌──────────────────────────────────┐   │
+│  │ [✓] Alimentação                  │   │
+│  │  • Mercado  • Padaria  • Comida   │   │
+│  │    fora       [+ tag]   [- tag]  │   │
+│  └──────────────────────────────────┘   │
+│  ┌──────────────────────────────────┐   │
+│  │ [✓] Transporte                   │   │
+│  │  • Transporte  [+ tag]  [- tag]  │   │
+│  └──────────────────────────────────┘   │
+│   …                                     │
+│                                         │
+│   [+ Mostrar mais sugestões]            │
+│                                         │
+│   [+ Adicionar categoria manual]        │
+│                                         │
+│              ┌─────────────┐            │
+│              │   Concluir  │            │
+│              └─────────────┘            │
+└─────────────────────────────────────────┘
+```
+
+- Card mostra o **nome editável** + lista de **tags membros como chips** (`TagChip` reaproveitado).
+- Cada chip tem botão `X` (Lucide) para remover do agrupamento; botão `+ tag` abre dropdown com tags do passo 2 não atribuídas a essa categoria (uma tag pode ir em N categorias, então não é exclusiva).
+- "Adicionar categoria manual": modal com input nome + multi-select de tags.
+- Botão final **Concluir** (não "Continuar") fecha o fluxo. Transição: spinner curto "Aplicando…" enquanto enfileira o `ReanalyzeJob`, depois redireciona pra `/inbox`.
+
+**Estados de erro:**
+- Falha de rede em qualquer passo → toast `destructive` "Não foi possível salvar. Tente de novo." Botão CTA fica com `Loader2` durante a retry.
+- Análise IA falhou (Gemini quota/timeout) no passo 2 → tela vazia com mensagem "Não consegui sugerir tags agora. Tente em alguns minutos ou pule este passo." + botão "Tentar de novo" + "Pular agora".
+
+**Tom de copy:**
+- Sentence case, sem ponto final em CTAs.
+- Sem exclamações ("Vamos!"), sem emoji.
+- Direto e sóbrio — segue o tom do resto do app ("Buscando seus gastos…", "A IA sugeriu essas tags com base nos seus gastos.").
+
+**Refazer onboarding (RF22.10) — em Mais:**
+- Card no "Mais" com botão **"Refazer análise da IA"**.
+- Clicar abre modal explicando: "A IA vai analisar todos os seus gastos e sugerir tags e categorias novas. As atuais não são afetadas."
+- Botão "Analisar agora" enfileira `Onboarding::AnalyzeJob` modo aditivo.
+- Quando termina, badge no item de menu "Mais" indica que há sugestões prontas. Clicar abre modal com a lista pra revisar e aceitar/recusar (sem virar passo de novo).
 
 ### Inbox (RF2 — tela principal)
 

@@ -3,7 +3,10 @@ module AiSuggestion
   # improved_title + ai_confidence no registro.
   # Enfileirado pelo SyncJob após cada importação.
   class SuggestJob < ApplicationJob
-    queue_as :default
+    queue_as :ai_suggestion
+
+    # Gemini free tier: 15 RPM. Retry em 429 com backoff exponencial.
+    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 5
 
     def perform(transaction_id)
       tx = Transaction.find_by(id: transaction_id)

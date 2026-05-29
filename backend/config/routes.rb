@@ -47,7 +47,7 @@ Rails.application.routes.draw do
       end
 
       # Transactions (RF2 inbox + RF4) — listagem/leitura + workflow da inbox.
-      resources :transactions, only: [ :index, :update, :destroy ] do
+      resources :transactions, only: [ :index, :create, :update, :destroy ] do
         member do
           post "consolidate"
           post "reject"

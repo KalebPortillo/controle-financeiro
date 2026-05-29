@@ -20,6 +20,30 @@ class Api::V1::TransactionsController < ApplicationController
     }
   end
 
+  # POST /api/v1/transactions — entrada manual (RF12). Vai direto pra
+  # consolidados, na conta "Dinheiro / Externo" do workspace.
+  def create
+    transaction = current_workspace.transactions.new(
+      account:               manual_account,
+      direction:             params.require(:direction),
+      amount_cents:          params.require(:amount_cents),
+      occurred_at:           Date.parse(params.require(:occurred_at)),
+      improved_title:        params[:improved_title].presence,
+      original_description:  params[:improved_title].presence || "Lançamento manual",
+      status:                "consolidated",
+      source:                "manual_entry",
+      consolidated_at:       Time.current,
+      created_by_membership: current_membership
+    )
+    transaction.save!
+    apply_tags(transaction, params[:tag_ids]) if params.key?(:tag_ids)
+    render json: { transaction: serialize(transaction) }, status: :created
+  rescue ActionController::ParameterMissing, ArgumentError => e
+    render json: { error: { code: "validation_failed", message: e.message } }, status: :unprocessable_entity
+  rescue ActiveRecord::RecordInvalid => e
+    render json: { error: { code: "validation_failed", message: e.message } }, status: :unprocessable_entity
+  end
+
   # PATCH /api/v1/transactions/:id — edita título/valor/data (RF2.3) com optimistic
   # lock: o cliente manda o lock_version que tinha; conflito → 409.
   def update
@@ -128,6 +152,15 @@ class Api::V1::TransactionsController < ApplicationController
 
   def current_membership
     current_user.workspace_memberships.find_by(workspace: current_workspace)
+  end
+
+  # Conta "Dinheiro / Externo" do workspace (RF12) — origem dos lançamentos
+  # manuais (dinheiro vivo, PicPay, etc). Criada sob demanda, uma por workspace.
+  def manual_account
+    current_workspace.accounts.find_or_create_by!(institution: "manual", name: "Dinheiro / Externo") do |a|
+      a.kind = "checking"
+      a.owner_membership = current_membership
+    end
   end
 
   def serialize_edit(e)

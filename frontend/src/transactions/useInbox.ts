@@ -107,6 +107,21 @@ export function useUpdateTransaction() {
   )
 }
 
+export type ManualEntryInput = {
+  direction: 'debit' | 'credit'
+  amount_cents: number
+  occurred_at: string
+  improved_title?: string
+  tag_ids?: string[]
+}
+
+// Lançar gasto/receita manual (RF12) — vai direto pra consolidados.
+export function useCreateManualTransaction() {
+  return useInboxMutation((input: ManualEntryInput) =>
+    apiFetch('/api/v1/transactions', { method: 'POST', body: input })
+  )
+}
+
 export type TransactionEdit = {
   id: string
   field_name: string

@@ -6,11 +6,11 @@ import { MemoryRouter } from 'react-router'
 import { GastosPage } from './GastosPage'
 import type { InboxTransaction } from './useInbox'
 
-function setupFetch(handler: (url: string) => { status: number; body: unknown }) {
-  const calls: string[] = []
-  const fetchMock = vi.fn().mockImplementation(async (url: string) => {
-    calls.push(url)
-    const { status, body } = handler(url)
+function setupFetch(handler: (url: string, init?: RequestInit) => { status: number; body: unknown }) {
+  const calls: Array<{ url: string; method: string }> = []
+  const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+    calls.push({ url, method: init?.method ?? 'GET' })
+    const { status, body } = handler(url, init)
     return { ok: status >= 200 && status < 300, status, json: async () => body } as Response
   })
   globalThis.fetch = fetchMock as unknown as typeof fetch
@@ -65,8 +65,8 @@ describe('<GastosPage />', () => {
   it('requests consolidated for the current month and navigates months', async () => {
     const { calls } = setupFetch(() => ({ status: 200, body: { transactions: [], pending_count: 0 } }))
     renderGastos()
-    await waitFor(() => expect(calls.some((u) => u.includes('status=consolidated'))).toBe(true))
-    expect(calls.some((u) => /from=\d{4}-\d{2}-01/.test(u))).toBe(true)
+    await waitFor(() => expect(calls.some((c) => c.url.includes('status=consolidated'))).toBe(true))
+    expect(calls.some((c) => /from=\d{4}-\d{2}-01/.test(c.url))).toBe(true)
 
     const user = userEvent.setup()
     const callsBefore = calls.length
@@ -102,6 +102,23 @@ describe('<GastosPage />', () => {
     await user.click(await screen.findByTestId('history-toggle-g1'))
     await waitFor(() => expect(screen.getByTestId('history-g1')).toBeInTheDocument())
     expect(within(screen.getByTestId('history-g1')).getByText(/Valor/)).toBeInTheDocument()
+  })
+
+  it('opens manual entry and POSTs a new transaction', async () => {
+    const { calls } = setupFetch((url) => {
+      if (url.includes('/api/v1/tags')) return { status: 200, body: { tags: [] } }
+      if (url === '/api/v1/transactions') return { status: 201, body: { transaction: tx() } }
+      return { status: 200, body: { transactions: [], pending_count: 0 } }
+    })
+    renderGastos()
+    const user = userEvent.setup()
+    await user.click(await screen.findByTestId('open-manual'))
+    await user.type(screen.getByTestId('manual-amount'), '45,00')
+    await user.click(screen.getByTestId('manual-submit'))
+
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === '/api/v1/transactions' && c.method === 'POST')).toBe(true)
+    )
   })
 
   it('opens the detail sheet in consolidated mode (no accept/reject)', async () => {

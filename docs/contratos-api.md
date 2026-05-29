@@ -177,24 +177,20 @@ Formato uniforme:
 
 ### Transactions — escrita e workflow inbox (RF2.3, RF12)
 - `PATCH /api/v1/transactions/:id` — edita `improved_title`, `amount_cents`,
-  `occurred_at`. Body inclui `lock_version` (optimistic lock; conflito → 409
-  `stale_object`). ⏳ `tag_ids`/`category_id` quando RF5/RF6 existirem.
+  `occurred_at`, `tag_ids` (RF5, substitui). Body inclui `lock_version` (optimistic
+  lock; conflito → 409 `stale_object`). Cada campo alterado vira um TransactionEdit
+  (RF4.3). ⏳ `category_id` quando RF6 existir.
 - `DELETE /api/v1/transactions/:id` — hard delete (RF2.3 remover). 204.
 - `POST /api/v1/transactions/:id/consolidate` — accept (RF2.3). Seta `consolidated_at`.
 - `POST /api/v1/transactions/:id/reject` — reject (RF2.3). Seta `rejected_at`.
-- ⏳ `POST /api/v1/transactions` — entrada manual (RF12) — planejado. Body:
+- `POST /api/v1/transactions` — entrada manual (RF12). Body:
   ```json
-  {
-    "account_id": "...",
-    "direction": "debit",
-    "amount_cents": 8500,
-    "occurred_at": "2026-05-20",
-    "improved_title": "Almoço Padaria",
-    "tag_ids": ["..."],
-    "category_id": "..."
-  }
+  { "direction": "debit", "amount_cents": 8500, "occurred_at": "2026-05-20",
+    "improved_title": "Almoço", "tag_ids": ["..."] }
   ```
-  Status inicial = `consolidated` (RF12.3).
+  Status inicial = `consolidated` (RF12.3), `source=manual_entry`. Origem fixa na
+  conta "Dinheiro / Externo" do workspace (criada sob demanda). 422 se inválido.
+  ⏳ escolher conta bancária + `category_id` quando RF6 existir.
 - ⏳ `POST /api/v1/transactions/:id/split` — planejado (RF2.3, depende de tags). Body:
 - `POST /api/v1/transactions/:id/split` — body:
   ```json

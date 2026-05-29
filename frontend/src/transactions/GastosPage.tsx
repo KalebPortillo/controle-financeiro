@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { CreditCard, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CreditCard, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Money } from '../components/Money'
+import { Button } from '../components/Button'
 import { TagChip } from '../components/TagChip'
 import { useConsolidated, type InboxTransaction } from './useInbox'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
+import { ManualEntrySheet } from './ManualEntrySheet'
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
@@ -42,6 +44,7 @@ export function GastosPage() {
   const { data, isLoading } = useConsolidated(period)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [manualOpen, setManualOpen] = useState(false)
 
   const txs = data?.transactions ?? []
   const active = txs.find((t) => t.id === activeId) ?? null
@@ -74,6 +77,9 @@ export function GastosPage() {
           >
             <ChevronRight size={16} />
           </button>
+          <Button variant="outline" size="sm" onClick={() => setManualOpen(true)} data-testid="open-manual" className="ml-2">
+            <Plus size={14} /> Lançar
+          </Button>
         </div>
       </div>
 
@@ -144,6 +150,8 @@ export function GastosPage() {
         onClose={() => setSheetOpen(false)}
         mode="consolidated"
       />
+
+      <ManualEntrySheet open={manualOpen} onClose={() => setManualOpen(false)} />
     </div>
   )
 }

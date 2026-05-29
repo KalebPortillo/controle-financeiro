@@ -44,8 +44,13 @@ module AiSuggestion
 
     def resolve_tags(tx, result)
       if result[:suggested_tag_ids].present?
+        # Modo normal: tags existentes sugeridas pela IA
         tx.workspace.tags.where(id: result[:suggested_tag_ids]).to_a
+      elsif result[:new_tag_suggestion].present?
+        # Modo normal: nenhuma tag existente encaixou, IA sugere criar uma nova
+        [ tx.workspace.tags.find_or_create_by!(name: result[:new_tag_suggestion].strip.truncate(50)) ]
       elsif result[:suggested_new_tags].present? && tx.tags.empty?
+        # Modo onboarding: IA sugere múltiplas tags novas
         result[:suggested_new_tags].map do |name|
           tx.workspace.tags.find_or_create_by!(name: name.strip.truncate(50))
         end

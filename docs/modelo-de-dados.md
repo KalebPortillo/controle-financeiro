@@ -62,9 +62,28 @@ Espaço financeiro compartilhado.
 | id | uuid | PK |
 | name | string | NOT NULL |
 | created_by_user_id | uuid | FK → users.id NOT NULL |
+| onboarding_state | jsonb | DEFAULT `{"status":"not_started"}`, NOT NULL |
 | created_at, updated_at | timestamp | |
 
-**RFs**: RF16.2.
+**`onboarding_state` (RF22)** — schema flexível, persiste progresso do fluxo:
+
+```json
+{
+  "status": "not_started | connecting | analyzing | tagging | categorizing | completed | skipped",
+  "started_at": "iso8601 | null",
+  "completed_at": "iso8601 | null",
+  "suggested_tags":        [{ "name": "Mercado", "rationale": "8 transações", "coverage": 8 }],
+  "suggested_categories":  [{ "name": "Alimentação", "tag_names": ["Mercado","Padaria"] }],
+  "accepted_tag_ids":      ["uuid"],
+  "accepted_category_ids": ["uuid"]
+}
+```
+
+Índice GIN ou btree apenas sobre `(onboarding_state ->> 'status')` é
+suficiente — sem queries complexas dentro do JSON. Workspace é 1-1 com
+estado, sem histórico a manter.
+
+**RFs**: RF16.2, RF22.
 
 ### `workspace_memberships`
 Vínculo N:N entre usuário e workspace.

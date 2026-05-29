@@ -350,6 +350,43 @@ Formato uniforme:
   Frontend usa `overlap_present` para sinalizar visualmente que a soma > total (RF6.6).
 - `GET /api/v1/reports/monthly_evolution?months=12` — array por mês.
 
+### Onboarding (RF22)
+Fluxo guiado de 3 passos para o dono do workspace, na primeira vez.
+Apenas o `created_by_user` do workspace tem acesso — convidados recebem `403`.
+
+- `GET /api/v1/onboarding` — estado atual:
+  ```json
+  {
+    "status": "not_started | connecting | analyzing | tagging | categorizing | completed | skipped",
+    "current_step": 1,
+    "started_at": "2026-05-29T20:00:00Z",
+    "completed_at": null,
+    "has_sync_finished": true,
+    "suggested_tags":       [{ "name": "Mercado",  "rationale": "8 transações em mercados", "coverage": 8 }],
+    "suggested_categories": [{ "name": "Alimentação", "tag_names": ["Mercado","Padaria"] }],
+    "accepted_tag_ids":     ["uuid"],
+    "accepted_category_ids":["uuid"]
+  }
+  ```
+- `POST   /api/v1/onboarding/start` — entra em `connecting`. Idempotente (estado atual avança naturalmente). `400` se já completou ou pulou.
+- `POST   /api/v1/onboarding/skip` — marca como `skipped`. Pode ser chamado em qualquer estado anterior a `completed`. Sem body.
+- `POST   /api/v1/onboarding/advance` — transição idempotente para o próximo passo válido baseado no estado atual. Útil quando a UI quer forçar avançar (ex: pular passo 2 sem aceitar tags). Body opcional `{ to: "categorizing" | "completed" }` para forçar destino.
+- `POST   /api/v1/onboarding/tags` — body:
+  ```json
+  { "accepted": [{ "name": "Mercado" }, { "name": "Comida fora" }] }
+  ```
+  Cria as tags (find_or_create_by por nome no workspace), persiste em `accepted_tag_ids`, transiciona para `categorizing`. Retorna o `onboarding_state` atualizado + os ids das tags criadas.
+- `POST   /api/v1/onboarding/categories` — body:
+  ```json
+  { "accepted": [{ "name": "Alimentação", "tag_ids": ["uuid", "uuid"] }] }
+  ```
+  Cria as categorias, associa às tags informadas, persiste em `accepted_category_ids`, transiciona para `completed` e enfileira `AiSuggestion::ReanalyzeJob` para o workspace.
+- `GET    /api/v1/onboarding/suggestions/tags?offset=10` — paginação do array `suggested_tags`. Retorna `{ tags: [...], has_more: bool }`.
+- `GET    /api/v1/onboarding/suggestions/categories?offset=10` — idem para categorias.
+- `POST   /api/v1/onboarding/restart_additive` — RF22.10 (botão "Refazer onboarding com IA" em Mais). Enfileira novo `Onboarding::AnalyzeJob` com `mode: "additive"`. Não muda o `status` (continua `completed`). UI mostra modal de revisão quando as sugestões ficam prontas.
+
+`GET /api/v1/sessions/current` passa a incluir `onboarding_state` (resumido — só `status` e `current_step`) do workspace ativo, para o frontend decidir se redireciona para `/onboarding` no boot.
+
 ### Notifications (RF17)
 - `GET    /api/v1/notifications?unread=true`
 - `POST   /api/v1/notifications/:id/mark_read`

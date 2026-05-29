@@ -313,6 +313,182 @@ ai_learned_rules
 - Erros de quota/rede → idem. O usuário categoriza manualmente na inbox normalmente.
 - VCR em testes: cassettes gravam a chamada real ao Gemini uma vez; CI sempre usa o cassette.
 
+## Onboarding de novo usuário (RF22)
+
+Fluxo guiado de 3 passos para o dono do workspace recém-criado. Não é uma
+feature stand-alone — orquestra peças que já existem (Pluggy, AiProviders,
+Tag, Category) com um wrapper de estado e UI dedicada.
+
+### Persistência de estado — campo `onboarding_state` no Workspace
+
+Decisão: **jsonb no `workspaces`**, não tabela própria.
+
+Motivo: relação é 1-1 com workspace, não há histórico a manter, e o conjunto
+de campos vai evoluir várias vezes durante implementação. Schema flexível
+elimina ciclos de migration por mudança pequena.
+
+```ruby
+# Migration
+add_column :workspaces, :onboarding_state, :jsonb, default: { "status" => "not_started" }
+add_index :workspaces, "(onboarding_state ->> 'status')",
+          name: "index_workspaces_on_onboarding_status"
+```
+
+Shape do JSON:
+
+```json
+{
+  "status": "not_started | connecting | analyzing | tagging | categorizing | completed | skipped",
+  "started_at": "2026-05-29T20:00:00Z",
+  "completed_at": null,
+  "suggested_tags":       [{ "name": "Mercado",  "rationale": "8 transações em mercados" }, …],
+  "suggested_categories": [{ "name": "Alimentação", "tag_names": ["Mercado","Padaria"] }, …],
+  "accepted_tag_ids":     ["uuid", …],
+  "accepted_category_ids":["uuid", …]
+}
+```
+
+### Quem dispara, quando
+
+- **RF22.1 detecção**: o frontend não decide — pergunta ao backend.
+  `GET /sessions/current` passa a incluir `onboarding_state` do workspace ativo,
+  e o `RequireAuth` redireciona pra `/onboarding` se `status ∈ {not_started,
+  connecting, analyzing, tagging, categorizing}`. Estados `completed` e
+  `skipped` deixam o app fluir normal.
+- **RF22.2 só pro dono**: lookup checa `workspace.created_by_user == current_user`.
+  Membros convidados nunca veem o fluxo.
+
+### Endpoints
+
+```
+GET  /api/v1/onboarding           → { status, current_step, suggested_*, accepted_* }
+POST /api/v1/onboarding/start     → marca status='connecting', started_at=now
+POST /api/v1/onboarding/skip      → marca status='skipped'  (qualquer hora)
+POST /api/v1/onboarding/advance   → idempotente; transiciona pro próximo step
+                                    válido baseado no estado atual
+POST /api/v1/onboarding/tags      → body { accepted: [{ name }] }
+                                    cria as tags, persiste accepted_tag_ids,
+                                    avança pra 'categorizing'
+POST /api/v1/onboarding/categories → body { accepted: [{ name, tag_ids }] }
+                                    cria as categorias, persiste, completed
+GET  /api/v1/onboarding/suggestions/tags?offset=N → próximos 10
+GET  /api/v1/onboarding/suggestions/categories?offset=N → próximos 10
+```
+
+Todos exceto `start` exigem que `status != 'not_started'`. `start` exige
+o oposto (idempotente se já foi chamado).
+
+### Análise IA — `Onboarding::AnalyzeJob`
+
+Dispara automaticamente assim que o sync inicial do passo 1 termina, **se**
+o workspace está em `connecting` ou `analyzing`.
+
+Encadeamento de eventos:
+1. `Onboarding#start` → `status = connecting`.
+2. Usuário conecta no Pluggy → `BankConnections::Create` → `SyncJob.perform_later`.
+3. `SyncJob` ao terminar com sucesso → enfileira `Onboarding::AnalyzeJob` se
+   `workspace.onboarding_state['status'] == 'connecting'`. Atualiza para
+   `analyzing` no mesmo update.
+4. `Onboarding::AnalyzeJob`:
+   - Carrega todas as transações pending do workspace (no máximo as últimas
+     200 — limite de contexto da API).
+   - Chama `AiProviders::GeminiProvider#suggest_onboarding` (método novo)
+     com prompt de descoberta de tags+categorias em PT-BR.
+   - Persiste resultados em `suggested_tags` e `suggested_categories`.
+   - Atualiza `status = 'tagging'`.
+5. Frontend, no passo 2, consome `GET /onboarding` e renderiza os 10
+   primeiros de `suggested_tags`.
+
+**Modo aditivo** (re-execução via RF22.10):
+
+- Mesmo `AnalyzeJob`, mas chamado com flag `mode: 'additive'`. Carrega
+  `Tag.where(workspace: ws).pluck(:name)` e passa no prompt como exclusion
+  list — IA só sugere o que falta. Idem categorias.
+- Resultado vai direto pro estado de onboarding como se fosse a primeira
+  rodada, mas o frontend renderiza um modal de revisão em vez do fluxo
+  completo (não há passo 1).
+
+### Prompt da análise inicial (modo discovery)
+
+```
+Você é um assistente de finanças pessoais. Analise as transações abaixo
+e descubra a taxonomia que melhor descreve o padrão de gastos do usuário.
+
+Retorne JSON:
+{
+  "tags": [
+    {
+      "name": "Nome em PT-BR (1-3 palavras, máx 30 chars)",
+      "rationale": "frase curta dizendo por que essa tag aparece",
+      "coverage": número-aproximado-de-transações-que-encaixam
+    }
+  ],
+  "categories": [
+    {
+      "name": "Nome em PT-BR (1-3 palavras)",
+      "tag_names": ["nomes de tags do array acima que pertencem aqui"]
+    }
+  ]
+}
+
+Regras:
+- Tags são granulares (estabelecimento ou tipo específico).
+- Categorias agrupam tags por afinidade (uma tag pode estar em + de uma
+  categoria).
+- Ordene tags por coverage decrescente.
+- Gere quantas tags e categorias forem relevantes — não há limite mínimo
+  nem máximo, mas tente NÃO repetir conceitos.
+- Apenas tags com cobertura ≥ 1 transação.
+
+Transações:
+[ { id, descrição, merchant, categoria-pluggy, valor, direction }, … ]
+```
+
+### Pré-categorização durante o sync inicial
+
+**Decisão deliberada**: enquanto `status ∈ {connecting, analyzing, tagging,
+categorizing}`, o `SyncJob` **não** dispara `AiSuggestion::SuggestJob` por
+transação. Razões:
+
+1. Sem tags criadas, a IA cairia em modo onboarding (RF3.1) e geraria tags
+   inconsistentes uma a uma — exatamente o problema que esse RF22 resolve.
+2. Custo de tokens duplicado (uma chamada por transação + a análise em batch).
+
+Quando o usuário **completa** o onboarding (`status = completed`), um único
+`AiSuggestion::ReanalyzeJob` é enfileirado para o workspace. Esse roda o
+modo normal — com as tags criadas — e aplica sugestões em todas as pending.
+
+### Pular: efeitos por estado
+
+| Onde pula | Status final | O que acontece |
+|---|---|---|
+| Passo 1 (sem conexão) | `skipped` | Vai pro inbox vazio. Pluggy/CSV pode ser conectado depois pela UI normal. |
+| Passo 2 (depois de conectar) | `completed` | Vai pro inbox. `ReanalyzeJob` ainda dispara mas IA opera em modo onboarding (cria tags livremente). |
+| Passo 3 (depois de criar tags) | `completed` | Vai pro inbox. Tags existem; IA opera em modo normal. Categorias podem ser criadas depois pela UI. |
+| "Pular onboarding" em qualquer passo | `skipped` | Igual ao acima, mas `started_at`/`completed_at` ficam nulos. |
+
+### Frontend — fluxo
+
+- Nova rota `/onboarding` no React Router, fora do `AppLayout` (não tem
+  sidebar/topbar — é fullscreen guiado).
+- Componentes: `<OnboardingShell />` (steps indicator + skip total) com
+  rotas filhas `/onboarding/conectar`, `/onboarding/tags`, `/onboarding/categorias`.
+- `useOnboardingState()` faz polling leve (5s) quando está em `connecting`
+  ou `analyzing`, para detectar fim do sync/análise. Action Cable seria o
+  ideal mas exige canal novo — polling é suficiente pro MVP.
+- Pluggy widget reaproveita `<ConnectBankButton>` já existente.
+
+### Testes (RF22)
+
+| Camada | Foco |
+|---|---|
+| Backend models | `workspace.onboarding_state` defaults e transições |
+| Backend service `Onboarding::Service` | start/advance/skip; idempotência |
+| Backend job `Onboarding::AnalyzeJob` | dispara após SyncJob com sucesso; modo discovery vs additive; persiste em estado |
+| Backend integration | endpoints, autorização (só dono) |
+| Frontend component | OnboardingShell, cada step, skip flow |
+| E2E | golden path: login → conectar → analisar → aceitar tags → aceitar categorias → inbox |
+
 ## Monitoramento de erros
 
 ### Decisão: **Sentry** (SaaS) para backend + frontend
@@ -481,6 +657,7 @@ exercitam o resto da pilha (rota → cookie de sessão → frontend renderizado)
 | **RF19** Hospedagem | Smoke tests pós-deploy (HTTPS, auth, health endpoint) |
 | **RF20** Importação por arquivo | Parsers CSV/OFX, dedup, casos de borda (encoding, delimitador, valores inválidos), feedback do upload |
 | **RF21** Painel sync status | Endpoint de listagem com status agregado; job assíncrono dispara sync e atualiza colunas `status`/`last_sync_at`/`error_message` na tabela `bank_connections`; broadcast via Action Cable para o frontend ouvir mudanças em tempo real; histórico (tabela complementar a definir ou contar via logs do job); testes cobrem todos os estados (`conectado`, `sincronizando`, `erro`, `expirado`) |
+| **RF22** Onboarding | Transições de `onboarding_state`; idempotência de `start/advance/skip`; `AnalyzeJob` dispara após SyncJob com sucesso e só em modo `discovery` quando workspace está em `connecting`; modo `additive` exclui tags/categorias existentes do prompt; só dono passa pelo fluxo; pular em cada passo leva ao status correto (`skipped` vs `completed`); reanalyze enfileirado uma vez ao completar |
 
 ### Convenções de teste
 - **Backend**: `test/services/transactions/consolidate_service_test.rb` espelha `app/services/transactions/consolidate_service.rb`.

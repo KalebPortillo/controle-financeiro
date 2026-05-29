@@ -222,6 +222,119 @@ O prompt enviado à IA é **compacto** (só os campos acima extraídos do JSONB 
 - **RF21.7** **Histórico das últimas N sincronizações** por conexão (ex.: últimas 10) com timestamp, duração, contagem de transações importadas/duplicadas/erros, status final. Útil para auditoria leve quando algo dá errado.
 - **RF21.8** Ações destrutivas (desconectar, reconectar) ficam disponíveis na mesma tela mas atrás de confirmação.
 
+### RF22. Onboarding de novo usuário
+
+Fluxo guiado, mostrado **uma vez** depois do primeiro login, que ajuda o usuário
+a sair do "workspace vazio" para "inbox pré-categorizado". Conecta o banco,
+roda a IA sobre os primeiros gastos, sugere tags e categorias coerentes, e
+deixa tudo pronto para revisar.
+
+#### Quando dispara
+
+- **RF22.1** O onboarding é mostrado quando o workspace ativo está vazio:
+  sem nenhuma `bank_connection` **e** sem nenhuma `transaction`. Detectado no
+  primeiro carregamento do app após login.
+- **RF22.2** Apenas o **dono original** do workspace passa pelo onboarding.
+  Membros convidados (esposa que recebe convite) caem direto no inbox do
+  workspace existente, mesmo que seja o primeiro login dela — o workspace
+  já tem dados, então não há decisão a tomar.
+- **RF22.3** O fluxo NÃO é repetido automaticamente. Para rodar de novo,
+  o usuário usa o botão manual da seção "Mais" (RF22.10).
+
+#### Estrutura do fluxo
+
+- **RF22.4** **Skippable em todo passo.** Cada etapa tem botão "Pular agora"
+  e botão "Pular onboarding" que vai direto para a inbox. Não trava o usuário
+  em nenhum momento.
+- **RF22.5** Três passos sequenciais, com indicador de progresso visível
+  (1 de 3, 2 de 3, 3 de 3):
+
+  **Passo 1 — Conectar fonte de dados**
+  - **RF22.5.1** Oferecer **conectar banco via Pluggy** (RF1). Botão "Conectar
+    banco" abre o widget na hora.
+  - **RF22.5.2** Quando a integração CSV/OFX (RF20) estiver pronta, esta tela
+    também oferece "Importar arquivo" como alternativa equivalente.
+  - **RF22.5.3** Após a conexão, espera o **sync inicial** terminar antes de
+    avançar — com feedback "Buscando seus gastos…". Se nenhuma transação for
+    importada no sync inicial, mostra "Não encontramos transações ainda — você
+    pode pular e voltar quando o sync rodar."
+  - **RF22.5.4** "Pular agora" leva direto à inbox vazia (sem passos 2 e 3),
+    já que sem transações não há o que analisar.
+
+  **Passo 2 — Sugerir tags**
+  - **RF22.5.5** A IA analisa **todas as transações** importadas no passo 1
+    e propõe um conjunto inicial de tags em PT-BR, derivado dos
+    estabelecimentos, categorias do banco e descrições.
+  - **RF22.5.6** A tela mostra as **10 sugestões mais relevantes primeiro**
+    (ordenadas por frequência/cobertura no histórico). Botão **"Mostrar mais
+    sugestões"** carrega o próximo lote (mais 10) até esgotar.
+  - **RF22.5.7** Para cada sugestão, o usuário pode:
+    - **Aceitar** (marca a sugestão; vai virar tag de verdade no commit do passo).
+    - **Editar o nome** antes de aceitar (ex.: "Restaurante" → "Comida fora").
+    - **Recusar** (não cria a tag).
+  - **RF22.5.8** Também há campo livre **"Adicionar tag manual"** para tags
+    que o usuário sabe que vai querer e a IA não sugeriu.
+  - **RF22.5.9** Botão "Continuar" cria todas as tags aceitas/editadas no
+    workspace e avança ao passo 3.
+  - **RF22.5.10** "Pular agora" avança para o passo 3 sem criar tags;
+    o usuário pode criá-las depois manualmente.
+
+  **Passo 3 — Sugerir categorias**
+  - **RF22.5.11** A IA propõe categorias baseadas nas tags **efetivamente
+    criadas** no passo 2 (não nas sugeridas e recusadas). Cada categoria
+    sugerida já vem com a **lista de tags membros** pré-selecionadas (ex.:
+    categoria "Alimentação" → tags "Mercado", "Comida fora", "Padaria").
+  - **RF22.5.12** Mesmo padrão: **10 categorias primeiro**, botão "Mostrar mais".
+  - **RF22.5.13** Para cada categoria sugerida, o usuário pode:
+    - **Aceitar como está.**
+    - **Editar o nome** (ex.: "Alimentação" → "Comida").
+    - **Editar as tags membros** (adicionar/remover dentro do conjunto criado).
+    - **Recusar.**
+  - **RF22.5.14** Campo "Adicionar categoria manual" também disponível.
+  - **RF22.5.15** Botão "Concluir" cria as categorias aceitas e finaliza o
+    onboarding. Redireciona para `/inbox`.
+
+#### Resultado pós-onboarding
+
+- **RF22.6** Ao chegar na inbox depois do onboarding, todas as transações
+  importadas já passaram pelo `SuggestJob` da IA (RF3). Como agora existem
+  tags e categorias, a IA opera em **modo normal** (tags existentes) em vez
+  de modo onboarding — sugere tags do conjunto criado e aplica diretamente
+  na transação.
+- **RF22.7** Quando o usuário consolidar essas transações, o dashboard de
+  relatórios (RF13) já mostra agregações por tag e categoria sem trabalho
+  manual extra.
+
+#### Estado e persistência
+
+- **RF22.8** O progresso do onboarding (passo atual, tags aceitas, categorias
+  aceitas) é persistido no servidor — se o usuário fechar o navegador no
+  meio, ao voltar retoma de onde parou.
+- **RF22.9** Se o usuário escolher "Pular onboarding" totalmente, o sistema
+  marca o onboarding como concluído (estado `skipped`) — não pergunta de novo
+  no próximo login.
+
+#### Re-execução manual
+
+- **RF22.10** Na seção "Mais", existe um botão **"Refazer onboarding com IA"**.
+  Ao clicar:
+  - Abre uma versão **aditiva** do fluxo: a IA analisa **todas** as transações
+    do workspace (não só as do primeiro sync) e sugere tags/categorias que
+    ainda **não existem**. Tags/categorias existentes não são tocadas — não
+    há risco de perder configuração.
+  - O passo 1 (conectar banco) é pulado nessa versão; já existe pelo menos
+    uma fonte de dados.
+  - Útil quando o catálogo de gastos cresceu e há novos padrões a categorizar.
+
+#### Não-objetivos do MVP
+
+- Onboarding não é multiplayer (esposa não participa do fluxo do dono).
+- Onboarding não tenta cadastrar orçamentos (RF8) nem regras manuais (RF3.3)
+  — isso fica para o usuário fazer naturalmente depois.
+- Onboarding não importa categorias predefinidas "de mercado" (lista pronta
+  estilo Mobills) — todas as sugestões vêm da análise dos gastos reais do
+  usuário.
+
 ## Comparação com o mercado (atualizada)
 
 | Feature | Sua app | Organizze | Mobills | YNAB | Monarch |

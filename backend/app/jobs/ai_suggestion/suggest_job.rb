@@ -14,11 +14,26 @@ module AiSuggestion
 
       result = AiSuggestion::Service.call(transaction: tx)
 
-      updates = {}
-      updates[:improved_title] = result[:improved_title] if result[:improved_title].present?
-      updates[:ai_confidence]  = confidence_to_decimal(result[:confidence]) if result[:confidence]
+      ActiveRecord::Base.transaction do
+        updates = {}
+        updates[:improved_title] = result[:improved_title] if result[:improved_title].present?
+        updates[:ai_confidence]  = confidence_to_decimal(result[:confidence]) if result[:confidence]
+        tx.update_columns(updates) if updates.any?
 
-      tx.update_columns(updates) if updates.any?
+        # Aplica tags sugeridas existentes (modo normal)
+        if result[:suggested_tag_ids].present?
+          existing = tx.workspace.tags.where(id: result[:suggested_tag_ids])
+          tx.tags = existing if existing.any?
+        end
+
+        # Modo onboarding: cria tags novas e aplica
+        if result[:suggested_new_tags].present? && tx.tags.empty?
+          new_tags = result[:suggested_new_tags].map do |name|
+            tx.workspace.tags.find_or_create_by!(name: name.strip.truncate(50))
+          end
+          tx.tags = new_tags
+        end
+      end
     end
 
     private

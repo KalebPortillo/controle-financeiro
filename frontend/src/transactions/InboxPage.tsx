@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { CreditCard, Check, CheckSquare, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Money } from '../components/Money'
@@ -80,6 +80,22 @@ export function InboxPage() {
   }
 
   const reanalyze = useReanalyzeInbox()
+  // O job roda em background — mantém o estado "analisando" por até 90s
+  // ou até que o usuário recarregue, para dar feedback visual real.
+  const [analyzing, setAnalyzing] = useState(false)
+  const analyzeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => { if (analyzeTimer.current) clearTimeout(analyzeTimer.current) }, [])
+
+  const handleReanalyze = () => {
+    setAnalyzing(true)
+    reanalyze.mutate(undefined, {
+      onSettled: () => {
+        analyzeTimer.current = setTimeout(() => setAnalyzing(false), 90_000)
+      },
+    })
+  }
+
   const busy = consolidate.isPending || reject.isPending
 
   return (
@@ -95,14 +111,14 @@ export function InboxPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => reanalyze.mutate()}
-            disabled={reanalyze.isPending}
+            onClick={handleReanalyze}
+            disabled={analyzing}
             data-testid="reanalyze-btn"
           >
-            {reanalyze.isPending
+            {analyzing
               ? <Loader2 size={14} className="animate-spin" />
               : <Sparkles size={14} />}
-            {reanalyze.isPending ? 'Analisando…' : 'Reanalisar com IA'}
+            {analyzing ? 'Analisando…' : 'Reanalisar com IA'}
           </Button>
         )}
       </div>

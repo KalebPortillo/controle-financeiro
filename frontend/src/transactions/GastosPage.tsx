@@ -129,6 +129,15 @@ export function GastosPage() {
                   <span className="text-border">·</span>
                   <span>{formatDate(t.occurred_at)}</span>
                 </div>
+                {/* tags inline no mobile (no desktop vão na coluna ao lado) */}
+                {t.tags.length > 0 && (
+                  <div className="flex md:hidden items-center gap-1.5 mt-1.5 overflow-hidden">
+                    {t.tags.slice(0, 2).map((tag) => (
+                      <TagChip key={tag.id} name={tag.name} color={tag.color} />
+                    ))}
+                    {t.tags.length > 2 && <span className="text-[11px] text-muted-foreground">+{t.tags.length - 2}</span>}
+                  </div>
+                )}
               </div>
               <div className="hidden md:flex items-center gap-1.5 overflow-hidden">
                 {t.tags.slice(0, 2).map((tag) => (

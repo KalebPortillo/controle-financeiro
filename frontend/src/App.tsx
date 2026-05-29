@@ -8,6 +8,7 @@ import { InboxPage } from './transactions/InboxPage'
 import { GastosPage } from './transactions/GastosPage'
 import { TagsPage } from './transactions/TagsPage'
 import { CategoriasPage } from './transactions/CategoriasPage'
+import { ReportsPage } from './transactions/ReportsPage'
 import { useSession } from './auth/useSession'
 
 /**
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/contas" element={<ContasPage />} />
         <Route path="/tags" element={<TagsPage />} />
         <Route path="/categorias" element={<CategoriasPage />} />
+        <Route path="/relatorios" element={<ReportsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

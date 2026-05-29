@@ -60,6 +60,14 @@ Rails.application.routes.draw do
         end
       end
 
+      # Reports (RF13) — analytics / dashboards.
+      scope "/reports" do
+        get "overview",          to: "reports#overview"
+        get "by_tag",            to: "reports#by_tag"
+        get "by_category",       to: "reports#by_category"
+        get "monthly_evolution", to: "reports#monthly_evolution"
+      end
+
       # Bank connections (RF1 + RF21) — conexão via Pluggy.
       resources :bank_connections, only: [ :index, :show, :create, :destroy ] do
         collection do

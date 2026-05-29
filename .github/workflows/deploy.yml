@@ -120,6 +120,7 @@ jobs:
           PLUGGY_CLIENT_ID:           ${{ secrets.PLUGGY_CLIENT_ID }}
           PLUGGY_CLIENT_SECRET:       ${{ secrets.PLUGGY_CLIENT_SECRET }}
           PLUGGY_WEBHOOK_SECRET:      ${{ secrets.PLUGGY_WEBHOOK_SECRET }}
+          GEMINI_API_KEY:             ${{ secrets.GEMINI_API_KEY }}
         run: |
           mkdir -p ~/.config/controle-financeiro
           umask 077
@@ -218,6 +219,7 @@ jobs:
           PLUGGY_CLIENT_ID:           ${{ secrets.PLUGGY_CLIENT_ID }}
           PLUGGY_CLIENT_SECRET:       ${{ secrets.PLUGGY_CLIENT_SECRET }}
           PLUGGY_WEBHOOK_SECRET:      ${{ secrets.PLUGGY_WEBHOOK_SECRET }}
+          GEMINI_API_KEY:             ${{ secrets.GEMINI_API_KEY }}
         run: |
           mkdir -p ~/.config/controle-financeiro
           umask 077

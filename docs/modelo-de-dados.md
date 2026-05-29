@@ -234,7 +234,7 @@ chama-se `txn` — `transaction` colide com método interno do ActiveRecord.)
 **Constraints**: UNIQUE (transaction_id, tag_id).
 **RFs**: RF5.2.
 
-### `categories`
+### `categories` ✅ implementado (RF6)
 Agregador de tags (RF6).
 
 | coluna | tipo | constraints |
@@ -249,7 +249,7 @@ Agregador de tags (RF6).
 **Constraints**: UNIQUE (workspace_id, name).
 **RFs**: RF6.
 
-### `category_tags`
+### `category_tags` ✅ implementado (RF6)
 M:N entre categoria e tag (RF6.2: uma tag em N categorias).
 
 | coluna | tipo | constraints |

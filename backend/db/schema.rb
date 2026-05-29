@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_28_210000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_29_120100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -73,6 +73,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_210000) do
     t.index ["workspace_id"], name: "index_bank_connections_on_workspace_id"
     t.check_constraint "provider::text = ANY (ARRAY['pluggy'::character varying, 'manual'::character varying]::text[])", name: "bank_connections_provider_check"
     t.check_constraint "status::text = ANY (ARRAY['connected'::character varying, 'syncing'::character varying, 'expired'::character varying, 'error'::character varying, 'disconnected'::character varying]::text[])", name: "bank_connections_status_check"
+  end
+
+  create_table "categories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "color"
+    t.datetime "created_at", null: false
+    t.string "icon"
+    t.citext "name", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "workspace_id", null: false
+    t.index ["workspace_id", "name"], name: "index_categories_on_workspace_id_and_name", unique: true
+    t.index ["workspace_id"], name: "index_categories_on_workspace_id"
+  end
+
+  create_table "category_tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "category_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "tag_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["category_id", "tag_id"], name: "index_category_tags_on_category_id_and_tag_id", unique: true
+    t.index ["category_id"], name: "index_category_tags_on_category_id"
+    t.index ["tag_id"], name: "index_category_tags_on_tag_id"
   end
 
   create_table "tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -186,6 +207,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_210000) do
   add_foreign_key "bank_connection_syncs", "bank_connections"
   add_foreign_key "bank_connections", "workspace_memberships", column: "owner_membership_id"
   add_foreign_key "bank_connections", "workspaces"
+  add_foreign_key "categories", "workspaces"
+  add_foreign_key "category_tags", "categories"
+  add_foreign_key "category_tags", "tags"
   add_foreign_key "tags", "workspaces"
   add_foreign_key "transaction_edits", "transactions"
   add_foreign_key "transaction_edits", "workspace_memberships", column: "edited_by_membership_id"

@@ -1,0 +1,102 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router'
+import { CategoriasPage } from './CategoriasPage'
+import type { Category } from './useCategories'
+
+type MockResponse = { status: number; body: unknown }
+
+function setupFetch(
+  responses: Record<string, MockResponse | ((init?: RequestInit) => MockResponse)>
+) {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+    calls.push({ url, init })
+    const handler = responses[`${init?.method ?? 'GET'} ${url}`] ?? responses[url]
+    if (!handler) throw new Error(`unmocked: ${init?.method ?? 'GET'} ${url}`)
+    const { status, body } = typeof handler === 'function' ? handler(init) : handler
+    return { ok: status >= 200 && status < 300, status, json: async () => body } as Response
+  })
+  globalThis.fetch = fetchMock as unknown as typeof fetch
+  return { fetchMock }
+}
+
+function cat(o: Partial<Category> = {}): Category {
+  return { id: 'c1', name: 'Alimentação', color: null, icon: null, tags: [], ...o }
+}
+
+function renderCategorias() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+  return render(
+    <QueryClientProvider client={qc}>
+      <MemoryRouter>
+        <CategoriasPage />
+      </MemoryRouter>
+    </QueryClientProvider>
+  )
+}
+
+describe('<CategoriasPage />', () => {
+  beforeEach(() => vi.restoreAllMocks())
+
+  it('lists categories with their tags', async () => {
+    setupFetch({
+      '/api/v1/categories': {
+        status: 200,
+        body: { categories: [cat({ tags: [{ id: 't1', name: 'Padaria', color: null, icon: null }] })] },
+      },
+    })
+    renderCategorias()
+    await waitFor(() => expect(screen.getByTestId('category-row-c1')).toBeInTheDocument())
+    expect(screen.getByText('Alimentação')).toBeInTheDocument()
+    expect(screen.getByText('Padaria')).toBeInTheDocument()
+  })
+
+  it('creates a category', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/categories': { status: 200, body: { categories: [] } },
+      'POST /api/v1/categories': { status: 201, body: { category: cat({ name: 'Casa' }) } },
+    })
+    renderCategorias()
+    const user = userEvent.setup()
+    await user.type(screen.getByTestId('new-category-name'), 'Casa')
+    await user.click(screen.getByTestId('new-category-submit'))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/categories', expect.objectContaining({ method: 'POST' }))
+    )
+  })
+
+  it('edits name + color + tags', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/categories': { status: 200, body: { categories: [cat()] } },
+      'GET /api/v1/tags': { status: 200, body: { tags: [] } },
+      'PATCH /api/v1/categories/c1': { status: 200, body: { category: cat({ name: 'Lar' }) } },
+    })
+    renderCategorias()
+    const user = userEvent.setup()
+    const row = await screen.findByTestId('category-row-c1')
+    await user.click(within(row).getByTestId('category-edit-c1'))
+    await user.click(within(row).getByTestId('cat-swatch-c1-#15803D'))
+    await user.click(within(row).getByTestId('category-save-c1'))
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find((c) => c[0] === '/api/v1/categories/c1' && c[1]?.method === 'PATCH')
+      expect(JSON.parse(call![1]!.body as string).color).toBe('#15803D')
+    })
+  })
+
+  it('deletes a category', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/categories': { status: 200, body: { categories: [cat()] } },
+      'DELETE /api/v1/categories/c1': { status: 204, body: null },
+    })
+    renderCategorias()
+    const user = userEvent.setup()
+    const row = await screen.findByTestId('category-row-c1')
+    await user.click(within(row).getByTestId('category-delete-c1'))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/categories/c1', expect.objectContaining({ method: 'DELETE' }))
+    )
+  })
+})

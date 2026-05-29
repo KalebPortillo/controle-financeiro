@@ -225,13 +225,13 @@ Formato uniforme:
 - `DELETE /api/v1/tags/:id` — 204 se não usada; **422 `tag_in_use`** se aplicada a alguma transação (orienta merge).
 - `POST  /api/v1/tags/:id/merge` — `{ into_tag_id }`. Move as relações pro destino (sem duplicar, respeitando o unique) e apaga a origem. Destino de outro workspace → 404.
 
-### Categories (RF6)
-- `GET    /api/v1/categories` — list com tag_ids.
-- `POST   /api/v1/categories` — body: `{ name, color, icon, tag_ids }`.
-- `PATCH  /api/v1/categories/:id`
-- `DELETE /api/v1/categories/:id`
-- `POST   /api/v1/categories/:id/merge` — body: `{ into_category_id }`.
-- `PUT    /api/v1/categories/:id/tags` — body: `{ tag_ids: [...] }`. Substitui (não acumula).
+### Categories (RF6) — implementado (gestão)
+- `GET    /api/v1/categories` — list, cada uma com `tags: [{ id, name, color }]`.
+- `POST   /api/v1/categories` — body: `{ name, color, icon, tag_ids }`. Nome duplicado → 422.
+- `PATCH  /api/v1/categories/:id` — renomeia/cor + `tag_ids` (substitui o conjunto; ids de outro workspace ignorados).
+- `DELETE /api/v1/categories/:id` — 204.
+- `POST   /api/v1/categories/:id/merge` — `{ into_category_id }`. Move as tags pro destino (sem duplicar) e apaga a origem.
+- ⏳ `PUT /api/v1/categories/:id/tags` — coberto por PATCH com `tag_ids`; endpoint dedicado não implementado.
 
 ### Budgets (RF8)
 - `GET    /api/v1/budgets?period=current_month` — list com progresso embutido.

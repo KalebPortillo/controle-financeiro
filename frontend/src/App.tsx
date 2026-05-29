@@ -7,6 +7,7 @@ import { ContasPage } from './workspace/ContasPage'
 import { InboxPage } from './transactions/InboxPage'
 import { GastosPage } from './transactions/GastosPage'
 import { TagsPage } from './transactions/TagsPage'
+import { CategoriasPage } from './transactions/CategoriasPage'
 import { useSession } from './auth/useSession'
 
 /**
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/gastos" element={<GastosPage />} />
         <Route path="/contas" element={<ContasPage />} />
         <Route path="/tags" element={<TagsPage />} />
+        <Route path="/categorias" element={<CategoriasPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -81,7 +81,7 @@ export function DashboardPage() {
       <Card className="overflow-hidden">
         <SectionRow to="/contas" icon={<CreditCard size={16} />} title="Contas e sincronização" sub="Pluggy + status de sync" testid="go-contas" />
         <SectionRow to="/tags" icon={<TagIcon size={16} />} title="Tags" sub="planas, múltiplas por gasto" testid="go-tags" />
-        <SectionRow icon={<Folder size={16} />} title="Categorias" sub="agrega tags (em breve)" />
+        <SectionRow to="/categorias" icon={<Folder size={16} />} title="Categorias" sub="agrega tags" testid="go-categorias" />
         <SectionRow icon={<Upload size={16} />} title="Importações CSV / OFX" sub="upload de extratos (em breve)" />
       </Card>
     </div>

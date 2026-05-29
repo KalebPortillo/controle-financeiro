@@ -46,6 +46,11 @@ Rails.application.routes.draw do
         member { post "merge" }
       end
 
+      # Categorias (RF6) — agregam tags pra relatórios/orçamentos.
+      resources :categories, only: [ :index, :create, :update, :destroy ] do
+        member { post "merge" }
+      end
+
       # Transactions (RF2 inbox + RF4) — listagem/leitura + workflow da inbox.
       resources :transactions, only: [ :index, :create, :update, :destroy ] do
         member do

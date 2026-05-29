@@ -7,6 +7,7 @@ class Workspace < ApplicationRecord
   # ANTES das memberships, senão a FK estoura ao apagar o workspace.
   has_many :transactions, dependent: :destroy
   has_many :tags, dependent: :destroy
+  has_many :categories, dependent: :destroy
   has_many :bank_connections, dependent: :destroy
   has_many :accounts, dependent: :destroy
   has_many :memberships, class_name: "WorkspaceMembership", dependent: :destroy

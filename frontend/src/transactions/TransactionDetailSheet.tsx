@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Check, X, Trash2, Calendar, Tag as TagIcon, CreditCard } from 'lucide-react'
+import { Check, X, Trash2, Calendar, Tag as TagIcon, CreditCard, Sparkles } from 'lucide-react'
 import { Sheet } from '../components/Sheet'
 import { Button } from '../components/Button'
 import { Money } from '../components/Money'
@@ -12,6 +12,7 @@ import {
   useTransactionEdits,
   type InboxTransaction,
   type TransactionEdit,
+  type AiSuggestion,
 } from './useInbox'
 
 function signedCents(t: InboxTransaction): number {
@@ -169,7 +170,7 @@ function SheetInner({
           </button>
         </div>
 
-        <EditHistory transactionId={t.id} />
+        <ActivityTimeline transactionId={t.id} aiSuggestion={t.ai_suggestion} />
       </div>
 
       {/* Footer */}
@@ -218,10 +219,18 @@ function relativeTime(iso: string): string {
   return `há ${Math.round(h / 24)} d`
 }
 
-// Trilha de alterações (RF4.3) — colapsável; busca sob demanda ao abrir.
-function EditHistory({ transactionId }: { transactionId: string }) {
+// Timeline unificada: sugestão da IA + alterações do usuário (RF3 + RF4.3).
+function ActivityTimeline({
+  transactionId,
+  aiSuggestion,
+}: {
+  transactionId: string
+  aiSuggestion: AiSuggestion
+}) {
   const [open, setOpen] = useState(false)
   const { data: edits, isLoading } = useTransactionEdits(transactionId, open)
+
+  const hasActivity = aiSuggestion || (edits?.length ?? 0) > 0
 
   return (
     <div className="mt-2 pt-3.5 border-t border-border">
@@ -231,23 +240,56 @@ function EditHistory({ transactionId }: { transactionId: string }) {
         className="text-xs text-muted-foreground hover:text-foreground"
         data-testid={`history-toggle-${transactionId}`}
       >
-        {open ? 'Ocultar histórico' : 'Histórico de alterações'}
+        {open ? 'Ocultar histórico' : 'Histórico e sugestões da IA'}
       </button>
 
       {open && (
-        <div className="mt-2 space-y-2" data-testid={`history-${transactionId}`}>
+        <div className="mt-3 space-y-3" data-testid={`history-${transactionId}`}>
+          {/* Sugestão da IA */}
+          {aiSuggestion && (
+            <div className="flex gap-2.5">
+              <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+                <Sparkles size={11} />
+              </div>
+              <div className="text-[11px]">
+                <span className="font-medium text-foreground">IA sugeriu</span>
+                <span className="text-muted-foreground"> · {relativeTime(aiSuggestion.suggested_at)}</span>
+                <div className="mt-0.5 text-muted-foreground space-y-0.5">
+                  {aiSuggestion.title && (
+                    <div>Título: <span className="text-foreground">"{aiSuggestion.title}"</span></div>
+                  )}
+                  {aiSuggestion.tag_names.length > 0 && (
+                    <div>Tags: <span className="text-foreground">{aiSuggestion.tag_names.join(', ')}</span></div>
+                  )}
+                  {aiSuggestion.new_tags.length > 0 && (
+                    <div>Tags criadas: <span className="text-foreground">{aiSuggestion.new_tags.join(', ')}</span></div>
+                  )}
+                  <div className="text-[10px]">
+                    Confiança: {aiSuggestion.confidence === 'high' ? 'alta' : aiSuggestion.confidence === 'medium' ? 'média' : 'baixa'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Alterações do usuário */}
           {isLoading && <p className="text-[11px] text-muted-foreground">Carregando…</p>}
-          {!isLoading && (edits?.length ?? 0) === 0 && (
-            <p className="text-[11px] text-muted-foreground">Sem alterações ainda.</p>
+          {!isLoading && !hasActivity && (
+            <p className="text-[11px] text-muted-foreground">Sem atividade ainda.</p>
           )}
           {edits?.map((e: TransactionEdit) => (
-            <div key={e.id} className="text-[11px] text-muted-foreground">
-              <span className="text-foreground font-medium">{FIELD_LABELS[e.field_name] ?? e.field_name}</span>
-              {': '}
-              {formatEditValue(e.field_name, e.old_value)} → {formatEditValue(e.field_name, e.new_value)}
-              <span className="block text-[10px]">
-                {e.edited_by.name} · {relativeTime(e.edited_at)}
-              </span>
+            <div key={e.id} className="flex gap-2.5">
+              <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted border border-border text-muted-foreground text-[10px] font-bold">
+                {e.edited_by.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="text-[11px]">
+                <span className="font-medium text-foreground">{e.edited_by.name}</span>
+                <span className="text-muted-foreground"> alterou {FIELD_LABELS[e.field_name] ?? e.field_name}</span>
+                <span className="block text-[10px] text-muted-foreground">{relativeTime(e.edited_at)}</span>
+                <div className="mt-0.5 text-[11px] text-muted-foreground">
+                  {formatEditValue(e.field_name, e.old_value)} → {formatEditValue(e.field_name, e.new_value)}
+                </div>
+              </div>
             </div>
           ))}
         </div>

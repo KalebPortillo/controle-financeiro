@@ -211,6 +211,7 @@ class Api::V1::TransactionsController < ApplicationController
       original_description: t.original_description,
       improved_title:       t.improved_title,
       ai_confidence:        confidence_label(t.ai_confidence),
+      ai_suggestion:        t.ai_suggestion,
       status:               t.status,
       source:               t.source,
       lock_version:         t.lock_version,

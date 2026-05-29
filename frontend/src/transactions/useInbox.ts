@@ -10,6 +10,16 @@ export type InboxTag = {
 
 export type AiConfidence = 'high' | 'medium' | 'low' | null
 
+export type AiSuggestion = {
+  title: string | null
+  tag_ids: string[]
+  tag_names: string[]
+  new_tags: string[]
+  confidence: AiConfidence
+  source: string
+  suggested_at: string
+} | null
+
 export type InboxTransaction = {
   id: string
   account_id: string
@@ -21,6 +31,7 @@ export type InboxTransaction = {
   original_description: string
   improved_title: string | null
   ai_confidence: AiConfidence
+  ai_suggestion: AiSuggestion
   status: string
   source: string
   lock_version: number

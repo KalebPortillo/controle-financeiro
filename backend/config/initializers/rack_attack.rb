@@ -33,6 +33,24 @@ class Rack::Attack
     req.ip if req.path.start_with?("/api/v1/auth/")
   end
 
+  # Reanálise de IA — queima quota Gemini (RF3.5). 5/min por IP é o suficiente
+  # para casos de uso reais; bloqueia loop acidental no frontend.
+  throttle("ai_reanalyze/ip", limit: 5, period: 1.minute) do |req|
+    req.ip if req.path == "/api/v1/transactions/reanalyze" && req.post?
+  end
+
+  # Connect token / sync no Pluggy — cada chamada gera tokens ou puxa pull
+  # remoto. 10/min é maior que qualquer uso humano e absorve double-clicks.
+  throttle("pluggy_write/ip", limit: 10, period: 1.minute) do |req|
+    next unless req.post?
+    path = req.path
+    if path == "/api/v1/bank_connections/connect_token" ||
+       path == "/api/v1/bank_connections/sync_all" ||
+       path =~ %r{\A/api/v1/bank_connections/[^/]+/(sync|reconnect)\z}
+      req.ip
+    end
+  end
+
   ### Response ###
 
   # Quando bate o teto, devolve 429 com payload padrão da API.

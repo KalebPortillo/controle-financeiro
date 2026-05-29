@@ -20,22 +20,25 @@ test('visitor anônimo é redirecionado pra /login', async ({ page }) => {
   await expect(page.getByTestId('google-login')).toBeVisible()
 })
 
-test('user logado vê o dashboard com nome + workspace', async ({ page, context }) => {
+test('user logado vê a inbox por default e o "Mais" com nome + workspace', async ({ page, context }) => {
   const email = uniqueEmail('kaleb')
   await signIn(context, { email, name: 'Kaleb Portilho' })
 
+  // Landing após login é /inbox.
   await goto(page, '/')
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL(/\/inbox$/)
+
+  // A página "Mais" tem o cartão de identidade (nome + workspace + sair + convite).
+  await goto(page, '/mais')
   await expect(page.getByRole('heading', { name: /olá, kaleb/i })).toBeVisible()
   // Workspace + email vivem no rodapé da sidebar do app shell (o "id-card" oficial).
-  // O nome do workspace também aparece no corpo, então escopamos na sidebar.
   await expect(page.locator('aside').getByText("Kaleb Portilho's workspace")).toBeVisible()
   await expect(page.locator('aside').getByText(email)).toBeVisible()
 })
 
 test('logout volta pra tela de login', async ({ page, context }) => {
   await signIn(context, { email: uniqueEmail('logout'), name: 'Logout User' })
-  await goto(page, '/')
+  await goto(page, '/mais')
 
   await page.getByTestId('logout-button').click()
   await expect(page).toHaveURL(/\/login$/)
@@ -48,11 +51,11 @@ test('logout volta pra tela de login', async ({ page, context }) => {
 test('sessão persiste após reload', async ({ page, context }) => {
   const email = uniqueEmail('persist')
   await signIn(context, { email, name: 'Persistent User' })
-  await goto(page, '/')
+  await goto(page, '/mais')
   await expect(page.getByRole('heading', { name: /olá, persistent/i })).toBeVisible()
 
   await page.reload({ waitUntil: 'networkidle' })
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL(/\/mais$/)
   await expect(page.getByRole('heading', { name: /olá, persistent/i })).toBeVisible()
 })
 
@@ -66,7 +69,7 @@ test('convite por email já cadastrado adiciona o membro', async ({ page, contex
   const ownerEmail = uniqueEmail('owner')
   await signIn(context, { email: ownerEmail, name: 'Owner' })
 
-  await goto(page, '/')
+  await goto(page, '/mais')
   await page.getByTestId('invite-email').fill(inviteeEmail)
   await page.getByTestId('invite-submit').click()
 
@@ -77,7 +80,7 @@ test('convite por email já cadastrado adiciona o membro', async ({ page, contex
 
 test('convite por email não cadastrado mostra erro amigável', async ({ page, context }) => {
   await signIn(context, { email: uniqueEmail('lonely'), name: 'Lonely' })
-  await goto(page, '/')
+  await goto(page, '/mais')
 
   await page.getByTestId('invite-email').fill('nobody-here@example.com')
   await page.getByTestId('invite-submit').click()

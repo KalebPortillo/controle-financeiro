@@ -8,6 +8,10 @@ class ApplicationController < ActionController::API
   # `require_authentication!`. Detalhes em controllers/concerns/authentication.rb.
   include Authentication
 
+  # Helpers de escopo por workspace — `current_workspace`, `current_membership`.
+  # Disponível em todos os controllers; consultar apenas após sign-in.
+  include WorkspaceScope
+
   # Renderização canônica de erros (formato em contratos-api.md v1.1).
   include ApiErrorResponses
 end

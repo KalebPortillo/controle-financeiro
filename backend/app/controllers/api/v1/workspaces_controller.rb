@@ -41,8 +41,7 @@ class Api::V1::WorkspacesController < ApplicationController
   private
 
   # Lookup escopado pela membership do current_user — se o user não é membro,
-  # ActiveRecord::RecordNotFound → 404 (default do Rails). Não precisamos de
-  # Pundit pra essa regra simples.
+  # ActiveRecord::RecordNotFound → 404 (default do Rails).
   def set_workspace
     @workspace = current_user.workspaces.find(params[:id])
   end

@@ -37,12 +37,6 @@ gem "omniauth"
 gem "omniauth-google-oauth2"
 gem "omniauth-rails_csrf_protection"
 
-# Authorization: policy objects scoped por workspace (RF16.4)
-gem "pundit"
-
-# JSON serializers for API responses
-gem "jsonapi-serializer"
-
 # Error tracking + performance monitoring
 gem "sentry-ruby"
 gem "sentry-rails"

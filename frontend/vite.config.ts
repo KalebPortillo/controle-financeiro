@@ -5,6 +5,24 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      output: {
+        // Quebra vendor em chunks isoláveis pra reduzir o JS principal e
+        // melhorar cache cross-versões: dependências externas mudam pouco
+        // comparado ao código da app.
+        manualChunks: {
+          'react-vendor':    ['react', 'react-dom', 'react-router'],
+          'tanstack':        ['@tanstack/react-query'],
+          'sentry':          ['@sentry/react'],
+          'pluggy':          ['react-pluggy-connect', 'pluggy-connect-sdk'],
+          'icons':           ['lucide-react'],
+          'cable':           ['@rails/actioncable'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
+  },
   server: {
     // Em dev, Vite (porta 5173) faz proxy de /api/v1, /up e /cable pra
     // Rails (porta 3000). Cookies de sessão chegam mesma-origem, sem CORS.

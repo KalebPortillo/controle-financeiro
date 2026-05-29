@@ -29,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'gastos', label: 'Gastos', Icon: Wallet, to: '/gastos' },
   { id: 'orcamentos', label: 'Orçamentos', Icon: PieChart },
   { id: 'relatorios', label: 'Relatórios', Icon: BarChart3, to: '/relatorios' },
-  { id: 'mais', label: 'Mais', Icon: MoreHorizontal, to: '/' },
+  { id: 'mais', label: 'Mais', Icon: MoreHorizontal, to: '/mais' },
 ]
 
 /**

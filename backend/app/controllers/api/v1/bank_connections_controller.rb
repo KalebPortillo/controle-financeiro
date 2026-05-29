@@ -83,19 +83,6 @@ class Api::V1::BankConnectionsController < ApplicationController
 
   private
 
-  # Workspace ativo da sessão (ou o primeiro do user). Espelha a lógica do
-  # SessionsController#active_workspace_id — quando RF tiver multi-workspace
-  # pesado, extrair pra um CurrentWorkspace concern.
-  def current_workspace
-    selected = session[:active_workspace_id]
-    workspaces = current_user.workspaces
-    (selected && workspaces.find_by(id: selected)) || workspaces.order(:created_at).first
-  end
-
-  def current_membership
-    current_user.workspace_memberships.find_by(workspace: current_workspace)
-  end
-
   # Escopado por workspace — conexão de outro workspace dá 404 (RecordNotFound).
   def set_connection
     @connection = current_workspace.bank_connections.find(params[:id])

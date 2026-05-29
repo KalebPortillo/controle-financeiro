@@ -16,12 +16,6 @@ module Api
 
       private
 
-      def current_workspace
-        selected   = session[:active_workspace_id]
-        workspaces = current_user.workspaces
-        (selected && workspaces.find_by(id: selected)) || workspaces.order(:created_at).first
-      end
-
       def serialize(rule)
         {
           id:                 rule.id,

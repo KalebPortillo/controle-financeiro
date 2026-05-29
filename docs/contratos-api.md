@@ -289,12 +289,35 @@ Formato uniforme:
   ```
 
 ### Rules (RF3.3 e RF3.2)
-- `GET    /api/v1/manual_rules`
-- `POST   /api/v1/manual_rules` — RF3.3.
-- `PATCH  /api/v1/manual_rules/:id`
-- `DELETE /api/v1/manual_rules/:id`
-- `GET    /api/v1/ai_learned_rules` — ver regras aprendidas.
+- `GET    /api/v1/manual_rules` — RF3.3, futuro.
+- `POST   /api/v1/manual_rules` — RF3.3, futuro.
+- `PATCH  /api/v1/manual_rules/:id` — RF3.3, futuro.
+- `DELETE /api/v1/manual_rules/:id` — RF3.3, futuro.
+- `GET    /api/v1/ai_learned_rules` — ver regras aprendidas. Retorna:
+  ```json
+  {
+    "ai_learned_rules": [
+      {
+        "id": "uuid",
+        "descriptor_pattern": "ifood restaurante xyz",
+        "improved_title": "iFood",
+        "tag_ids": ["uuid"],
+        "match_count": 7,
+        "last_seen_at": "2026-05-29T18:00:00Z"
+      }
+    ]
+  }
+  ```
 - `DELETE /api/v1/ai_learned_rules/:id` — esquecer regra aprendida.
+
+### Reanalisar inbox com IA (RF3.5)
+- `POST /api/v1/transactions/reanalyze` — enfileira `AiSuggestion::ReanalyzeJob`
+  para todas as transações `pending` elegíveis (sem `improved_title`, com
+  `ai_confidence <= 0.4`, ou sem tags). Resposta `202 Accepted`:
+  ```json
+  { "enqueued": true, "pending_count": 47 }
+  ```
+  Rate-limited a 5 req/min/IP.
 
 ### Reports (RF13)
 - `GET /api/v1/reports/overview?period=current_month` — totals + comparativo:

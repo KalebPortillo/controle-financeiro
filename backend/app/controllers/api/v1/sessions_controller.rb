@@ -15,7 +15,8 @@ class Api::V1::SessionsController < ApplicationController
 
     user = Users::CreateWithPersonalWorkspace.call(auth)
     sign_in(user)
-    redirect_to "/", allow_other_host: false
+    # Inbox é a tela inicial — onde mora o trabalho diário.
+    redirect_to "/inbox", allow_other_host: false
   end
 
   # GET /api/v1/auth/failure

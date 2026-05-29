@@ -56,6 +56,32 @@ class RackAttackTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "throttles bursts on /transactions/reanalyze per IP" do
+    limit = 5
+    headers = { "REMOTE_ADDR" => "203.0.113.30" }
+
+    limit.times do |i|
+      post "/api/v1/transactions/reanalyze", env: headers
+      assert_not_equal 429, response.status, "request #{i + 1} should not be throttled"
+    end
+
+    post "/api/v1/transactions/reanalyze", env: headers
+    assert_response :too_many_requests
+  end
+
+  test "throttles bursts on Pluggy write endpoints per IP" do
+    limit = 10
+    headers = { "REMOTE_ADDR" => "203.0.113.40" }
+
+    limit.times do |i|
+      post "/api/v1/bank_connections/connect_token", env: headers
+      assert_not_equal 429, response.status, "request #{i + 1} should not be throttled"
+    end
+
+    post "/api/v1/bank_connections/connect_token", env: headers
+    assert_response :too_many_requests
+  end
+
   test "throttle response body is JSON with code 'rate_limited'" do
     headers = { "REMOTE_ADDR" => "203.0.113.20" }
     11.times { get "/api/v1/auth/google_oauth2/callback", env: headers }

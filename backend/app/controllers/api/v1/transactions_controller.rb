@@ -167,18 +167,6 @@ class Api::V1::TransactionsController < ApplicationController
     )
   end
 
-  # Workspace ativo da sessão (ou o primeiro). Espelha BankConnectionsController;
-  # extrair pra concern quando um terceiro controller precisar.
-  def current_workspace
-    selected   = session[:active_workspace_id]
-    workspaces = current_user.workspaces
-    (selected && workspaces.find_by(id: selected)) || workspaces.order(:created_at).first
-  end
-
-  def current_membership
-    current_user.workspace_memberships.find_by(workspace: current_workspace)
-  end
-
   # Conta "Dinheiro / Externo" do workspace (RF12) — origem dos lançamentos
   # manuais (dinheiro vivo, PicPay, etc). Criada sob demanda, uma por workspace.
   def manual_account

@@ -186,12 +186,6 @@ module Api
           .map { |r| { category_id: r.id, name: r.name, color: r.color, amount_cents: r.amount_cents.to_i } }
       end
 
-      def current_workspace
-        selected   = session[:active_workspace_id]
-        workspaces = current_user.workspaces
-        (selected && workspaces.find_by(id: selected)) || workspaces.order(:created_at).first
-      end
-
       def delta_pct(current_val, previous_val)
         return nil if previous_val.nil? || previous_val.zero?
         ((current_val.to_f - previous_val) / previous_val * 100).round(1)

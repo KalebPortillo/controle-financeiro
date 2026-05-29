@@ -60,12 +60,6 @@ class Api::V1::CategoriesController < ApplicationController
     category.tags = current_workspace.tags.where(id: ids)
   end
 
-  def current_workspace
-    selected   = session[:active_workspace_id]
-    workspaces = current_user.workspaces
-    (selected && workspaces.find_by(id: selected)) || workspaces.order(:created_at).first
-  end
-
   def serialize(category)
     {
       id:    category.id,

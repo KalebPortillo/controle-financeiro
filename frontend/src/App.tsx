@@ -1,15 +1,27 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, useSearchParams, Navigate } from 'react-router'
 import { LoginPage } from './auth/LoginPage'
 import { RequireAuth } from './auth/RequireAuth'
 import { AppLayout } from './app/AppLayout'
-import { DashboardPage } from './workspace/DashboardPage'
-import { ContasPage } from './workspace/ContasPage'
 import { InboxPage } from './transactions/InboxPage'
 import { GastosPage } from './transactions/GastosPage'
-import { TagsPage } from './transactions/TagsPage'
-import { CategoriasPage } from './transactions/CategoriasPage'
-import { ReportsPage } from './transactions/ReportsPage'
 import { useSession } from './auth/useSession'
+
+// Lazy: páginas secundárias só carregam quando o usuário navega até elas.
+// Reduz o bundle inicial — Inbox e Gastos são a maioria do uso real.
+const DashboardPage = lazy(() => import('./workspace/DashboardPage').then(m => ({ default: m.DashboardPage })))
+const ContasPage    = lazy(() => import('./workspace/ContasPage').then(m => ({ default: m.ContasPage })))
+const TagsPage      = lazy(() => import('./transactions/TagsPage').then(m => ({ default: m.TagsPage })))
+const CategoriasPage = lazy(() => import('./transactions/CategoriasPage').then(m => ({ default: m.CategoriasPage })))
+const ReportsPage   = lazy(() => import('./transactions/ReportsPage').then(m => ({ default: m.ReportsPage })))
+
+function LazyPage({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<p className="text-xs text-muted-foreground p-6">Carregando…</p>}>
+      {children}
+    </Suspense>
+  )
+}
 
 /**
  * Roteamento:
@@ -17,7 +29,8 @@ import { useSession } from './auth/useSession'
  *   resto  — protegido, dentro do AppLayout (shell com sidebar/topbar/bottomnav).
  *
  * O callback OAuth (/api/v1/auth/google_oauth2/callback) é tratado pelo
- * Rails; ele finaliza redirecionando pra '/'. RequireAuth gateia o shell.
+ * Rails; ele finaliza redirecionando pra '/inbox' (landing principal).
+ * RequireAuth gateia o shell.
  */
 export default function App() {
   return (
@@ -30,28 +43,29 @@ export default function App() {
           </RequireAuth>
         }
       >
-        <Route path="/" element={<DashboardPage />} />
+        <Route path="/" element={<Navigate to="/inbox" replace />} />
         <Route path="/inbox" element={<InboxPage />} />
         <Route path="/gastos" element={<GastosPage />} />
-        <Route path="/contas" element={<ContasPage />} />
-        <Route path="/tags" element={<TagsPage />} />
-        <Route path="/categorias" element={<CategoriasPage />} />
-        <Route path="/relatorios" element={<ReportsPage />} />
+        <Route path="/contas" element={<LazyPage><ContasPage /></LazyPage>} />
+        <Route path="/tags" element={<LazyPage><TagsPage /></LazyPage>} />
+        <Route path="/categorias" element={<LazyPage><CategoriasPage /></LazyPage>} />
+        <Route path="/relatorios" element={<LazyPage><ReportsPage /></LazyPage>} />
+        <Route path="/mais" element={<LazyPage><DashboardPage /></LazyPage>} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/inbox" replace />} />
     </Routes>
   )
 }
 
 /**
  * Se o user já tem sessão (ex.: navegou pra /login depois de logado),
- * manda pra dashboard. Se veio com ?auth_error=... do callback, repassa
+ * manda pra inbox. Se veio com ?auth_error=... do callback, repassa
  * pro LoginPage como aviso.
  */
 function LoginRoute() {
   const [params] = useSearchParams()
   const { data, isLoading } = useSession()
   if (isLoading) return null
-  if (data) return <Navigate to="/" replace />
+  if (data) return <Navigate to="/inbox" replace />
   return <LoginPage error={params.get('auth_error')} />
 }

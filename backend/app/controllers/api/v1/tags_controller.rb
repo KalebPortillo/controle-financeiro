@@ -70,12 +70,6 @@ class Api::V1::TagsController < ApplicationController
     params.permit(:name, :color, :icon)
   end
 
-  def current_workspace
-    selected   = session[:active_workspace_id]
-    workspaces = current_user.workspaces
-    (selected && workspaces.find_by(id: selected)) || workspaces.order(:created_at).first
-  end
-
   def serialize(tag)
     {
       id:          tag.id,

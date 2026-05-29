@@ -55,6 +55,7 @@ env:
   clear:
     SOLID_QUEUE_IN_PUMA: true
     DB_PORT: 5432
+    ALLOWED_EMAILS: "kaleb@ferreri.co,kaleb.portillo@gmail.com"
 
 # Build na própria VPS via SSH — nativo ARM, sem QEMU. Contexto é enviado
 # pela rede pelo Kamal e o build cache mora na VPS (subsequentes ficam rápidos).

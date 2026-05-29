@@ -55,14 +55,43 @@ Esta v1.0 fecha todos os pontos de produto após duas iterações com o usuário
 - **RF2.5** Filtros e ordenação (data, valor, conta, tag sugerida, pessoa).
 - **RF2.6** Seleção múltipla para ações em massa (aceitar várias, aplicar mesma tag).
 
-### RF3. Pré-categorização inteligente
-- **RF3.1** Cada gasto na inbox recebe automaticamente:
-  - Tags sugeridas (1+).
-  - Categoria sugerida (se as tags se encaixam em uma).
-  - Título melhorado (ex.: "PAGAMENTO PIX REC: ANA M." → "Almoço Ana").
-- **RF3.2** Aprendizado com correções: quando o usuário corrige uma sugestão, gastos similares no futuro usam a versão aprendida.
-- **RF3.3** Regras manuais opcionais por texto/estabelecimento (ex.: "iFood*" → tag "Comida fora").
-- **RF3.4** Indicador visual de confiança da sugestão para priorizar revisão.
+### RF3. Sugestão inteligente de título e tags (inbox)
+
+**Escopo**: a IA atua **exclusivamente na inbox** — apenas em transações com `status = pending`. Transações já consolidadas não são afetadas. Categorias são gerenciadas manualmente (fora da inbox), portanto a IA **não sugere categorias**.
+
+- **RF3.1** Ao cair na inbox, cada transação recebe automaticamente (via job assíncrono após o sync):
+  - **Título melhorado** (`improved_title`): versão legível da descrição bruta do banco (ex.: `"PGTO PIX 43958 MERCADO EXTRA"` → `"Mercado Extra"`). Se a IA não tiver confiança suficiente, mantém a `original_description`.
+  - **Tags sugeridas** — comportamento depende do estado atual do workspace:
+    - **Sem tags existentes (onboarding)**: a IA sugere livremente nomes de tags novas em PT-BR, consistentes entre si. Neste momento ela está ajudando o usuário a construir sua taxonomia do zero, então a sugestão de tag nova é o comportamento esperado e predominante. O usuário aceita, edita o nome ou descarta cada sugestão.
+    - **Com tags existentes**: a IA prioriza tags já criadas. Só sugere uma tag nova se nenhuma existente encaixar razoavelmente. Tags novas sugeridas sempre passam por confirmação do usuário antes de serem criadas.
+    - **Em ambos os casos**: a IA tenta ser **consistente** — transações do mesmo estabelecimento ou categoria devem receber a mesma sugestão de tag dentro do mesmo lote de sync, para evitar que o usuário veja `"Supermercado"` e `"Mercado"` como sugestões distintas para o mesmo tipo de gasto.
+- **RF3.2** **Aprendizado passivo com preferências do usuário**: o sistema observa toda edição feita em transações da inbox e aprende silenciosamente, sem intervenção explícita do usuário. Regras:
+  - **Gatilho**: qualquer edição de `improved_title` ou de tags em uma transação `pending` — quer a sugestão original tenha vindo da IA, de regra aprendida, ou de regra manual.
+  - **O que é aprendido**: o par `(descritor normalizado da transação → título preferido + tags preferidas)`, salvo como regra aprendida vinculada ao workspace.
+  - **Normalização do descritor**: o sistema normaliza a `original_description` removendo números de referência, CPFs mascarados, datas e tokens aleatórios, mantendo o núcleo semântico (ex.: `"PGTO PIX 43958 IFOOD*RESTAURANTE XYZ 05/26"` → `"ifood restaurante xyz"`).
+  - **Uso futuro**: quando uma nova transação com descritor similar chega na inbox, a regra aprendida é aplicada **antes de chamar a API** — sem custo de tokens, com confidence = `high`.
+  - **Reforço**: se o mesmo par aparecer várias vezes confirmado pelo usuário, o peso da regra aumenta; se o usuário corrigir uma regra aprendida, a versão nova substitui a anterior.
+  - **Escopo compartilhado**: as regras aprendidas são do workspace, ou seja, as correções de qualquer membro do casal beneficiam ambos.
+  - **Transparência**: o usuário pode ver e apagar regras aprendidas em uma tela de gerenciamento simples.
+- **RF3.3** Regras manuais opcionais: o usuário pode cadastrar regras de texto/glob por conta própria (ex.: `"iFood*"` → tag `"Delivery"`). Essas regras têm prioridade máxima, antes das regras aprendidas e antes da API.
+- **RF3.4** Indicador visual de confiança (`high` / `medium` / `low`) em cada sugestão na inbox, para o usuário priorizar revisão. Derivado da pontuação retornada pela IA ou da origem da sugestão (regra manual = high, regra aprendida = high, API = depende do score).
+- **RF3.5** **Botão "Reanalisar com IA"** na inbox: permite ao usuário solicitar uma nova rodada de sugestões para todas as transações `pending` que ainda não têm `improved_title` ou tags — ou que foram marcadas como "baixa confiança". Casos de uso principais:
+  - **Onboarding**: usuário conecta o banco, processa 20 transações manualmente criando suas primeiras tags, e então clica em "Reanalisar" — as 180 restantes recebem sugestões já baseadas nas tags criadas e no que foi aprendido nessas 20 correções.
+  - **Após criar novas tags**: usuário cria uma tag nova manualmente e quer que a IA aplique retroativamente nas transações pendentes que combinem.
+  - **Após a IA errar muito**: usuário corrigiu várias sugestões ruins e quer que a IA tente de novo com o aprendizado atualizado.
+  - A reanálise processa apenas transações `pending` (inbox). Transações já consolidadas nunca são reanalisadas.
+  - A reanálise respeita o mesmo pipeline: regras manuais → regras aprendidas → API. Portanto, transações que já têm regra aprendida correspondente serão atualizadas sem custo de tokens.
+  - Feedback visual de progresso durante o processamento (a reanálise pode levar alguns segundos para lotes grandes).
+
+**Dados de entrada para a IA** (lidos do `source_metadata` JSONB, já armazenado — sem coluna extra no DB):
+- `description` / `descriptionRaw` — descrição da transação
+- `merchant.businessName` + `merchant.cnae` — nome real do estabelecimento quando disponível
+- `category` (string em inglês que o Pluggy já infere) — hint de contexto
+- `paymentData.paymentMethod` — `PIX`, `BOLETO`, `TED`, etc.
+- `paymentData.receiver.name` — destinatário em PIX/boleto
+- `amount` + `type` (`DEBIT`/`CREDIT`) — direção e valor
+
+O prompt enviado à IA é **compacto** (só os campos acima extraídos do JSONB + lista de tags existentes no workspace), não o objeto `source_metadata` completo.
 
 ### RF4. Gastos consolidados
 - **RF4.1** Após aceitação, o gasto entra na área de **consolidados** e passa a contar para relatórios, orçamentos e dashboards.

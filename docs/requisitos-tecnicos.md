@@ -120,13 +120,20 @@ Entregue em fatias TDD (3a–5c), deployado em staging:
 - **Dedup**: chave `(account_id, occurred_at, amount, normalized_description)` antes de inserir. Itens duplicados são reportados.
 - **Mesmo fluxo de inbox** que a sync automática (RF2): pré-categorização, aprovação manual, sem bypass.
 
-## AI / categorização inteligente (RF3)
+## AI / sugestão de título e tags (RF3)
+
+### Escopo e decisões de produto
+
+- A IA atua **somente na inbox** (`status = pending`). Consolidados não são retocados.
+- Saídas: **`improved_title`** + **tags sugeridas** (só existentes; nova tag só se nenhuma encaixar).
+- **Categorias são 100% manuais** — a IA não sugere categoria.
+- Confiança (`high`/`medium`/`low`) exposta por sugestão.
 
 ### Decisão: **Google Gemini** como provider inicial, com abstração para trocar
 
 **Por quê Gemini:**
 - Você já usa em outro projeto (curva de aprendizado zero).
-- Free tier generoso o suficiente para uso pessoal.
+- Free tier generoso o suficiente para uso pessoal (≈ 1 M tokens/dia no Flash).
 - Boa qualidade em PT-BR.
 
 **Arquitetura (provider-agnostic):**
@@ -134,20 +141,177 @@ Entregue em fatias TDD (3a–5c), deployado em staging:
 ```ruby
 module AiProviders
   class Provider
-    def suggest_categorization(transaction); raise NotImplementedError; end
-    def improve_title(raw_description); raise NotImplementedError; end
+    # Retorna { improved_title:, tags: [{id:, name:, confidence:}], confidence: }
+    # `existing_tags` = lista de tags do workspace (id + name) passada no prompt.
+    def suggest(transaction_context:, existing_tags:)
+      raise NotImplementedError
+    end
   end
 end
 
 class AiProviders::GeminiProvider < AiProviders::Provider; end
-class AiProviders::ClaudeProvider < AiProviders::Provider; end
-class AiProviders::OpenAiProvider < AiProviders::Provider; end
+class AiProviders::ClaudeProvider  < AiProviders::Provider; end
+class AiProviders::OpenAiProvider  < AiProviders::Provider; end
 ```
 
 - Selecionado via `ENV['AI_PROVIDER'] = 'gemini'` (ou `'claude'`, `'openai'`).
-- Modelo específico via `ENV['AI_MODEL']` (ex.: `gemini-2.5-flash`).
-- **Cache do aprendizado em DB**: cada correção do usuário vira regra (`descritor → tag/categoria/título`) consultada antes de chamar a API.
-- **Fallback determinístico**: se provider falhar/atingir cota, regras manuais cobrem.
+- Modelo via `ENV['AI_MODEL']` (ex.: `gemini-2.5-flash`).
+
+### Pipeline de sugestão (por transação, executado no SyncJob após import)
+
+```
+1. Regras manuais (RF3.3)      → match? → aplica, confidence=high, para.
+2. Regras aprendidas (RF3.2)   → match? → aplica, confidence=high, para.
+3. Chamada à API do Gemini     → retorna improved_title + tag_ids + confidence.
+4. Fallback (API falhou/cota)  → mantém original_description, sem tags sugeridas.
+```
+
+### Dados enviados à IA (prompt compacto)
+
+Lidos do `source_metadata` JSONB já armazenado — **sem nova coluna no DB**:
+
+| Campo extraído | Fonte no JSONB |
+|---|---|
+| Descrição | `description` / `descriptionRaw` |
+| Nome do estabelecimento | `merchant.businessName` |
+| CNAE do estabelecimento | `merchant.cnae` |
+| Categoria Pluggy (hint) | `category` (string em inglês) |
+| Método de pagamento | `paymentData.paymentMethod` |
+| Nome do destinatário | `paymentData.receiver.name` |
+| Valor + direção | `amount` + `type` |
+
+O prompt inclui também a **lista completa de tags existentes no workspace** (`id` + `name`), para que a IA escolha por ID — eliminando ambiguidade e evitando criação desnecessária.
+
+### Dois modos de operação
+
+O service detecta o modo com base no número de tags existentes no workspace no momento do sync:
+
+| Modo | Condição | Comportamento da IA |
+|---|---|---|
+| **Onboarding** | `tags.count == 0` | Sugere nomes de tags novas livremente; objetivo é construir a taxonomia inicial. Sem IDs para referenciar. |
+| **Normal** | `tags.count > 0` | Prioriza tags existentes por ID; sugere tag nova só como fallback. |
+
+No modo **onboarding**, o job processa as transações em **lote único** (todas de uma vez no prompt), pedindo à IA que sugira um conjunto coerente de tags para todo o lote — evitando inconsistências como `"Supermercado"` e `"Mercado"` para o mesmo tipo de gasto.
+
+### Estrutura do prompt — modo normal (tags existem)
+
+```
+Você é um assistente de finanças pessoais. Dado o gasto abaixo, retorne JSON:
+{
+  "improved_title": "Nome legível em PT-BR (máx 50 chars)",
+  "suggested_tag_ids": ["uuid1", "uuid2"],   // IDs das tags existentes, mais relevantes primeiro
+  "new_tag_suggestion": "nome da tag" | null, // só se nenhuma existente encaixar
+  "confidence": "high" | "medium" | "low"
+}
+
+Tags disponíveis: [{"id":"...","name":"..."},...]
+
+Gasto:
+- Descrição: {description}
+- Estabelecimento: {merchant_name} (CNAE: {cnae})
+- Categoria do banco: {pluggy_category}
+- Método: {payment_method}
+- Destinatário: {receiver_name}
+- Valor: R$ {amount} ({direction})
+```
+
+### Estrutura do prompt — modo onboarding (sem tags)
+
+```
+Você é um assistente de finanças pessoais. O usuário não tem nenhuma tag criada ainda.
+Analise as transações abaixo e:
+1. Sugira um título legível em PT-BR para cada uma.
+2. Sugira tags em PT-BR para cada transação. Seja consistente: transações similares
+   devem receber a mesma tag. Prefira nomes genéricos e reutilizáveis
+   (ex.: "Mercado", "Delivery", "Transporte", "Assinatura").
+3. Retorne JSON com o array de resultados na mesma ordem das transações de entrada.
+
+Formato de saída:
+[
+  {
+    "transaction_id": "...",
+    "improved_title": "...",
+    "suggested_new_tags": ["Mercado", "Alimentação"],  // nomes a criar
+    "confidence": "high" | "medium" | "low"
+  },
+  ...
+]
+
+Transações:
+[
+  { "id": "...", "description": "...", "merchant": "...", "category": "...", "method": "...", "amount": ..., "direction": "..." },
+  ...
+]
+```
+
+O job de onboarding processa no máximo **50 transações por chamada** (para não exceder o limite de contexto). Se houver mais, divide em lotes de 50 com a mesma lista de tags emergentes acumulada entre os lotes.
+
+### Reanálise sob demanda (RF3.5) — `POST /api/v1/transactions/reanalyze`
+
+Endpoint acionado pelo botão "Reanalisar com IA" na inbox. Enfileira `AiSuggestion::ReanalyzeJob` para o workspace.
+
+**O que o job processa:**
+- Todas as transações `pending` do workspace que atendam a pelo menos um critério:
+  - `improved_title IS NULL` (nunca foi processada pela IA)
+  - `ai_confidence = 'low'` (IA não teve confiança na primeira rodada)
+  - Tags vazias (nenhuma tag aplicada, nem pelo usuário nem pela IA)
+- Transações com tags já definidas pelo usuário (confidence = high) são **ignoradas** — não sobrescreve preferências já expressas.
+
+**Contexto atualizado:**
+- No momento da reanálise, o job carrega o estado atual de `ai_learned_rules` e `tags` do workspace — portanto reflete tudo que foi aprendido desde o último sync.
+- Se já existem tags no workspace, usa o modo normal (prioriza existentes). Se ainda não existem, usa o modo onboarding (sugere novas).
+
+**Pipeline do job:**
+```
+Para cada transação elegível (em lotes de 50):
+  1. Regras manuais    → match? → aplica, para.
+  2. Regras aprendidas → match? → aplica, para.
+  3. Chamada à API     → atualiza improved_title + tags sugeridas + confidence.
+```
+
+**Resposta ao frontend:** o endpoint retorna `{ enqueued: true, pending_count: N }` imediatamente (202). O frontend faz polling em `GET /api/v1/transactions/reanalyze_status` (ou ouve via Action Cable) para saber quando concluiu e atualiza a lista da inbox.
+
+### Aprendizado passivo (RF3.2) — tabela `ai_learned_rules`
+
+**Como é detectado**: o `TransactionsController#update` já grava `TransactionEdit` para cada campo alterado. Um `after_create` callback (ou concern) em `TransactionEdit` dispara `AiLearning::RecordCorrectionJob` quando `field_name` é `improved_title` ou `tags`.
+
+**Schema da tabela:**
+```
+ai_learned_rules
+  id                uuid PK
+  workspace_id      uuid FK
+  descriptor_pattern text   -- descritor normalizado (núcleo semântico, lowercase)
+  improved_title    text   -- preferência aprendida de título (nullable)
+  tag_ids           uuid[] -- preferência aprendida de tags (nullable)
+  match_count       int    -- vezes que esse padrão foi confirmado/corrigido
+  last_seen_at      datetime
+  created_at / updated_at
+  UNIQUE(workspace_id, descriptor_pattern)
+```
+
+**Normalização do descritor** (`AiLearning::Normalizer`):
+- Lowercase
+- Remove tokens numéricos longos (refs, CPFs mascarados): `/\b\d{4,}\b/`
+- Remove datas no descritor: `/\d{2}\/\d{2}(\/\d{2,4})?/`
+- Remove caracteres especiais exceto espaço
+- Colapsa espaços múltiplos
+- Exemplo: `"PGTO PIX 43958 IFOOD*RESTAURANTE XYZ 05/26"` → `"pgto pix ifood restaurante xyz"`
+
+**Uso na sugestão**: antes de chamar a API, `AiSuggestion::Service` faz lookup por `descriptor_pattern` com similaridade fuzzy (trigram `pg_trgm` ou simples `LIKE '%pattern%'`). Match acima de threshold → aplica a regra, `confidence = high`, não chama a API.
+
+**Atualização**: se o usuário corrigir uma regra já aprendida (editar novamente), o registro é `upsert`-ado com os novos valores e `match_count` incrementado.
+
+**Visibilidade**: endpoint `GET /api/v1/ai_learned_rules` retorna as regras para exibição + `DELETE /api/v1/ai_learned_rules/:id` para o usuário apagar.
+
+### Regras manuais (RF3.3) — tabela `manual_rules`
+
+`manual_rules(workspace_id, pattern, match_type, tag_ids, improved_title)` onde `match_type` ∈ `{exact, prefix, glob}`. Gerenciadas via UI (fora do MVP inicial — entram depois do aprendizado passivo estar estável).
+
+### Fallback e resiliência
+
+- Timeout de 8 s na chamada à API. Se estourar → `improved_title = original_description`, tags vazias, confidence = nil.
+- Erros de quota/rede → idem. O usuário categoriza manualmente na inbox normalmente.
+- VCR em testes: cassettes gravam a chamada real ao Gemini uma vez; CI sempre usa o cassette.
 
 ## Monitoramento de erros
 

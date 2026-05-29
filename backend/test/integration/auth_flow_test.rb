@@ -57,6 +57,73 @@ class AuthFlowTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
+  # ---- Allowlist de emails -----------------------------------------------
+
+  test "google callback rejects email not in ALLOWED_EMAILS" do
+    with_allowed_emails("allowed@example.com") do
+      OmniAuth.config.mock_auth[:google_oauth2] = OmniAuth::AuthHash.new(
+        provider: "google_oauth2",
+        uid: "google-blocked",
+        info: { email: "blocked@other.com", name: "Blocked", image: nil }
+      )
+
+      assert_no_difference "User.count" do
+        get "/api/v1/auth/google_oauth2/callback"
+      end
+
+      assert_response :redirect
+      assert_match "unauthorized_email", response.location
+      get "/api/v1/sessions/current"
+      assert_response :unauthorized
+    end
+  end
+
+  test "google callback allows email in ALLOWED_EMAILS" do
+    with_allowed_emails("kaleb@ferreri.co,wife@example.com") do
+      OmniAuth.config.mock_auth[:google_oauth2] = OmniAuth::AuthHash.new(
+        provider: "google_oauth2",
+        uid: "google-allowed",
+        info: { email: "kaleb@ferreri.co", name: "Kaleb", image: nil }
+      )
+
+      assert_difference "User.count", 1 do
+        get "/api/v1/auth/google_oauth2/callback"
+      end
+
+      follow_redirect!
+      get "/api/v1/sessions/current"
+      assert_response :ok
+    end
+  end
+
+  test "google callback allows any email when ALLOWED_EMAILS is not set" do
+    with_env("ALLOWED_EMAILS" => nil) do
+      OmniAuth.config.mock_auth[:google_oauth2] = OmniAuth::AuthHash.new(
+        provider: "google_oauth2",
+        uid: "google-anyone",
+        info: { email: "anyone@anywhere.com", name: "Anyone", image: nil }
+      )
+
+      assert_difference "User.count", 1 do
+        get "/api/v1/auth/google_oauth2/callback"
+      end
+    end
+  end
+
+  private
+
+  def with_allowed_emails(emails_str, &block)
+    with_env("ALLOWED_EMAILS" => emails_str, &block)
+  end
+
+  def with_env(vars)
+    saved = vars.keys.index_with { |k| ENV[k] }
+    vars.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
+    yield
+  ensure
+    saved.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
+  end
+
   # ---- /sessions/current -----------------------------------------------
 
   test "GET /sessions/current returns 401 when not signed in" do

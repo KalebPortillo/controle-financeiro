@@ -5,12 +5,16 @@ class Api::V1::SessionsController < ApplicationController
   # GET /api/v1/auth/:provider/callback
   # OmniAuth pôs o resultado em request.env["omniauth.auth"].
   def create
-    auth = request.env["omniauth.auth"]
+    auth  = request.env["omniauth.auth"]
+    email = auth.dig("info", "email").to_s.downcase.strip
+
+    unless email_allowed?(email)
+      redirect_to "/?auth_error=unauthorized_email", allow_other_host: false
+      return
+    end
+
     user = Users::CreateWithPersonalWorkspace.call(auth)
     sign_in(user)
-
-    # Frontend lida com o estado; o callback só fixa a sessão e devolve
-    # o navegador pra raiz.
     redirect_to "/", allow_other_host: false
   end
 
@@ -65,6 +69,15 @@ class Api::V1::SessionsController < ApplicationController
   end
 
   private
+
+  # ALLOWED_EMAILS — lista separada por vírgula de emails autorizados.
+  # Se a variável não estiver setada, qualquer email é aceito (sem restrição).
+  def email_allowed?(email)
+    raw = ENV["ALLOWED_EMAILS"].to_s.strip
+    return true if raw.empty?
+
+    raw.split(",").map { |e| e.strip.downcase }.include?(email)
+  end
 
   def serialize_user(user)
     {

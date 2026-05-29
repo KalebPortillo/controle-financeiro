@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_28_200100) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_28_210000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -84,6 +84,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_200100) do
     t.uuid "workspace_id", null: false
     t.index ["workspace_id", "name"], name: "index_tags_on_workspace_id_and_name", unique: true
     t.index ["workspace_id"], name: "index_tags_on_workspace_id"
+  end
+
+  create_table "transaction_edits", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.uuid "edited_by_membership_id", null: false
+    t.string "field_name", null: false
+    t.jsonb "new_value"
+    t.jsonb "old_value"
+    t.uuid "transaction_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["edited_by_membership_id"], name: "index_transaction_edits_on_edited_by_membership_id"
+    t.index ["transaction_id", "created_at"], name: "index_transaction_edits_on_transaction_id_and_created_at"
+    t.index ["transaction_id"], name: "index_transaction_edits_on_transaction_id"
   end
 
   create_table "transaction_tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -174,6 +187,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_200100) do
   add_foreign_key "bank_connections", "workspace_memberships", column: "owner_membership_id"
   add_foreign_key "bank_connections", "workspaces"
   add_foreign_key "tags", "workspaces"
+  add_foreign_key "transaction_edits", "transactions"
+  add_foreign_key "transaction_edits", "workspace_memberships", column: "edited_by_membership_id"
   add_foreign_key "transaction_tags", "tags"
   add_foreign_key "transaction_tags", "transactions"
   add_foreign_key "transactions", "accounts"

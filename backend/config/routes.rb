@@ -51,6 +51,7 @@ Rails.application.routes.draw do
         member do
           post "consolidate"
           post "reject"
+          get  "edits"
         end
       end
 

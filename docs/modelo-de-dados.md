@@ -190,8 +190,9 @@ Coração do sistema: gasto, receita ou estorno. Vive no inbox ou consolidado.
 - `installment_number BETWEEN 1 AND installment_total` quando preenchidos
 - `(consolidated_at IS NOT NULL) = (status = 'consolidated')`
 
-### `transaction_edits`
-Histórico de alterações em uma transação. RF4.3 audit trail leve.
+### `transaction_edits` ✅ implementado (RF4.3)
+Histórico de alterações em uma transação. RF4.3 audit trail leve. (No model Ruby,
+a associação pro lado da transação chama-se `txn` — `transaction` colide com AR.)
 
 | coluna | tipo | constraints |
 |---|---|---|

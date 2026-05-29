@@ -173,7 +173,7 @@ Formato uniforme:
   Item serializado: `id, account_id, account_name, direction, amount_cents,
   currency, occurred_at, original_description, improved_title, status, source, lock_version`.
 - ⏳ `GET /api/v1/transactions/:id` — detalhe completo (com tags, category, splits, refund) — planejado.
-- ⏳ `GET /api/v1/transactions/:id/edits` — histórico (RF4.3) — planejado.
+- `GET /api/v1/transactions/:id/edits` — histórico de alterações (RF4.3), mais recente primeiro. Cada item: `{ id, field_name, old_value, new_value, edited_at, edited_by: { id, name } }`. Um registro por campo alterado (improved_title/amount_cents/occurred_at/tags) gravado a cada PATCH.
 
 ### Transactions — escrita e workflow inbox (RF2.3, RF12)
 - `PATCH /api/v1/transactions/:id` — edita `improved_title`, `amount_cents`,

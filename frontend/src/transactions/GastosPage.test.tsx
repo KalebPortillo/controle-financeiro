@@ -74,6 +74,36 @@ describe('<GastosPage />', () => {
     await waitFor(() => expect(calls.length).toBeGreaterThan(callsBefore))
   })
 
+  it('shows the edit history when toggled in the sheet', async () => {
+    setupFetch((url) => {
+      if (url.includes('/api/v1/tags')) return { status: 200, body: { tags: [] } }
+      if (url.includes('/edits')) {
+        return {
+          status: 200,
+          body: {
+            edits: [
+              {
+                id: 'e1',
+                field_name: 'amount_cents',
+                old_value: 1000,
+                new_value: 2500,
+                edited_at: '2026-05-20T10:00:00Z',
+                edited_by: { id: 'm1', name: 'Kaleb' },
+              },
+            ],
+          },
+        }
+      }
+      return { status: 200, body: { transactions: [tx()], pending_count: 0 } }
+    })
+    renderGastos()
+    const user = userEvent.setup()
+    await user.click(await screen.findByTestId('gasto-row-g1'))
+    await user.click(await screen.findByTestId('history-toggle-g1'))
+    await waitFor(() => expect(screen.getByTestId('history-g1')).toBeInTheDocument())
+    expect(within(screen.getByTestId('history-g1')).getByText(/Valor/)).toBeInTheDocument()
+  })
+
   it('opens the detail sheet in consolidated mode (no accept/reject)', async () => {
     setupFetch((url) => {
       if (url.includes('/api/v1/tags')) return { status: 200, body: { tags: [] } }

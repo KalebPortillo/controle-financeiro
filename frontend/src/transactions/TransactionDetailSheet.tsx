@@ -9,7 +9,9 @@ import {
   useReject,
   useRemoveTransaction,
   useUpdateTransaction,
+  useTransactionEdits,
   type InboxTransaction,
+  type TransactionEdit,
 } from './useInbox'
 
 function signedCents(t: InboxTransaction): number {
@@ -166,6 +168,8 @@ function SheetInner({
             <Trash2 size={12} /> Excluir definitivamente
           </button>
         </div>
+
+        <EditHistory transactionId={t.id} />
       </div>
 
       {/* Footer */}
@@ -185,6 +189,69 @@ function SheetInner({
           </Button>
         )}
       </div>
+    </div>
+  )
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  improved_title: 'Título',
+  amount_cents: 'Valor',
+  occurred_at: 'Data',
+  tags: 'Tags',
+}
+
+function formatEditValue(field: string, value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—'
+  if (field === 'amount_cents' && typeof value === 'number') {
+    return (value / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  }
+  if (field === 'tags' && Array.isArray(value)) return `${value.length} tag(s)`
+  return String(value)
+}
+
+function relativeTime(iso: string): string {
+  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  if (min < 1) return 'agora'
+  if (min < 60) return `há ${min} min`
+  const h = Math.round(min / 60)
+  if (h < 24) return `há ${h} h`
+  return `há ${Math.round(h / 24)} d`
+}
+
+// Trilha de alterações (RF4.3) — colapsável; busca sob demanda ao abrir.
+function EditHistory({ transactionId }: { transactionId: string }) {
+  const [open, setOpen] = useState(false)
+  const { data: edits, isLoading } = useTransactionEdits(transactionId, open)
+
+  return (
+    <div className="mt-2 pt-3.5 border-t border-border">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-xs text-muted-foreground hover:text-foreground"
+        data-testid={`history-toggle-${transactionId}`}
+      >
+        {open ? 'Ocultar histórico' : 'Histórico de alterações'}
+      </button>
+
+      {open && (
+        <div className="mt-2 space-y-2" data-testid={`history-${transactionId}`}>
+          {isLoading && <p className="text-[11px] text-muted-foreground">Carregando…</p>}
+          {!isLoading && (edits?.length ?? 0) === 0 && (
+            <p className="text-[11px] text-muted-foreground">Sem alterações ainda.</p>
+          )}
+          {edits?.map((e: TransactionEdit) => (
+            <div key={e.id} className="text-[11px] text-muted-foreground">
+              <span className="text-foreground font-medium">{FIELD_LABELS[e.field_name] ?? e.field_name}</span>
+              {': '}
+              {formatEditValue(e.field_name, e.old_value)} → {formatEditValue(e.field_name, e.new_value)}
+              <span className="block text-[10px]">
+                {e.edited_by.name} · {relativeTime(e.edited_at)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

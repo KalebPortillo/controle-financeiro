@@ -14,6 +14,8 @@ class Transaction < ApplicationRecord
   has_many :transaction_tags, dependent: :destroy
   has_many :tags, through: :transaction_tags
 
+  has_many :edits, class_name: "TransactionEdit", dependent: :delete_all
+
   validates :direction,            presence: true, inclusion: { in: DIRECTIONS }
   validates :amount_cents,         presence: true, numericality: { greater_than: 0, only_integer: true }
   validates :occurred_at,          presence: true

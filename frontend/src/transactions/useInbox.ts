@@ -63,7 +63,10 @@ function useInboxMutation<TInput>(
   const qc = useQueryClient()
   return useMutation({
     mutationFn: fn,
-    onSuccess: () => qc.invalidateQueries({ queryKey: transactionsKey }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: transactionsKey })
+      qc.invalidateQueries({ queryKey: ['transaction_edits'] }) // RF4.3: histórico reflete a edição
+    },
   })
 }
 
@@ -102,4 +105,24 @@ export function useUpdateTransaction() {
   return useInboxMutation(({ id, ...body }: UpdateInput) =>
     apiFetch(`/api/v1/transactions/${id}`, { method: 'PATCH', body })
   )
+}
+
+export type TransactionEdit = {
+  id: string
+  field_name: string
+  old_value: unknown
+  new_value: unknown
+  edited_at: string
+  edited_by: { id: string; name: string }
+}
+
+// Histórico de alterações de uma transação (RF4.3). `enabled` evita o fetch até
+// a seção de histórico ser aberta.
+export function useTransactionEdits(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['transaction_edits', id],
+    enabled,
+    queryFn: () =>
+      apiFetch<{ edits: TransactionEdit[] }>(`/api/v1/transactions/${id}/edits`).then((r) => r.edits),
+  })
 }

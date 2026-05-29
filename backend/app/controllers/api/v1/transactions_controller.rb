@@ -1,6 +1,6 @@
 class Api::V1::TransactionsController < ApplicationController
   before_action :require_authentication!
-  before_action :set_transaction, only: [ :update, :destroy, :consolidate, :reject ]
+  before_action :set_transaction, only: [ :update, :destroy, :consolidate, :reject, :edits ]
 
   # GET /api/v1/transactions — listagem por status (inbox = pending), com filtros.
   def index
@@ -24,9 +24,12 @@ class Api::V1::TransactionsController < ApplicationController
   # lock: o cliente manda o lock_version que tinha; conflito → 409.
   def update
     @transaction.lock_version = params[:lock_version] if params.key?(:lock_version)
+    before_tags = @transaction.tags.pluck(:id).sort
     @transaction.assign_attributes(update_params)
+    scalar_changes = @transaction.changes.slice("improved_title", "amount_cents", "occurred_at")
     apply_tags(@transaction, params[:tag_ids]) if params.key?(:tag_ids)
     @transaction.save!
+    record_edits!(scalar_changes, before_tags)
     render json: { transaction: serialize(@transaction) }
   rescue ActiveRecord::StaleObjectError
     render json: { error: { code: "stale_object", message: "Transação alterada por outra pessoa. Recarregue." } },
@@ -54,10 +57,38 @@ class Api::V1::TransactionsController < ApplicationController
     render json: { transaction: serialize(@transaction) }
   end
 
+  # GET /api/v1/transactions/:id/edits — trilha de alterações (RF4.3).
+  def edits
+    render json: { edits: @transaction.edits.recent.map { |e| serialize_edit(e) } }
+  end
+
   private
 
   def set_transaction
     @transaction = current_workspace.transactions.find(params[:id])
+  end
+
+  # Registra um TransactionEdit por campo alterado (RF4.3). `scalar_changes` é o
+  # dirty-tracking dos campos escalares; tags são comparadas por id (associação).
+  def record_edits!(scalar_changes, before_tags)
+    membership = current_membership
+    return unless membership
+
+    scalar_changes.each do |field, (old_v, new_v)|
+      @transaction.edits.create!(
+        edited_by_membership: membership, field_name: field, old_value: old_v, new_value: new_v
+      )
+    end
+
+    return unless params.key?(:tag_ids)
+
+    after_tags = @transaction.tags.reload.pluck(:id).sort
+    return if after_tags == before_tags
+
+    @transaction.edits.create!(
+      edited_by_membership: membership, field_name: "tags",
+      old_value: before_tags, new_value: after_tags
+    )
   end
 
   def update_params
@@ -93,6 +124,21 @@ class Api::V1::TransactionsController < ApplicationController
     selected   = session[:active_workspace_id]
     workspaces = current_user.workspaces
     (selected && workspaces.find_by(id: selected)) || workspaces.order(:created_at).first
+  end
+
+  def current_membership
+    current_user.workspace_memberships.find_by(workspace: current_workspace)
+  end
+
+  def serialize_edit(e)
+    {
+      id:         e.id,
+      field_name: e.field_name,
+      old_value:  e.old_value,
+      new_value:  e.new_value,
+      edited_at:  e.created_at.iso8601,
+      edited_by:  { id: e.edited_by_membership_id, name: e.edited_by_membership.user.name }
+    }
   end
 
   def serialize(t)

@@ -1,6 +1,5 @@
 module AiProviders
   ConfigurationError = Class.new(StandardError)
-  ApiError           = Class.new(StandardError)
 
   class Provider
     # Modo normal (tags existem no workspace).

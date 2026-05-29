@@ -131,6 +131,7 @@ jobs:
           export PLUGGY_CLIENT_ID='${PLUGGY_CLIENT_ID}'
           export PLUGGY_CLIENT_SECRET='${PLUGGY_CLIENT_SECRET}'
           export PLUGGY_WEBHOOK_SECRET='${PLUGGY_WEBHOOK_SECRET}'
+          export GEMINI_API_KEY='${GEMINI_API_KEY}'
           EOF
           chmod 600 ~/.config/controle-financeiro/secrets.env
           # Smoke: confirma que as vars saem do source com tamanho > 0
@@ -228,6 +229,7 @@ jobs:
           export PLUGGY_CLIENT_ID='${PLUGGY_CLIENT_ID}'
           export PLUGGY_CLIENT_SECRET='${PLUGGY_CLIENT_SECRET}'
           export PLUGGY_WEBHOOK_SECRET='${PLUGGY_WEBHOOK_SECRET}'
+          export GEMINI_API_KEY='${GEMINI_API_KEY}'
           EOF
           chmod 600 ~/.config/controle-financeiro/secrets.env
           # Smoke: confirma que as vars saem do source com tamanho > 0

@@ -163,7 +163,8 @@ Formato uniforme:
 - `POST /api/v1/webhooks/pluggy` — máquina→máquina (Pluggy → app). **Sem sessão**; autentica pelo header `X-Webhook-Secret` (contra `PLUGGY_WEBHOOK_SECRET`, compare constant-time). Eventos de sync (`item/updated`, `transactions/created|updated`) enfileiram `SyncJob`; eventos de erro (`item/error`, `item/login_error`) marcam a conexão como `error`; item desconhecido / evento ignorado → 200 (ack) sem efeito.
 
 ### Transactions — listagem e leitura (RF2, RF4, RF13)
-> Inbox slice 1 implementada (sem tags/categoria/split — dependem de RF5/RF6/RF10).
+> Inbox (RF2) e Gastos consolidados (RF4 slice 1) implementados sobre o mesmo
+> endpoint via `status`. Tela de Gastos usa `status=consolidated&from&to` (mês).
 - `GET /api/v1/transactions` — list, escopado no workspace. Retorna
   `{ transactions: [...], pending_count: N }` (RF2.4). Filtros implementados:
   `status` (default `pending`), `direction`, `account_id`, `from`, `to`, `q`

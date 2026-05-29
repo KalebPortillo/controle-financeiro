@@ -27,10 +27,12 @@ export function TransactionDetailSheet({
   transaction: t,
   open,
   onClose,
+  mode = 'inbox',
 }: {
   transaction: InboxTransaction | null
   open: boolean
   onClose: () => void
+  mode?: 'inbox' | 'consolidated'
 }) {
   const consolidate = useConsolidate()
   const reject = useReject()
@@ -46,9 +48,9 @@ export function TransactionDetailSheet({
     if (t) reject.mutate(t.id, { onSuccess: onClose })
   }
 
-  // Hotkeys A/R quando o sheet está aberto (Esc é tratado pelo Sheet).
+  // Hotkeys A/R só no fluxo da inbox (consolidado não aceita/rejeita).
   useEffect(() => {
-    if (!open) return
+    if (!open || mode !== 'inbox') return
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
@@ -58,20 +60,21 @@ export function TransactionDetailSheet({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, t?.id])
+  }, [open, t?.id, mode])
 
   return (
     <Sheet open={open} onClose={onClose} width={460}>
-      {t && <SheetInner t={t} busy={busy} onClose={onClose} onAccept={accept} onReject={doReject}
+      {t && <SheetInner t={t} mode={mode} busy={busy} onClose={onClose} onAccept={accept} onReject={doReject}
                         onUpdate={update.mutate} onRemove={() => remove.mutate(t.id, { onSuccess: onClose })} />}
     </Sheet>
   )
 }
 
 function SheetInner({
-  t, busy, onClose, onAccept, onReject, onUpdate, onRemove,
+  t, mode, busy, onClose, onAccept, onReject, onUpdate, onRemove,
 }: {
   t: InboxTransaction
+  mode: 'inbox' | 'consolidated'
   busy: boolean
   onClose: () => void
   onAccept: () => void
@@ -167,12 +170,20 @@ function SheetInner({
 
       {/* Footer */}
       <div className="flex justify-end gap-2 px-5 py-3.5 bg-muted border-t border-border">
-        <Button variant="ghost" onClick={onReject} disabled={busy} data-testid={`sheet-reject-${t.id}`}>
-          <X size={14} /> Rejeitar
-        </Button>
-        <Button variant="primary" onClick={onAccept} disabled={busy} data-testid={`sheet-accept-${t.id}`}>
-          <Check size={14} /> Aceitar
-        </Button>
+        {mode === 'inbox' ? (
+          <>
+            <Button variant="ghost" onClick={onReject} disabled={busy} data-testid={`sheet-reject-${t.id}`}>
+              <X size={14} /> Rejeitar
+            </Button>
+            <Button variant="primary" onClick={onAccept} disabled={busy} data-testid={`sheet-accept-${t.id}`}>
+              <Check size={14} /> Aceitar
+            </Button>
+          </>
+        ) : (
+          <Button variant="outline" onClick={onClose} data-testid={`sheet-done-${t.id}`}>
+            Concluído
+          </Button>
+        )}
       </div>
     </div>
   )

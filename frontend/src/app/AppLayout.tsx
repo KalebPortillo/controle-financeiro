@@ -26,7 +26,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'inbox', label: 'Inbox', Icon: Inbox, to: '/inbox' },
-  { id: 'gastos', label: 'Gastos', Icon: Wallet },
+  { id: 'gastos', label: 'Gastos', Icon: Wallet, to: '/gastos' },
   { id: 'orcamentos', label: 'Orçamentos', Icon: PieChart },
   { id: 'relatorios', label: 'Relatórios', Icon: BarChart3 },
   { id: 'mais', label: 'Mais', Icon: MoreHorizontal, to: '/' },

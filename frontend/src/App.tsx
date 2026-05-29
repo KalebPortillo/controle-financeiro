@@ -5,6 +5,7 @@ import { AppLayout } from './app/AppLayout'
 import { DashboardPage } from './workspace/DashboardPage'
 import { ContasPage } from './workspace/ContasPage'
 import { InboxPage } from './transactions/InboxPage'
+import { GastosPage } from './transactions/GastosPage'
 import { TagsPage } from './transactions/TagsPage'
 import { useSession } from './auth/useSession'
 
@@ -29,6 +30,7 @@ export default function App() {
       >
         <Route path="/" element={<DashboardPage />} />
         <Route path="/inbox" element={<InboxPage />} />
+        <Route path="/gastos" element={<GastosPage />} />
         <Route path="/contas" element={<ContasPage />} />
         <Route path="/tags" element={<TagsPage />} />
       </Route>

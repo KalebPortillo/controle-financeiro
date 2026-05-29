@@ -62,6 +62,17 @@ class TransactionsInboxTest < ActionDispatch::IntegrationTest
     assert_equal 1, JSON.parse(response.body)["transactions"].size
   end
 
+  test "filtra consolidados por período (from/to) — RF4" do
+    txn(status: "consolidated", occurred_at: Date.new(2026, 4, 10))
+    in_may = txn(status: "consolidated", occurred_at: Date.new(2026, 5, 15))
+    txn(status: "consolidated", occurred_at: Date.new(2026, 6, 2))
+
+    get "/api/v1/transactions?status=consolidated&from=2026-05-01&to=2026-05-31"
+    body = JSON.parse(response.body)
+    assert_equal 1, body["transactions"].size
+    assert_equal in_may.id, body["transactions"].first["id"]
+  end
+
   test "ordena por -occurred_at (mais recente primeiro)" do
     older = txn(status: "pending", occurred_at: Date.new(2026, 1, 1))
     newer = txn(status: "pending", occurred_at: Date.new(2026, 5, 1))

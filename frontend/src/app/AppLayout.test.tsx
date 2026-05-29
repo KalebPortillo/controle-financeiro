@@ -62,9 +62,9 @@ describe('<AppLayout />', () => {
   it('marks not-yet-built screens as "em breve"', async () => {
     setupFetch()
     renderShell()
-    const gastos = screen.getByTestId('nav-gastos')
-    expect(gastos).toHaveTextContent('em breve')
-    expect(gastos.tagName).not.toBe('A') // não navegável
+    const orcamentos = screen.getByTestId('nav-orcamentos')
+    expect(orcamentos).toHaveTextContent('em breve')
+    expect(orcamentos.tagName).not.toBe('A') // não navegável
   })
 
   it('theme toggle flips data-theme on <html>', async () => {

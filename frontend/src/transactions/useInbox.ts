@@ -29,7 +29,11 @@ export type InboxPayload = {
   pending_count: number
 }
 
-export const inboxKey = ['inbox'] as const
+// Prefixo comum: invalidar ['transactions'] recarrega inbox E consolidados,
+// já que uma ação (aceitar/editar/remover) pode mover a transação entre eles.
+const transactionsKey = ['transactions'] as const
+export const inboxKey = ['transactions', 'pending'] as const
+export const consolidatedKey = (period: string) => ['transactions', 'consolidated', period] as const
 
 // Lista as transações pendentes (RF2.1/2.4). Inclui pending_count pro badge.
 export function useInbox() {
@@ -39,13 +43,27 @@ export function useInbox() {
   })
 }
 
+// Lista consolidados de um mês (RF4). `period` = 'YYYY-MM'.
+export function useConsolidated(period: string) {
+  const [year, month] = period.split('-').map(Number)
+  const from = `${period}-01`
+  const to = new Date(year, month, 0).toISOString().slice(0, 10) // último dia do mês
+  return useQuery({
+    queryKey: consolidatedKey(period),
+    queryFn: () =>
+      apiFetch<InboxPayload>(
+        `/api/v1/transactions?status=consolidated&from=${from}&to=${to}`
+      ),
+  })
+}
+
 function useInboxMutation<TInput>(
   fn: (input: TInput) => Promise<unknown>
 ) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: fn,
-    onSuccess: () => qc.invalidateQueries({ queryKey: inboxKey }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: transactionsKey }),
   })
 }
 

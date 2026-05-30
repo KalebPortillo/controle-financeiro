@@ -1,64 +1,49 @@
-import { useEffect } from 'react'
-import { useNavigate } from 'react-router'
-import { OnboardingShell } from './OnboardingShell'
-import { OnboardingStep1Connect } from './OnboardingStep1Connect'
 import { useOnboarding } from './useOnboarding'
+import { OnboardingStep1Connect } from './OnboardingStep1Connect'
+import { OnboardingStep2Tags } from './OnboardingStep2Tags'
+import { OnboardingStep3Categories } from './OnboardingStep3Categories'
 
-/**
- * Container da rota /onboarding (RF22).
- *
- * Lê o estado atual do backend e renderiza o passo correspondente.
- * Fatia 2: só passo 1 (Connect). Passos 2 e 3 entram na Fatia 4.
- */
 export function OnboardingPage() {
-  const { data, isLoading, isError } = useOnboarding()
-  const navigate = useNavigate()
+  const { state, loading, error, advanceStep } = useOnboarding()
 
-  // Estado terminal — sai do fluxo.
-  useEffect(() => {
-    if (data?.status === 'completed' || data?.status === 'skipped') {
-      navigate('/inbox', { replace: true })
-    }
-  }, [data?.status, navigate])
+  if (loading) return <OnboardingShell><div className="text-fg-muted">Carregando…</div></OnboardingShell>
+  if (error) return <OnboardingShell><div className="text-danger">Erro: {error}</div></OnboardingShell>
 
-  if (isLoading) {
-    return (
-      <div
-        role="status"
-        className="min-h-screen flex items-center justify-center text-xs text-muted-foreground"
-      >
-        Carregando…
-      </div>
-    )
+  const step = state?.current_step ?? 1
+
+  const handleComplete = () => {
+    window.location.href = '/'
   }
-
-  if (isError || !data) {
-    return (
-      <main className="min-h-screen flex items-center justify-center px-4">
-        <div className="text-center space-y-2">
-          <p className="text-sm font-medium">Não foi possível carregar o onboarding</p>
-          <p className="text-xs text-muted-foreground">Verifique sua conexão e recarregue.</p>
-        </div>
-      </main>
-    )
-  }
-
-  // not_started vem com current_step=0, mas visualmente é o passo 1 (conectar).
-  const step = !data.current_step || data.current_step < 1 ? 1 : data.current_step
 
   return (
-    <OnboardingShell currentStep={step}>
-      {step === 1 && <OnboardingStep1Connect state={data} />}
-      {step === 2 && <Stub label="Passo 2 — Tags" />}
-      {step === 3 && <Stub label="Passo 3 — Categorias" />}
+    <OnboardingShell step={step}>
+      {step === 1 && <OnboardingStep1Connect onAdvance={() => advanceStep(2)} />}
+      {step === 2 && <OnboardingStep2Tags onAdvance={() => advanceStep(3)} />}
+      {step === 3 && <OnboardingStep3Categories onComplete={handleComplete} />}
     </OnboardingShell>
   )
 }
 
-function Stub({ label }: { label: string }) {
+function OnboardingShell({ step, children }: { step?: number; children: React.ReactNode }) {
   return (
-    <div className="border border-dashed border-border rounded-md p-6 text-center text-sm text-muted-foreground">
-      {label} — em construção (Fatia 4)
+    <div className="min-h-screen flex items-center justify-center bg-bg">
+      <div className="w-full max-w-md px-6 flex flex-col gap-8">
+        {step != null && <OnboardingProgress step={step} />}
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function OnboardingProgress({ step }: { step: number }) {
+  return (
+    <div className="flex gap-1.5" aria-label={`Passo ${step} de 3`}>
+      {[1, 2, 3].map((n) => (
+        <div
+          key={n}
+          className={`h-1 flex-1 rounded-full ${n <= step ? 'bg-violet' : 'bg-border'}`}
+        />
+      ))}
     </div>
   )
 }

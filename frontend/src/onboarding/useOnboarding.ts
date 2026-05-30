@@ -62,3 +62,38 @@ function makeMutation(path: string, body?: unknown) {
 export const useStartOnboarding   = makeMutation('/api/v1/onboarding/start')
 export const useSkipOnboarding    = makeMutation('/api/v1/onboarding/skip')
 export const useAdvanceOnboarding = makeMutation('/api/v1/onboarding/advance')
+
+export type AcceptedTag = { name: string }
+export type AcceptedCategory = { name: string; tag_ids: string[] }
+
+export function useAcceptOnboardingTags() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { accepted: AcceptedTag[] }) =>
+      apiFetch<OnboardingState>('/api/v1/onboarding/tags', {
+        method: 'POST',
+        body: input,
+      }),
+    onSuccess: (data) => {
+      qc.setQueryData(ONBOARDING_KEY, data)
+      qc.invalidateQueries({ queryKey: SESSION_KEY })
+      qc.invalidateQueries({ queryKey: ['tags'] })
+    },
+  })
+}
+
+export function useAcceptOnboardingCategories() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { accepted: AcceptedCategory[] }) =>
+      apiFetch<OnboardingState>('/api/v1/onboarding/categories', {
+        method: 'POST',
+        body: input,
+      }),
+    onSuccess: (data) => {
+      qc.setQueryData(ONBOARDING_KEY, data)
+      qc.invalidateQueries({ queryKey: SESSION_KEY })
+      qc.invalidateQueries({ queryKey: ['categories'] })
+    },
+  })
+}

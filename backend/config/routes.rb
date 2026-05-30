@@ -72,6 +72,10 @@ Rails.application.routes.draw do
           post "start"
           post "skip"
           post "advance"
+          post "tags",       to: "onboardings#accept_tags"
+          post "categories", to: "onboardings#accept_categories"
+          get  "suggestions/tags",       to: "onboardings#suggestions_tags"
+          get  "suggestions/categories", to: "onboardings#suggestions_categories"
         end
       end
 

@@ -28,11 +28,15 @@ class Api::V1::SessionsController < ApplicationController
 
   # GET /api/v1/sessions/current
   def show
-    workspaces = current_user.workspaces.order(:created_at)
+    workspaces  = current_user.workspaces.order(:created_at)
+    active_id   = active_workspace_id(workspaces)
+    active_ws   = workspaces.find { |w| w.id == active_id }
+
     render json: {
       user:                serialize_user(current_user),
       workspaces:          workspaces.map { |w| serialize_workspace(w) },
-      active_workspace_id: active_workspace_id(workspaces)
+      active_workspace_id: active_id,
+      onboarding:          serialize_onboarding(active_ws)
     }
   end
 
@@ -78,6 +82,25 @@ class Api::V1::SessionsController < ApplicationController
     return true if raw.empty?
 
     raw.split(",").map { |e| e.strip.downcase }.include?(email)
+  end
+
+  # Resumo do estado de onboarding pro frontend decidir se redireciona
+  # ao /onboarding no boot. Membros convidados (não donos) recebem nil — pra eles
+  # o fluxo não existe e o app abre normal.
+  def serialize_onboarding(workspace)
+    return nil if workspace.nil? || workspace.created_by_user_id != current_user.id
+
+    state = workspace.onboarding_state || {}
+    { status: state["status"], current_step: onboarding_step_for(state["status"]) }
+  end
+
+  def onboarding_step_for(status)
+    case status
+    when "not_started", nil         then 0
+    when "connecting", "analyzing"  then 1
+    when "tagging"                  then 2
+    when "categorizing"             then 3
+    end
   end
 
   def serialize_user(user)

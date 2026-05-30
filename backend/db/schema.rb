@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_30_024059) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_30_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -107,6 +107,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_30_024059) do
     t.index ["category_id", "tag_id"], name: "index_category_tags_on_category_id_and_tag_id", unique: true
     t.index ["category_id"], name: "index_category_tags_on_category_id"
     t.index ["tag_id"], name: "index_category_tags_on_tag_id"
+  end
+
+  create_table "recurrences", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "amount_tolerance_pct", precision: 4, scale: 2, default: "5.0", null: false
+    t.string "cadence", null: false
+    t.datetime "created_at", null: false
+    t.string "descriptor_pattern", null: false
+    t.integer "expected_amount_cents"
+    t.date "next_expected_at"
+    t.string "source", null: false
+    t.string "status", default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "workspace_id", null: false
+    t.index ["account_id"], name: "index_recurrences_on_account_id"
+    t.index ["workspace_id", "status"], name: "index_recurrences_on_workspace_id_and_status"
+    t.index ["workspace_id"], name: "index_recurrences_on_workspace_id"
+    t.check_constraint "cadence::text = ANY (ARRAY['weekly'::character varying, 'monthly'::character varying, 'yearly'::character varying, 'custom'::character varying]::text[])", name: "recurrences_cadence_check"
+    t.check_constraint "expected_amount_cents IS NULL OR expected_amount_cents > 0", name: "recurrences_amount_positive"
+    t.check_constraint "source::text = ANY (ARRAY['detected'::character varying, 'manual'::character varying]::text[])", name: "recurrences_source_check"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'cancelled'::character varying]::text[])", name: "recurrences_status_check"
   end
 
   create_table "tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -227,6 +248,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_30_024059) do
   add_foreign_key "categories", "workspaces"
   add_foreign_key "category_tags", "categories"
   add_foreign_key "category_tags", "tags"
+  add_foreign_key "recurrences", "accounts"
+  add_foreign_key "recurrences", "workspaces"
   add_foreign_key "tags", "workspaces"
   add_foreign_key "transaction_edits", "transactions"
   add_foreign_key "transaction_edits", "workspace_memberships", column: "edited_by_membership_id"

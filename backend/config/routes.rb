@@ -66,6 +66,9 @@ Rails.application.routes.draw do
       # AI learned rules (RF3.2) — ver e apagar regras aprendidas.
       resources :ai_learned_rules, only: [ :index, :destroy ]
 
+      # Recurrences (RF9) — recorrentes detectadas + cadastradas manualmente.
+      resources :recurrences, only: [ :index, :create, :update, :destroy ]
+
       # Onboarding (RF22) — fluxo guiado de primeira vez do dono do workspace.
       resource :onboarding, only: [ :show ], controller: "onboardings" do
         collection do

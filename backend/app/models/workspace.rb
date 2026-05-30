@@ -6,6 +6,7 @@ class Workspace < ApplicationRecord
   # accounts referenciam workspace_memberships via owner_membership_id, então vão
   # ANTES das memberships, senão a FK estoura ao apagar o workspace.
   has_many :transactions, dependent: :destroy
+  has_many :recurrences, dependent: :destroy
   has_many :tags, dependent: :destroy
   has_many :categories, dependent: :destroy
   has_many :bank_connections, dependent: :destroy

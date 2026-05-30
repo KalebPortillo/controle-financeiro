@@ -7,6 +7,7 @@ class Account < ApplicationRecord
   belongs_to :bank_connection, optional: true
 
   has_many :transactions, dependent: :destroy
+  has_many :recurrences, dependent: :destroy
 
   validates :name,        presence: true
   validates :kind,        presence: true, inclusion: { in: KINDS }

@@ -50,6 +50,10 @@ module BankConnections
         last_sync_error_count:      errored,
         last_sync_duration_seconds: (finished - started).round
       )
+
+      # RF22: encadear análise IA do onboarding quando aplicável.
+      maybe_kickoff_onboarding_analysis
+
       { created: created, duplicated: duplicated, errored: errored }
     rescue StandardError => e
       # Registra o run falho no histórico (RF21.7) e propaga — o SyncJob trata
@@ -74,6 +78,18 @@ module BankConnections
       )
     end
 
+    # Quando o workspace está no fluxo de onboarding (RF22) e ainda em
+    # connecting, transiciona pra analyzing + enfileira o AnalyzeJob.
+    # Idempotente — se já avançou, o early-return cuida.
+    def maybe_kickoff_onboarding_analysis
+      ws = @connection.workspace
+      state = ws.onboarding_state || {}
+      return unless state["status"] == "connecting"
+
+      Onboarding::Service.advance(ws, to: "analyzing")
+      Onboarding::AnalyzeJob.perform_later(ws.id)
+    end
+
     # :created | :duplicated | :errored. Unicidade é garantida no DB
     # (external_transaction_id gerado); capturamos a violação pra contar como
     # duplicado sem abortar o sync. Erros de dado isolados (ex.: data
@@ -92,13 +108,22 @@ module BankConnections
         source:               "automatic_sync",
         source_metadata:      t[:raw] || { "id" => t[:id] }
       )
-      AiSuggestion::SuggestJob.perform_later(tx.id)
+      # RF22: durante o onboarding, NÃO disparamos o SuggestJob por tx —
+      # a IA roda em batch (AnalyzeJob) no fim do sync inicial pra evitar
+      # tags inconsistentes em modo onboarding um a um.
+      AiSuggestion::SuggestJob.perform_later(tx.id) unless onboarding_in_progress?(account.workspace)
       :created
     rescue ActiveRecord::RecordNotUnique
       :duplicated
     rescue ArgumentError, ActiveRecord::RecordInvalid => e
       Rails.logger.warn("[Sync] transação ignorada (#{t[:id]}): #{e.message}")
       :errored
+    end
+
+    ONBOARDING_ACTIVE_STATUSES = %w[connecting analyzing tagging categorizing].freeze
+
+    def onboarding_in_progress?(workspace)
+      ONBOARDING_ACTIVE_STATUSES.include?(workspace.onboarding_state&.dig("status"))
     end
 
     def default_provider

@@ -23,6 +23,16 @@ module AiProviders
       parse_batch_response(raw)
     end
 
+    # Descoberta inicial de tags + categorias (RF22 onboarding).
+    # transactions_context: array de hashes com :id, :description, :merchant_name etc.
+    # existing_tags/categories: nomes em PT-BR a EXCLUIR (modo aditivo).
+    # Retorna { tags: [{name, rationale, coverage}], categories: [{name, tag_names}] }
+    def suggest_onboarding_discovery(transactions_context:, existing_tags: [], existing_categories: [])
+      prompt = build_discovery_prompt(transactions_context, existing_tags, existing_categories)
+      raw    = call_api(prompt)
+      parse_discovery_response(raw)
+    end
+
     private
 
     def call_api(prompt)
@@ -102,6 +112,79 @@ module AiProviders
 
         Transações: #{list}
       PROMPT
+    end
+
+    def build_discovery_prompt(txs, existing_tags, existing_categories)
+      list = txs.map do |t|
+        {
+          id: t[:id], description: t[:description], merchant: t[:merchant_name],
+          category: t[:pluggy_category], method: t[:payment_method],
+          receiver: t[:receiver_name], amount: t[:amount], direction: t[:direction]
+        }
+      end.to_json
+
+      exclude_clause = ""
+      if existing_tags.any? || existing_categories.any?
+        exclude_clause = <<~EXC
+          IMPORTANTE — modo aditivo: NÃO sugira tags com nomes em
+          #{existing_tags.to_json} nem categorias em #{existing_categories.to_json}.
+          Sugira só o que ainda falta no catálogo.
+        EXC
+      end
+
+      <<~PROMPT
+        Você é um assistente de finanças pessoais. Analise as transações
+        abaixo e descubra a taxonomia que melhor descreve o padrão de gastos
+        do usuário.
+
+        Retorne JSON:
+        {
+          "tags": [
+            {
+              "name": "Nome em PT-BR (1-3 palavras, máx 30 chars)",
+              "rationale": "frase curta dizendo por que essa tag aparece",
+              "coverage": número-aproximado-de-transações-que-encaixam
+            }
+          ],
+          "categories": [
+            {
+              "name": "Nome em PT-BR (1-3 palavras)",
+              "tag_names": ["nomes de tags do array acima que pertencem aqui"]
+            }
+          ]
+        }
+        Regras:
+        - Tags são granulares (estabelecimento ou tipo específico).
+        - Categorias agrupam tags por afinidade (uma tag pode estar em + de
+          uma categoria).
+        - Ordene tags por coverage decrescente.
+        - Apenas tags com cobertura >= 1 transação.
+
+        #{exclude_clause}
+
+        Transações: #{list}
+      PROMPT
+    end
+
+    def parse_discovery_response(raw)
+      data = JSON.parse(raw)
+      {
+        tags: Array(data["tags"]).map do |t|
+          {
+            name:      t["name"].to_s.strip,
+            rationale: t["rationale"].to_s.strip,
+            coverage:  t["coverage"].to_i
+          }
+        end.reject { |t| t[:name].empty? },
+        categories: Array(data["categories"]).map do |c|
+          {
+            name:      c["name"].to_s.strip,
+            tag_names: Array(c["tag_names"]).map { |n| n.to_s.strip }.reject(&:empty?)
+          }
+        end.reject { |c| c[:name].empty? }
+      }
+    rescue JSON::ParseError
+      { tags: [], categories: [] }
     end
 
     def parse_normal_response(raw)

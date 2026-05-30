@@ -131,4 +131,42 @@ class BankConnections::SyncTest < ActiveSupport::TestCase
     assert_equal "error", run.status
     assert_equal "falha no provider", run.error_message
   end
+
+  # RF9.4 — parcelamento: ingestão popula installment_number/total/group_id.
+  test "popula campos de parcelamento a partir do creditCardMetadata" do
+    connection, account = setup_connection_with_account
+    parcela = txn("tx-p1", -50.0, "GELADEIRA").merge(
+      raw: { "id" => "tx-p1", "creditCardMetadata" => { "installmentNumber" => 3, "totalInstallments" => 12 } }
+    )
+    provider = FakeProvider.new(by_account: { "acc-1" => [ parcela ] })
+
+    BankConnections::Sync.call(connection: connection, provider: provider)
+    t = account.transactions.find_by!(external_transaction_id: "tx-p1")
+    assert_equal 3,  t.installment_number
+    assert_equal 12, t.installment_total
+    assert_not_nil t.installment_group_id
+  end
+
+  test "parcelas da mesma compra compartilham installment_group_id" do
+    connection, account = setup_connection_with_account
+    p3 = txn("tx-p3", -50.0, "GELADEIRA 3/12", date: "2026-03-10")
+    p4 = txn("tx-p4", -50.0, "GELADEIRA 4/12", date: "2026-04-10")
+    provider = FakeProvider.new(by_account: { "acc-1" => [ p3, p4 ] })
+
+    BankConnections::Sync.call(connection: connection, provider: provider)
+    g3 = account.transactions.find_by!(external_transaction_id: "tx-p3").installment_group_id
+    g4 = account.transactions.find_by!(external_transaction_id: "tx-p4").installment_group_id
+    assert_equal g3, g4
+  end
+
+  test "transação à vista não recebe campos de parcelamento" do
+    connection, account = setup_connection_with_account
+    provider = FakeProvider.new(by_account: { "acc-1" => [ txn("tx-v", -50.0, "PADARIA") ] })
+
+    BankConnections::Sync.call(connection: connection, provider: provider)
+    t = account.transactions.find_by!(external_transaction_id: "tx-v")
+    assert_nil t.installment_number
+    assert_nil t.installment_total
+    assert_nil t.installment_group_id
+  end
 end

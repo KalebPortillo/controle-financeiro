@@ -202,6 +202,9 @@ class Api::V1::TransactionsController < ApplicationController
       ai_suggestion:        t.ai_suggestion,
       status:               t.status,
       source:               t.source,
+      installment_number:   t.installment_number,
+      installment_total:    t.installment_total,
+      installment_group_id: t.installment_group_id,
       lock_version:         t.lock_version,
       tags:                 t.tags.order(:name).map { |tag| { id: tag.id, name: tag.name, color: tag.color, icon: tag.icon } }
     }

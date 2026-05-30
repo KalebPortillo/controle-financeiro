@@ -107,6 +107,7 @@ module BankConnections
     # malformada) contam como :errored e não derrubam o lote.
     def import_transaction(account, t)
       amount = t.fetch(:amount).to_f
+      installment = Transactions::Installment.parse(raw: t[:raw], description: t[:description])
       tx = Transaction.create!(
         workspace:            account.workspace,
         account:              account,
@@ -117,7 +118,12 @@ module BankConnections
         original_description: t[:description].presence || "(sem descrição)",
         status:               "pending",
         source:               "automatic_sync",
-        source_metadata:      t[:raw] || { "id" => t[:id] }
+        source_metadata:      t[:raw] || { "id" => t[:id] },
+        installment_number:   installment&.number,
+        installment_total:    installment&.total,
+        installment_group_id: installment && Transactions::Installment.group_id(
+          account_id: account.id, description: t[:description], total: installment.total
+        )
       )
       # RF22: durante o onboarding, NÃO disparamos o SuggestJob por tx —
       # a IA roda em batch (AnalyzeJob) no fim do sync inicial pra evitar

@@ -14,6 +14,17 @@ class TransactionsInboxTest < ActionDispatch::IntegrationTest
     create(:transaction, **{ workspace: @workspace, account: @account }.merge(attrs))
   end
 
+  test "serializa campos de parcelamento (RF9.4)" do
+    txn(status: "pending", original_description: "GELADEIRA",
+        installment_number: 3, installment_total: 12,
+        installment_group_id: SecureRandom.uuid)
+
+    get "/api/v1/transactions"
+    t = JSON.parse(response.body)["transactions"].first
+    assert_equal 3, t["installment_number"]
+    assert_equal 12, t["installment_total"]
+  end
+
   test "lista pendentes por default, escopado no workspace, com pending_count" do
     p1 = txn(status: "pending", original_description: "Padaria")
     txn(status: "consolidated")

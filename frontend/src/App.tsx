@@ -14,6 +14,7 @@ const ContasPage    = lazy(() => import('./workspace/ContasPage').then(m => ({ d
 const TagsPage      = lazy(() => import('./transactions/TagsPage').then(m => ({ default: m.TagsPage })))
 const CategoriasPage = lazy(() => import('./transactions/CategoriasPage').then(m => ({ default: m.CategoriasPage })))
 const ReportsPage   = lazy(() => import('./transactions/ReportsPage').then(m => ({ default: m.ReportsPage })))
+const OnboardingPage = lazy(() => import('./onboarding/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
 
 function LazyPage({ children }: { children: React.ReactNode }) {
   return (
@@ -36,6 +37,18 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginRoute />} />
+
+      {/* Onboarding (RF22) — fullscreen, fora do AppLayout, mas dentro do RequireAuth.
+          O próprio RequireAuth redireciona PRA cá quando o status indica fluxo ativo. */}
+      <Route
+        path="/onboarding"
+        element={
+          <RequireAuth>
+            <LazyPage><OnboardingPage /></LazyPage>
+          </RequireAuth>
+        }
+      />
+
       <Route
         element={
           <RequireAuth>

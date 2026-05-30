@@ -13,10 +13,25 @@ export type SessionWorkspace = {
   name: string
 }
 
+export type OnboardingStatus =
+  | 'not_started'
+  | 'connecting'
+  | 'analyzing'
+  | 'tagging'
+  | 'categorizing'
+  | 'completed'
+  | 'skipped'
+
+export type OnboardingSummary = {
+  status: OnboardingStatus | null
+  current_step: number | null
+}
+
 export type SessionPayload = {
   user: SessionUser
   workspaces: SessionWorkspace[]
   active_workspace_id: string | null
+  onboarding: OnboardingSummary | null
 }
 
 export const SESSION_KEY = ['session'] as const

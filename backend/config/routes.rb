@@ -72,6 +72,11 @@ Rails.application.routes.draw do
         member     { get "missed" }     # RF9.6 — não chegou no prazo
       end
 
+      # Faturas do cartão (RF9.5) — derivadas, sem entidade física.
+      resources :accounts, only: [] do
+        resources :invoices, only: [ :index ]
+      end
+
       # Onboarding (RF22) — fluxo guiado de primeira vez do dono do workspace.
       resource :onboarding, only: [ :show ], controller: "onboardings" do
         collection do

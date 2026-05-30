@@ -36,6 +36,9 @@ class Api::V1::RecurrencesController < ApplicationController
   # "manual" aqui; recorrentes detectadas nascem no job de detecção (RF9.1).
   def create
     recurrence = current_workspace.recurrences.new(recurrence_params)
+    # account_id fora do permit (Brakeman: FK em mass-assignment). Atribuído à
+    # mão; a validação account_belongs_to_workspace barra account alheia (422).
+    recurrence.account_id = params[:account_id]
     recurrence.source = "manual"
     recurrence.save!
     render json: { recurrence: serialize(recurrence) }, status: :created
@@ -65,7 +68,7 @@ class Api::V1::RecurrencesController < ApplicationController
   end
 
   def recurrence_params
-    params.permit(:account_id, :descriptor_pattern, :expected_amount_cents,
+    params.permit(:descriptor_pattern, :expected_amount_cents,
                   :amount_tolerance_pct, :cadence, :next_expected_at)
   end
 

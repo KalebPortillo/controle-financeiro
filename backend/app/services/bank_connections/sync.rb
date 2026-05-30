@@ -53,6 +53,8 @@ module BankConnections
 
       # RF22: encadear análise IA do onboarding quando aplicável.
       maybe_kickoff_onboarding_analysis
+      # RF9.1: detecção de recorrentes ao fim do sync (fora do onboarding).
+      maybe_kickoff_recurrence_detection
 
       { created: created, duplicated: duplicated, errored: errored }
     rescue StandardError => e
@@ -88,6 +90,15 @@ module BankConnections
 
       Onboarding::Service.advance(ws, to: "analyzing")
       Onboarding::AnalyzeJob.perform_later(ws.id)
+    end
+
+    # Fora do onboarding, dispara a detecção de recorrentes (RF9.1) sobre o
+    # histórico consolidado do workspace. Idempotente (ver Recurrences::Detect).
+    def maybe_kickoff_recurrence_detection
+      ws = @connection.workspace
+      return if onboarding_in_progress?(ws)
+
+      Recurrences::DetectJob.perform_later(ws.id)
     end
 
     # :created | :duplicated | :errored. Unicidade é garantida no DB

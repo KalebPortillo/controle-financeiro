@@ -60,6 +60,25 @@ class BankConnections::OnboardingIntegrationTest < ActiveJob::TestCase
     end
   end
 
+  # RF9.1 — detecção de recorrentes roda ao fim do sync (fora do onboarding).
+  test "sync enqueues Recurrences::DetectJob when onboarding is not active" do
+    @workspace.update!(onboarding_state: { "status" => "completed" })
+    provider = FakeProvider.new(transactions: [])
+
+    assert_enqueued_with(job: Recurrences::DetectJob, args: [ @workspace.id ]) do
+      BankConnections::Sync.call(connection: @connection, provider: provider)
+    end
+  end
+
+  test "sync does not enqueue Recurrences::DetectJob during onboarding" do
+    @workspace.update!(onboarding_state: { "status" => "connecting" })
+    provider = FakeProvider.new(transactions: [])
+
+    assert_no_enqueued_jobs only: Recurrences::DetectJob do
+      BankConnections::Sync.call(connection: @connection, provider: provider)
+    end
+  end
+
   class FakeProvider
     def initialize(transactions: [])
       @transactions = transactions

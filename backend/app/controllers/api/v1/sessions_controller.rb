@@ -70,6 +70,15 @@ class Api::V1::SessionsController < ApplicationController
     )
     user = Users::CreateWithPersonalWorkspace.call(auth)
     sign_in(user)
+
+    # E2E tests test post-onboarding flows by default. Skip onboarding so
+    # RequireAuth doesn't redirect to /onboarding. Pass skip_onboarding=false
+    # to test the onboarding flow itself.
+    unless params[:skip_onboarding] == "false"
+      workspace = user.workspaces.first
+      workspace&.update!(onboarding_state: workspace.onboarding_state.merge("status" => "skipped"))
+    end
+
     head :no_content
   end
 

@@ -89,4 +89,78 @@ class RecurrencesTest < ActionDispatch::IntegrationTest
     assert_response :not_found
     assert Recurrence.exists?(foreign.id)
   end
+
+  # RF9.3 — vencimentos previstos para os próximos N dias.
+  test "GET /recurrences/upcoming retorna ativas com vencimento na janela" do
+    soon = create(:recurrence, workspace: @workspace, account: @account,
+                  descriptor_pattern: "NETFLIX COM", next_expected_at: Date.current + 5)
+    create(:recurrence, workspace: @workspace, account: @account,
+           descriptor_pattern: "ANUAL", next_expected_at: Date.current + 40)
+    create(:recurrence, workspace: @workspace, account: @account,
+           descriptor_pattern: "PAUSADA", status: "paused", next_expected_at: Date.current + 3)
+    create(:recurrence, workspace: create(:workspace), descriptor_pattern: "ALHEIA",
+           next_expected_at: Date.current + 2)
+
+    get "/api/v1/recurrences/upcoming?days=15"
+    assert_response :ok
+    recs = JSON.parse(response.body)["recurrences"]
+    assert_equal [ "NETFLIX COM" ], recs.map { |r| r["descriptor_pattern"] }
+    assert_equal 5, recs.first["days_until"]
+  end
+
+  test "GET /recurrences/upcoming?days= amplia a janela" do
+    create(:recurrence, workspace: @workspace, account: @account,
+           descriptor_pattern: "MENSAL", next_expected_at: Date.current + 5)
+    create(:recurrence, workspace: @workspace, account: @account,
+           descriptor_pattern: "DAQUI 40", next_expected_at: Date.current + 40)
+
+    get "/api/v1/recurrences/upcoming?days=60"
+    recs = JSON.parse(response.body)["recurrences"]
+    assert_equal [ "MENSAL", "DAQUI 40" ], recs.map { |r| r["descriptor_pattern"] }
+  end
+
+  test "GET /recurrences/upcoming exige auth" do
+    delete "/api/v1/sessions/current"
+    get "/api/v1/recurrences/upcoming"
+    assert_response :unauthorized
+  end
+
+  # RF9.6 — recorrente esperada que não chegou no prazo.
+  test "GET /recurrences/:id/missed → atrasada quando não chegou" do
+    rec = create(:recurrence, workspace: @workspace, account: @account,
+                 descriptor_pattern: "NETFLIX COM", next_expected_at: Date.current - 10)
+
+    get "/api/v1/recurrences/#{rec.id}/missed"
+    assert_response :ok
+    body = JSON.parse(response.body)
+    assert_equal true, body["missed"]
+    assert_equal 10, body["days_overdue"]
+    assert_nil body["last_seen_at"]
+  end
+
+  test "GET /recurrences/:id/missed → não atrasada quando a transação chegou" do
+    rec = create(:recurrence, workspace: @workspace, account: @account,
+                 descriptor_pattern: "NETFLIX COM", next_expected_at: Date.current - 10)
+    create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+           original_description: "NETFLIX.COM 8821", amount_cents: 5990,
+           occurred_at: Date.current - 5, status: "consolidated", consolidated_at: Time.current)
+
+    get "/api/v1/recurrences/#{rec.id}/missed"
+    body = JSON.parse(response.body)
+    assert_equal false, body["missed"]
+    assert_equal (Date.current - 5).iso8601, body["last_seen_at"]
+  end
+
+  test "GET /recurrences/:id/missed → não atrasada quando vencimento é futuro" do
+    rec = create(:recurrence, workspace: @workspace, account: @account,
+                 next_expected_at: Date.current + 7)
+    get "/api/v1/recurrences/#{rec.id}/missed"
+    assert_equal false, JSON.parse(response.body)["missed"]
+  end
+
+  test "GET /recurrences/:id/missed de outro workspace → 404" do
+    foreign = create(:recurrence, workspace: create(:workspace))
+    get "/api/v1/recurrences/#{foreign.id}/missed"
+    assert_response :not_found
+  end
 end

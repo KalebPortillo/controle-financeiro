@@ -1,11 +1,35 @@
 class Api::V1::RecurrencesController < ApplicationController
   before_action :require_authentication!
-  before_action :set_recurrence, only: [ :update, :destroy ]
+  before_action :set_recurrence, only: [ :update, :destroy, :missed ]
 
   # GET /api/v1/recurrences — recorrentes do workspace (detectadas + manuais).
   def index
     recurrences = current_workspace.recurrences.order(:descriptor_pattern)
     render json: { recurrences: recurrences.map { |r| serialize(r) } }
+  end
+
+  # GET /api/v1/recurrences/upcoming?days=15 — vencimentos previstos para os
+  # próximos N dias (RF9.3). Só ativas, ordenadas pelo vencimento mais próximo.
+  def upcoming
+    days  = params.fetch(:days, 15).to_i.clamp(1, 365)
+    today = Date.current
+    recurrences = current_workspace.recurrences
+                                   .where(status: "active")
+                                   .where(next_expected_at: today..(today + days))
+                                   .order(:next_expected_at)
+    render json: {
+      recurrences: recurrences.map { |r| serialize(r).merge(days_until: (r.next_expected_at - today).to_i) }
+    }
+  end
+
+  # GET /api/v1/recurrences/:id/missed — a recorrente esperada não chegou? (RF9.6)
+  def missed
+    render json: {
+      missed:           @recurrence.missed?,
+      next_expected_at: @recurrence.next_expected_at&.iso8601,
+      days_overdue:     @recurrence.days_overdue,
+      last_seen_at:     @recurrence.last_seen_at&.iso8601
+    }
   end
 
   # POST /api/v1/recurrences — cadastro manual (RF9.2). `source` é sempre

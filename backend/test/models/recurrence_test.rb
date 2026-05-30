@@ -61,4 +61,41 @@ class RecurrenceTest < ActiveSupport::TestCase
     assert build(:recurrence, status: "paused").paused?
     assert build(:recurrence, status: "cancelled").cancelled?
   end
+
+  # RF9.6 — last_seen_at e missed?.
+  test "last_seen_at é a data da última transação consolidada que casa o padrão" do
+    ws  = create(:workspace)
+    ac  = create(:account, workspace: ws)
+    rec = create(:recurrence, workspace: ws, account: ac, descriptor_pattern: "NETFLIX COM")
+    create(:transaction, workspace: ws, account: ac, direction: "debit",
+           original_description: "NETFLIX.COM 1", occurred_at: Date.new(2026, 1, 10),
+           status: "consolidated", consolidated_at: Time.current)
+    create(:transaction, workspace: ws, account: ac, direction: "debit",
+           original_description: "NETFLIX.COM 2", occurred_at: Date.new(2026, 2, 10),
+           status: "consolidated", consolidated_at: Time.current)
+    # ruído: outro estabelecimento não conta
+    create(:transaction, workspace: ws, account: ac, direction: "debit",
+           original_description: "SPOTIFY", occurred_at: Date.new(2026, 3, 1),
+           status: "consolidated", consolidated_at: Time.current)
+
+    assert_equal Date.new(2026, 2, 10), rec.last_seen_at
+  end
+
+  test "missed? true quando vencida e nada chegou (com grace)" do
+    rec = build(:recurrence, status: "active", next_expected_at: Date.new(2026, 1, 1))
+    def rec.last_seen_at = nil
+    assert rec.missed?(today: Date.new(2026, 1, 20))
+    assert_not rec.missed?(today: Date.new(2026, 1, 2)) # dentro do grace
+  end
+
+  test "missed? false quando pausada/cancelada ou sem next_expected_at" do
+    assert_not build(:recurrence, status: "paused", next_expected_at: Date.new(2026, 1, 1)).missed?(today: Date.new(2026, 2, 1))
+    assert_not build(:recurrence, status: "active", next_expected_at: nil).missed?(today: Date.new(2026, 2, 1))
+  end
+
+  test "missed? false quando a transação chegou depois do esperado" do
+    rec = build(:recurrence, status: "active", next_expected_at: Date.new(2026, 1, 1))
+    def rec.last_seen_at = Date.new(2026, 1, 3)
+    assert_not rec.missed?(today: Date.new(2026, 1, 20))
+  end
 end

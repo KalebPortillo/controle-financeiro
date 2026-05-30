@@ -67,7 +67,10 @@ Rails.application.routes.draw do
       resources :ai_learned_rules, only: [ :index, :destroy ]
 
       # Recurrences (RF9) — recorrentes detectadas + cadastradas manualmente.
-      resources :recurrences, only: [ :index, :create, :update, :destroy ]
+      resources :recurrences, only: [ :index, :create, :update, :destroy ] do
+        collection { get "upcoming" }   # RF9.3 — vencimentos previstos
+        member     { get "missed" }     # RF9.6 — não chegou no prazo
+      end
 
       # Onboarding (RF22) — fluxo guiado de primeira vez do dono do workspace.
       resource :onboarding, only: [ :show ], controller: "onboardings" do

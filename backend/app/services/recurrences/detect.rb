@@ -31,7 +31,7 @@ module Recurrences
                          .consolidated
                          .where(direction: "debit")
                          .order(:occurred_at)
-                         .group_by { |t| [ t.account_id, normalize(t.original_description) ] }
+                         .group_by { |t| [ t.account_id, Descriptor.normalize(t.original_description) ] }
 
       groups.filter_map { |(account_id, pattern), txs| detect_group(account_id, pattern, txs) }
     end
@@ -86,12 +86,6 @@ module Recurrences
       sorted = values.sort
       mid = sorted.size / 2
       sorted.size.odd? ? sorted[mid] : ((sorted[mid - 1] + sorted[mid]) / 2.0).round
-    end
-
-    # "NETFLIX.COM 4821" → "NETFLIX COM". Tira dígitos e pontuação, normaliza
-    # caixa e espaços — agrupa o mesmo estabelecimento apesar do ruído da fatura.
-    def normalize(desc)
-      desc.to_s.upcase.gsub(/\d+/, " ").gsub(/[^[:alpha:] ]/, " ").squish
     end
   end
 end

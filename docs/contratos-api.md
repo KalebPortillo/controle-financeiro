@@ -225,6 +225,13 @@ Formato uniforme:
 - `DELETE /api/v1/tags/:id` — 204 se não usada; **422 `tag_in_use`** se aplicada a alguma transação (orienta merge).
 - `POST  /api/v1/tags/:id/merge` — `{ into_tag_id }`. Move as relações pro destino (sem duplicar, respeitando o unique) e apaga a origem. Destino de outro workspace → 404.
 
+### Tags sugeridas pela IA (RF3/RF22)
+Catálogo separado das tags reais. A IA grava sugestões aqui (`pending`); só viram `Tag`
+de verdade no aceite. Ver tabela `suggested_tags` no modelo de dados.
+- `GET    /api/v1/suggested_tags` — pendentes do workspace, mais relevantes (maior `coverage`) primeiro. Retorna `{ suggested_tags: [{ id, name, rationale, coverage, source, status }] }`.
+- `POST   /api/v1/suggested_tags/:id/accept` — promove a sugestão a `Tag` real (reaproveita uma tag de mesmo nome se já existir) e marca `accepted`. Body opcional `{ transaction_id }` aplica a nova tag àquela transação (caminho do chip fantasma da inbox). Retorna `{ tag: { id, name, color, icon } }`. 404 cross-workspace.
+- `DELETE /api/v1/suggested_tags/:id` — recusa a sugestão (status `dismissed`). 204.
+
 ### Categories (RF6) — implementado (gestão)
 - `GET    /api/v1/categories` — list, cada uma com `tags: [{ id, name, color }]`.
 - `POST   /api/v1/categories` — body: `{ name, color, icon, tag_ids }`. Nome duplicado → 422.

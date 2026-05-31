@@ -253,6 +253,28 @@ chama-se `txn` — `transaction` colide com método interno do ActiveRecord.)
 **Constraints**: UNIQUE (transaction_id, tag_id).
 **RFs**: RF5.2.
 
+### `suggested_tags` ✅ implementado (RF3/RF22)
+Catálogo de tags **sugeridas pela IA**, separado das tags reais/aceitas. Uma sugestão
+nasce `pending` (no onboarding via `Onboarding::AnalyzeJob`, ou na inbox via
+`AiSuggestion::SuggestJob`) e só vira uma `Tag` de verdade quando aceita pelo usuário
+(status `accepted`). Recusar marca `dismissed`. Impede que sugestões poluam a lista de
+tags do dia a dia.
+
+| coluna | tipo | constraints |
+|---|---|---|
+| id | uuid | PK |
+| workspace_id | uuid | FK NOT NULL |
+| name | citext | NOT NULL |
+| rationale | text | NULL — frase curta da IA do porquê |
+| coverage | integer | NOT NULL default 0 — nº aprox. de transações que encaixam |
+| source | string | NOT NULL — `detected` \| `manual` \| `inbox` |
+| status | string | NOT NULL default `pending` — `pending` \| `accepted` \| `dismissed` |
+| created_at, updated_at | timestamp | |
+
+**Constraints**: UNIQUE (workspace_id, name); índice (workspace_id, status); check em
+`source` e `status`.
+**RFs**: RF3, RF22.
+
 ### `categories` ✅ implementado (RF6)
 Agregador de tags (RF6).
 

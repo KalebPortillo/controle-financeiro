@@ -66,6 +66,13 @@ Rails.application.routes.draw do
       # AI learned rules (RF3.2) — ver e apagar regras aprendidas.
       resources :ai_learned_rules, only: [ :index, :destroy ]
 
+      # Tags sugeridas pela IA (RF3/RF22) — catálogo separado das tags reais.
+      # accept promove a sugestão a Tag real (e opcionalmente aplica a uma
+      # transação); destroy recusa (status dismissed).
+      resources :suggested_tags, only: [ :index, :destroy ] do
+        member { post "accept" }
+      end
+
       # Recurrences (RF9) — recorrentes detectadas + cadastradas manualmente.
       resources :recurrences, only: [ :index, :create, :update, :destroy ] do
         collection { get "upcoming" }   # RF9.3 — vencimentos previstos

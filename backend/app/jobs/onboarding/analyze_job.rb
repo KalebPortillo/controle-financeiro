@@ -55,6 +55,23 @@ module Onboarding
         "suggested_tags"       => result[:tags],
         "suggested_categories" => result[:categories]
       ))
+
+      # Também alimenta o catálogo de sugestões (RF3) — não-destrutivo, então um
+      # AnalyzeJob tardio (ex.: usuário pulou a análise) nunca sobrescreve tags
+      # já aceitas. As sugestões ficam disponíveis na página de Tags / inbox.
+      record_catalog_suggestions!(workspace, result[:tags])
+    end
+
+    def record_catalog_suggestions!(workspace, tags)
+      Array(tags).each do |tag|
+        SuggestedTag.record(
+          workspace: workspace,
+          name:      tag[:name] || tag["name"],
+          source:    "detected",
+          rationale: tag[:rationale] || tag["rationale"],
+          coverage:  tag[:coverage] || tag["coverage"]
+        )
+      end
     end
 
     def provider

@@ -8,6 +8,7 @@ class Workspace < ApplicationRecord
   has_many :transactions, dependent: :destroy
   has_many :recurrences, dependent: :destroy
   has_many :tags, dependent: :destroy
+  has_many :suggested_tags, dependent: :destroy
   has_many :categories, dependent: :destroy
   has_many :bank_connections, dependent: :destroy
   has_many :accounts, dependent: :destroy

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_30_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_30_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -128,6 +128,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_30_120000) do
     t.check_constraint "expected_amount_cents IS NULL OR expected_amount_cents > 0", name: "recurrences_amount_positive"
     t.check_constraint "source::text = ANY (ARRAY['detected'::character varying, 'manual'::character varying]::text[])", name: "recurrences_source_check"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'cancelled'::character varying]::text[])", name: "recurrences_status_check"
+  end
+
+  create_table "suggested_tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.integer "coverage", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.citext "name", null: false
+    t.text "rationale"
+    t.string "source", null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "workspace_id", null: false
+    t.index ["workspace_id", "name"], name: "index_suggested_tags_on_workspace_id_and_name", unique: true
+    t.index ["workspace_id", "status"], name: "index_suggested_tags_on_workspace_id_and_status"
+    t.index ["workspace_id"], name: "index_suggested_tags_on_workspace_id"
+    t.check_constraint "source::text = ANY (ARRAY['detected'::character varying, 'manual'::character varying, 'inbox'::character varying]::text[])", name: "suggested_tags_source_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'accepted'::character varying, 'dismissed'::character varying]::text[])", name: "suggested_tags_status_check"
   end
 
   create_table "tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -250,6 +266,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_30_120000) do
   add_foreign_key "category_tags", "tags"
   add_foreign_key "recurrences", "accounts"
   add_foreign_key "recurrences", "workspaces"
+  add_foreign_key "suggested_tags", "workspaces"
   add_foreign_key "tags", "workspaces"
   add_foreign_key "transaction_edits", "transactions"
   add_foreign_key "transaction_edits", "workspace_memberships", column: "edited_by_membership_id"

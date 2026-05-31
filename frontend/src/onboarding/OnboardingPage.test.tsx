@@ -58,15 +58,17 @@ describe('<OnboardingPage />', () => {
     expect(screen.getByRole('heading', { name: /Conectar sua conta/ })).toBeInTheDocument()
   })
 
-  it('renders waiting state when status is analyzing', async () => {
+  it('renders step 2 (analysis) when status is analyzing', async () => {
     setupFetch({
       '/api/v1/onboarding': {
         status: 200,
-        body: { ...baseState, status: 'analyzing', current_step: 1, started_at: '2026-05-30T00:00:00Z' },
+        body: { ...baseState, status: 'analyzing', current_step: 2, started_at: '2026-05-31T00:00:00Z' },
       },
     })
     renderAt()
-    await waitFor(() => expect(screen.getByTestId('onboarding-waiting')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('onboarding-step-2')).toBeInTheDocument())
+    expect(screen.getByText(/Analisando seus gastos/)).toBeInTheDocument()
+    expect(screen.getByTestId('skip-analysis')).toBeInTheDocument()
   })
 
   it('shows skip-onboarding confirmation dialog', async () => {

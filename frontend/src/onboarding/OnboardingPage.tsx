@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { OnboardingShell } from './OnboardingShell'
 import { OnboardingStep1Connect } from './OnboardingStep1Connect'
+import { OnboardingStep2Analysis } from './OnboardingStep2Analysis'
 import { OnboardingStep2Tags } from './OnboardingStep2Tags'
 import { OnboardingStep3Categories } from './OnboardingStep3Categories'
 import { useOnboarding } from './useOnboarding'
@@ -43,8 +44,9 @@ export function OnboardingPage() {
   return (
     <OnboardingShell currentStep={step}>
       {step === 1 && <OnboardingStep1Connect state={data} />}
-      {step === 2 && <OnboardingStep2Tags state={data} />}
-      {step === 3 && <OnboardingStep3Categories state={data} />}
+      {step === 2 && <OnboardingStep2Analysis state={data} />}
+      {step === 3 && <OnboardingStep2Tags state={data} />}
+      {step === 4 && <OnboardingStep3Categories state={data} />}
     </OnboardingShell>
   )
 }

@@ -59,9 +59,13 @@ function makeMutation(path: string, body?: unknown) {
   }
 }
 
-export const useStartOnboarding   = makeMutation('/api/v1/onboarding/start')
-export const useSkipOnboarding    = makeMutation('/api/v1/onboarding/skip')
-export const useAdvanceOnboarding = makeMutation('/api/v1/onboarding/advance')
+export const useStartOnboarding    = makeMutation('/api/v1/onboarding/start')
+export const useSkipOnboarding     = makeMutation('/api/v1/onboarding/skip')
+export const useAdvanceOnboarding  = makeMutation('/api/v1/onboarding/advance')
+// Pular a análise da IA: avança analyzing → tagging imediatamente. O AnalyzeJob
+// ainda pode estar rodando; se terminar, gravará no catálogo suggested_tags sem
+// sobrescrever tags já aceitas (SuggestedTag.record é não-destrutivo).
+export const useSkipAnalysis       = makeMutation('/api/v1/onboarding/advance', { to: 'tagging' })
 
 export type AcceptedTag = { name: string }
 export type AcceptedCategory = { name: string; tag_ids: string[] }

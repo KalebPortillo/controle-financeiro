@@ -1,16 +1,13 @@
 import { useEffect } from 'react'
-import { Building2, Upload, Loader2 } from 'lucide-react'
+import { Building2, Upload } from 'lucide-react'
 import { Button } from '../components/Button'
 import { ConnectBankButton } from '../bank/ConnectBankButton'
 import { useStartOnboarding, type OnboardingState } from './useOnboarding'
 
 /**
- * Passo 1 do onboarding (RF22.5.1–5.4).
- * - not_started / connecting (sem conexão ainda): mostra CTAs
- * - connecting (após conectar) / analyzing: tela de espera
- *
- * O `BankConnections::Sync` cuida da transição connecting→analyzing→tagging
- * automaticamente quando o sync inicial termina.
+ * Passo 1 do onboarding (RF22.5.1–5.4) — conectar fonte de dados.
+ * Quando o sync termina, o backend transiciona connecting→analyzing e o
+ * frontend avança automaticamente pro passo 2 (análise IA).
  */
 export function OnboardingStep1Connect({ state }: { state: OnboardingState }) {
   const start = useStartOnboarding()
@@ -22,19 +19,6 @@ export function OnboardingStep1Connect({ state }: { state: OnboardingState }) {
       start.mutate()
     }
   }, [state.status, start])
-
-  const waiting = state.status === 'connecting' && state.started_at !== null
-                  ? false /* placeholder: sem conexão ainda? hard to distinguish */
-                  : state.status === 'analyzing'
-
-  // Heurística: se já foi iniciado e ainda está em connecting/analyzing,
-  // assumimos waiting depois de uma transição (que será setada pelo backend
-  // quando a conexão for criada). Para refinar, o frontend pode ler
-  // o número de bank_connections do user — mas isso fica pra Fatia 3.
-  // Por ora, mostramos a tela de espera só em analyzing.
-  if (waiting) {
-    return <WaitingForAnalysis />
-  }
 
   return (
     <div className="space-y-6" data-testid="onboarding-step-1">
@@ -98,18 +82,3 @@ function ImportCsvCardDisabled() {
   )
 }
 
-function WaitingForAnalysis() {
-  return (
-    <div
-      className="flex flex-col items-center text-center py-12 space-y-3"
-      data-testid="onboarding-waiting"
-    >
-      <Loader2 className="animate-spin text-accent" size={32} />
-      <p className="text-sm font-medium">Buscando seus gastos…</p>
-      <p className="text-xs text-muted-foreground max-w-xs">
-        Pode levar até 1 minuto. Pode deixar essa tela aberta — a gente avança
-        automaticamente quando terminar.
-      </p>
-    </div>
-  )
-}

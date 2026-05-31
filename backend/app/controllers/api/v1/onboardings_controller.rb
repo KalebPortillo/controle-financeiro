@@ -140,11 +140,12 @@ module Api
 
       def current_step_for(status)
         case status
-        when "not_started", nil           then 0
-        when "connecting", "analyzing"    then 1
-        when "tagging"                    then 2
-        when "categorizing"               then 3
-        else                                   nil
+        when "not_started", nil then 0
+        when "connecting"       then 1
+        when "analyzing"        then 2
+        when "tagging"          then 3
+        when "categorizing"     then 4
+        else                         nil
         end
       end
 

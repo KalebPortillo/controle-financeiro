@@ -37,7 +37,7 @@ Esta v1.0 fecha todos os pontos de produto após duas iterações com o usuário
 - **RF1.4** Sincronização automática periódica (ex.: diária) + botão de "atualizar agora".
 - **RF1.5** Arquitetura preparada para outras instituições no futuro (Itaú, Inter, Santander) sem refazer o core.
 - **RF1.6** Tratamento de erros de sincronização (token expirado, MFA, falha de rede) com aviso ao usuário.
-- **RF1.7** **Histórico inicial configurável**: ao conectar a conta pela primeira vez, o usuário escolhe a data de início da importação (default sugerido: 1º de janeiro do ano corrente).
+- **RF1.7** **Histórico inicial configurável**: ao conectar a conta pela primeira vez, o usuário escolhe de quando importar — opções **último 1, 2, 3 ou 6 meses** ou **data personalizada** (date picker). Default: últimos 3 meses. No onboarding o seletor aparece **antes** de abrir o widget Pluggy; a data escolhida vai no `history_since` do `POST /bank_connections`.
 
 ### RF2. Caixa de entrada de gastos pendentes (Inbox)
 - **RF2.1** Toda transação importada cai automaticamente na inbox.
@@ -373,7 +373,7 @@ deixa tudo pronto para revisar.
 | Metas de economia | Fora do escopo. |
 | Notificações | Apenas in-app no MVP; arquitetura preparada para push/email. |
 | Exportação CSV/Excel | Fora do MVP; modelo de dados preparado para futuro. |
-| Histórico inicial | Usuário escolhe a data de início; default sugerido = 1º de janeiro do ano corrente. |
+| Histórico inicial | Usuário escolhe de quando importar: último 1/2/3/6 meses ou data personalizada; default = últimos 3 meses. |
 | Hierarquia de tags | Tags planas + Categorias como entidade separada (recomendação adotada). |
 | Plataforma | Web app responsivo, mobile-first, com desktop diferenciado. |
 | Login | Individual via **Google OAuth** (OIDC); workspace compartilhado por convite. Sem senha local no MVP. |

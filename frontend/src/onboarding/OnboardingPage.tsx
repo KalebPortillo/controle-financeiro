@@ -44,7 +44,7 @@ export function OnboardingPage() {
   return (
     <OnboardingShell currentStep={step}>
       {step === 1 && <OnboardingStep1Connect state={data} />}
-      {step === 2 && <OnboardingStep2Analysis state={data} />}
+      {step === 2 && <OnboardingStep2Analysis />}
       {step === 3 && <OnboardingStep2Tags state={data} />}
       {step === 4 && <OnboardingStep3Categories state={data} />}
     </OnboardingShell>

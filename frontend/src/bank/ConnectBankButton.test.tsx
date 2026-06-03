@@ -60,11 +60,11 @@ function setupFetch() {
   return { calls, fetchMock }
 }
 
-function renderButton(onConnected = vi.fn()) {
+function renderButton(onConnected = vi.fn(), historySince?: string) {
   const qc = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } })
   render(
     <QueryClientProvider client={qc}>
-      <ConnectBankButton onConnected={onConnected} />
+      <ConnectBankButton onConnected={onConnected} historySince={historySince} />
     </QueryClientProvider>,
   )
   return onConnected
@@ -109,5 +109,22 @@ describe('<ConnectBankButton />', () => {
       expect.objectContaining({ id: 'bc-1' }),
     ))
     expect(screen.getByTestId('connect-bank-feedback')).toHaveTextContent(/banco conectado/i)
+  })
+
+  it('sends the chosen history_since in the create request (RF1.7)', async () => {
+    const { calls } = setupFetch()
+    renderButton(vi.fn(), '2026-04-01')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByTestId('connect-bank-button'))
+    await user.click(await screen.findByTestId('fake-pluggy-widget'))
+
+    await waitFor(() => {
+      const post = calls.find(
+        (c) => c.url === '/api/v1/bank_connections' && c.init?.method === 'POST',
+      )
+      expect(post).toBeTruthy()
+      expect(JSON.parse(post!.init!.body as string)).toMatchObject({ history_since: '2026-04-01' })
+    })
   })
 })

@@ -20,9 +20,9 @@ function setupFetch(responses: Record<string, MockResponse>) {
   return { calls }
 }
 
-const analyzingState = {
-  status: 'analyzing' as const,
-  current_step: 2,
+const taggingState = {
+  status: 'tagging' as const,
+  current_step: 3,
   started_at: '2026-05-31T00:00:00Z',
   completed_at: null,
   suggested_tags: [],
@@ -31,14 +31,12 @@ const analyzingState = {
   accepted_category_ids: [],
 }
 
-const taggingState = { ...analyzingState, status: 'tagging' as const, current_step: 3 }
-
 function renderStep() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter>
-        <OnboardingStep2Analysis state={analyzingState} />
+        <OnboardingStep2Analysis />
       </MemoryRouter>
     </QueryClientProvider>
   )

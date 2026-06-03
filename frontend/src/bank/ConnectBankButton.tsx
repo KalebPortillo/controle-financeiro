@@ -22,8 +22,11 @@ import {
  */
 export function ConnectBankButton({
   onConnected,
+  historySince,
 }: {
   onConnected?: (connection: BankConnection) => void
+  // Data ISO de início da importação (RF1.7). Ausente → default (1º jan).
+  historySince?: string
 }) {
   const connectToken = useConnectToken()
   const createConnection = useCreateBankConnection()
@@ -45,7 +48,7 @@ export function ConnectBankButton({
     try {
       const connection = await createConnection.mutateAsync({
         itemId: data.item.id,
-        historySince: defaultHistorySince(),
+        historySince: historySince ?? defaultHistorySince(),
       })
       setFeedback('Banco conectado')
       onConnected?.(connection)

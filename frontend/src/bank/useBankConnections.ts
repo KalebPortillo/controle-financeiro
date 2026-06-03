@@ -139,3 +139,36 @@ export function defaultHistorySince(): string {
   const year = new Date().getFullYear()
   return `${year}-01-01`
 }
+
+// Período de importação do histórico inicial (RF1.7). O usuário escolhe de
+// quando começar a puxar transações ao conectar a conta.
+export type HistoryPeriod = '1m' | '2m' | '3m' | '6m' | 'custom'
+
+export const HISTORY_PERIOD_OPTIONS: ReadonlyArray<{ value: HistoryPeriod; label: string }> = [
+  { value: '1m',     label: 'Último mês' },
+  { value: '2m',     label: 'Últimos 2 meses' },
+  { value: '3m',     label: 'Últimos 3 meses' },
+  { value: '6m',     label: 'Últimos 6 meses' },
+  { value: 'custom', label: 'Personalizado' },
+]
+
+// Data ISO (YYYY-MM-DD) de N meses atrás, em horário local (sem shift de UTC).
+export function monthsAgoISO(n: number, today = new Date()): string {
+  const d = new Date(today.getFullYear(), today.getMonth() - n, today.getDate())
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+// Resolve a opção de período (+ data custom opcional) numa data ISO de início.
+// Para 'custom' sem data informada, cai no default (1º de janeiro do ano).
+export function resolveHistorySince(period: HistoryPeriod, customDate?: string): string {
+  switch (period) {
+    case '1m': return monthsAgoISO(1)
+    case '2m': return monthsAgoISO(2)
+    case '3m': return monthsAgoISO(3)
+    case '6m': return monthsAgoISO(6)
+    case 'custom': return customDate || defaultHistorySince()
+  }
+}

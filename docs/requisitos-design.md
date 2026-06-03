@@ -380,9 +380,13 @@ Fluxo fullscreen, **fora do AppLayout** (sem sidebar/topbar/bottomnav). O usuár
 ### Conectar conta (RF1, Pluggy Connect)
 - Botão "Conectar conta" em Settings → Contas.
 - Abre o **Pluggy Connect widget** (modal) — handoff para a UI do Pluggy.
-- Pós-conexão: tela "Histórico inicial — escolha a partir de qual data importar" (RF1.7).
-  - Default: 1º de janeiro do ano corrente.
-  - Opções: último 1 mês, 3 meses, 12 meses, custom.
+- **Histórico inicial (RF1.7)**: seletor "Importar gastos de quando?" com radios
+  — último 1, 2, 3 ou 6 meses, ou **Personalizado** (revela date picker). Default:
+  últimos 3 meses.
+  - No **onboarding** (passo 1), o seletor aparece **antes** de abrir o widget,
+    acima do botão "Conectar banco" — o Pluggy não pede esse dado, então a data
+    escolhida vai no `history_since` do `POST /bank_connections`.
+  - Em **Contas**, o `ConnectBankButton` sem seletor usa o default (1º jan do ano).
 
 ### Painel de status de sincronização (RF21)
 

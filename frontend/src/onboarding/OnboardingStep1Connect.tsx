@@ -1,7 +1,13 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Building2, Upload } from 'lucide-react'
 import { Button } from '../components/Button'
+import { Input } from '../components/Input'
 import { ConnectBankButton } from '../bank/ConnectBankButton'
+import {
+  HISTORY_PERIOD_OPTIONS,
+  resolveHistorySince,
+  type HistoryPeriod,
+} from '../bank/useBankConnections'
 import { useStartOnboarding, type OnboardingState } from './useOnboarding'
 
 /**
@@ -11,6 +17,10 @@ import { useStartOnboarding, type OnboardingState } from './useOnboarding'
  */
 export function OnboardingStep1Connect({ state }: { state: OnboardingState }) {
   const start = useStartOnboarding()
+  // RF1.7 — período do histórico inicial. Default: últimos 3 meses.
+  const [period, setPeriod] = useState<HistoryPeriod>('3m')
+  const [customDate, setCustomDate] = useState('')
+  const historySince = resolveHistorySince(period, customDate)
 
   // Marca como connecting na primeira vez que o usuário chega aqui.
   // Idempotente do lado do backend.
@@ -30,15 +40,71 @@ export function OnboardingStep1Connect({ state }: { state: OnboardingState }) {
         </p>
       </div>
 
+      <HistoryPeriodPicker
+        period={period}
+        customDate={customDate}
+        onPeriodChange={setPeriod}
+        onCustomDateChange={setCustomDate}
+      />
+
       <div className="space-y-3">
-        <ConnectBankCard />
+        <ConnectBankCard historySince={historySince} />
         <ImportCsvCardDisabled />
       </div>
     </div>
   )
 }
 
-function ConnectBankCard() {
+function HistoryPeriodPicker({
+  period,
+  customDate,
+  onPeriodChange,
+  onCustomDateChange,
+}: {
+  period: HistoryPeriod
+  customDate: string
+  onPeriodChange: (p: HistoryPeriod) => void
+  onCustomDateChange: (d: string) => void
+}) {
+  return (
+    <fieldset className="border border-border rounded-md p-4 space-y-3">
+      <legend className="px-1 text-sm font-medium">Importar gastos de quando?</legend>
+      <div className="flex flex-col gap-1.5" role="radiogroup" aria-label="Período do histórico">
+        {HISTORY_PERIOD_OPTIONS.map((opt) => (
+          <label
+            key={opt.value}
+            className="flex items-center gap-2.5 text-sm cursor-pointer"
+          >
+            <input
+              type="radio"
+              name="history-period"
+              value={opt.value}
+              checked={period === opt.value}
+              onChange={() => onPeriodChange(opt.value)}
+              className="h-4 w-4 accent-accent"
+            />
+            <span>{opt.label}</span>
+          </label>
+        ))}
+      </div>
+
+      {period === 'custom' && (
+        <div className="pt-1">
+          <Input
+            type="date"
+            value={customDate}
+            onChange={(e) => onCustomDateChange(e.target.value)}
+            data-testid="custom-history-date"
+            aria-label="Data de início personalizada"
+            className="max-w-44"
+          />
+        </div>
+      )}
+    </fieldset>
+  )
+}
+
+function ConnectBankCard({ historySince }: { historySince: string }) {
   return (
     <div className="border border-border rounded-md p-4">
       <div className="flex items-start gap-3">
@@ -51,7 +117,7 @@ function ConnectBankCard() {
             Conexão segura. Suportamos os principais bancos brasileiros.
           </p>
           <div className="mt-3">
-            <ConnectBankButton />
+            <ConnectBankButton historySince={historySince} />
           </div>
         </div>
       </div>

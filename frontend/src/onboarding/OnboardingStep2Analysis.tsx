@@ -1,5 +1,5 @@
 import { Loader2 } from 'lucide-react'
-import { useSkipAnalysis, type OnboardingState } from './useOnboarding'
+import { useSkipAnalysis } from './useOnboarding'
 
 /**
  * Passo 2 do onboarding (RF22) — análise inicial da IA.
@@ -11,7 +11,7 @@ import { useSkipAnalysis, type OnboardingState } from './useOnboarding'
  * suggested_tags (não-destrutivo) — as sugestões aparecem depois na página
  * de Tags e no inbox.
  */
-export function OnboardingStep2Analysis({ state: _ }: { state: OnboardingState }) {
+export function OnboardingStep2Analysis() {
   const skip = useSkipAnalysis()
 
   return (

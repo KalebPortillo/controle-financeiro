@@ -30,8 +30,13 @@ module Api
       end
 
       # POST /api/v1/onboarding/advance { to?: "..." }
+      # Ao entrar em "analyzing" (F2), dispara a análise IA — a análise é
+      # iniciada pelo usuário (clique em "Continuar"), não mais pelo fim do sync.
       def advance
         Onboarding::Service.advance(current_workspace, to: params[:to])
+        if current_workspace.onboarding_state["status"] == "analyzing"
+          Onboarding::AnalyzeJob.perform_later(current_workspace.id)
+        end
         render json: serialize(current_workspace)
       rescue Onboarding::Service::InvalidTransition => e
         render_invalid_transition(e)

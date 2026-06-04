@@ -1,22 +1,28 @@
 import { useEffect, useState } from 'react'
-import { Building2, Upload } from 'lucide-react'
+import { Building2, Upload, CheckCircle2 } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { ConnectBankButton } from '../bank/ConnectBankButton'
 import {
   HISTORY_PERIOD_OPTIONS,
   resolveHistorySince,
+  useBankConnectionsList,
   type HistoryPeriod,
 } from '../bank/useBankConnections'
-import { useStartOnboarding, type OnboardingState } from './useOnboarding'
+import { useStartOnboarding, useStartAnalysis, type OnboardingState } from './useOnboarding'
 
 /**
  * Passo 1 do onboarding (RF22.5.1–5.4) — conectar fonte de dados.
- * Quando o sync termina, o backend transiciona connecting→analyzing e o
- * frontend avança automaticamente pro passo 2 (análise IA).
+ *
+ * F2: a tela PERMANECE após conectar uma conta — o usuário pode conectar mais
+ * contas (ou importar CSV no futuro) e só então clicar "Continuar para análise",
+ * que avança connecting→analyzing e dispara a análise IA (o sync não a inicia
+ * mais automaticamente).
  */
 export function OnboardingStep1Connect({ state }: { state: OnboardingState }) {
   const start = useStartOnboarding()
+  const startAnalysis = useStartAnalysis()
+  const { data: connections } = useBankConnectionsList()
   // RF1.7 — período do histórico inicial. Default: últimos 3 meses.
   const [period, setPeriod] = useState<HistoryPeriod>('3m')
   const [customDate, setCustomDate] = useState('')
@@ -29,6 +35,9 @@ export function OnboardingStep1Connect({ state }: { state: OnboardingState }) {
       start.mutate()
     }
   }, [state.status, start])
+
+  const connected = connections?.connections ?? []
+  const hasConnection = connected.length > 0
 
   return (
     <div className="space-y-6" data-testid="onboarding-step-1">
@@ -50,6 +59,34 @@ export function OnboardingStep1Connect({ state }: { state: OnboardingState }) {
       <div className="space-y-3">
         <ConnectBankCard historySince={historySince} />
         <ImportCsvCardDisabled />
+      </div>
+
+      {hasConnection && (
+        <ul className="space-y-1.5" data-testid="connected-list">
+          {connected.map((c) => (
+            <li
+              key={c.id}
+              className="flex items-center gap-2 text-sm text-muted-foreground"
+            >
+              <CheckCircle2 size={15} className="text-success shrink-0" />
+              <span>
+                {c.accounts.length > 0
+                  ? c.accounts.map((a) => a.institution_label || a.name).join(', ')
+                  : 'Conta conectada'}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="flex items-center justify-end border-t border-border pt-4">
+        <Button
+          onClick={() => startAnalysis.mutate()}
+          disabled={!hasConnection || startAnalysis.isPending}
+          data-testid="continue-to-analysis"
+        >
+          {startAnalysis.isPending ? 'Continuando…' : 'Continuar para análise'}
+        </Button>
       </div>
     </div>
   )

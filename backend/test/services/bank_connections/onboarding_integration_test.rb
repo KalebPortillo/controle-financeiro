@@ -1,8 +1,10 @@
 require "test_helper"
 
-# Integração entre sync e onboarding (RF22 Fatia 3):
+# Integração entre sync e onboarding (RF22):
 # - SuggestJob NÃO dispara durante onboarding ativo
-# - AnalyzeJob é enfileirado quando o sync termina com workspace em connecting
+# - O sync NÃO toca no onboarding_state nem dispara o AnalyzeJob (F2): a análise
+#   é iniciada explicitamente pelo usuário (clique em "Continuar" → advance para
+#   analyzing). Isso desacopla a análise do sync e evita o passo preso.
 class BankConnections::OnboardingIntegrationTest < ActiveJob::TestCase
   setup do
     @workspace  = create(:workspace)
@@ -26,24 +28,17 @@ class BankConnections::OnboardingIntegrationTest < ActiveJob::TestCase
     end
   end
 
-  test "sync enqueues AnalyzeJob when workspace is in connecting" do
+  test "sync does NOT enqueue AnalyzeJob nor advance status (F2: analysis is user-triggered)" do
     @workspace.update!(onboarding_state: { "status" => "connecting" })
-    provider = FakeProvider.new(transactions: [])
-
-    assert_enqueued_with(job: Onboarding::AnalyzeJob, args: [ @workspace.id ]) do
-      BankConnections::Sync.call(connection: @connection, provider: provider)
-    end
-
-    assert_equal "analyzing", @workspace.reload.onboarding_state["status"]
-  end
-
-  test "sync does not enqueue AnalyzeJob when onboarding is already past connecting" do
-    @workspace.update!(onboarding_state: { "status" => "completed" })
     provider = FakeProvider.new(transactions: [])
 
     assert_no_enqueued_jobs only: Onboarding::AnalyzeJob do
       BankConnections::Sync.call(connection: @connection, provider: provider)
     end
+
+    # O sync deixa o usuário em connecting — ele segue conectando contas/CSV e
+    # só avança quando clica "Continuar".
+    assert_equal "connecting", @workspace.reload.onboarding_state["status"]
   end
 
   test "sync enqueues SuggestJob normally when no onboarding is active" do

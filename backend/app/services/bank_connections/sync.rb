@@ -51,8 +51,9 @@ module BankConnections
         last_sync_duration_seconds: (finished - started).round
       )
 
-      # RF22: encadear análise IA do onboarding quando aplicável.
-      maybe_kickoff_onboarding_analysis
+      # RF22/F2: o sync NÃO inicia mais a análise IA do onboarding. Ela é
+      # disparada pelo usuário (clique em "Continuar" → advance para analyzing),
+      # pra desacoplar a análise do sync e não prender o passo de análise.
       # RF9.1: detecção de recorrentes ao fim do sync (fora do onboarding).
       maybe_kickoff_recurrence_detection
 
@@ -78,18 +79,6 @@ module BankConnections
         error_count:      errored,
         error_message:    error_message
       )
-    end
-
-    # Quando o workspace está no fluxo de onboarding (RF22) e ainda em
-    # connecting, transiciona pra analyzing + enfileira o AnalyzeJob.
-    # Idempotente — se já avançou, o early-return cuida.
-    def maybe_kickoff_onboarding_analysis
-      ws = @connection.workspace
-      state = ws.onboarding_state || {}
-      return unless state["status"] == "connecting"
-
-      Onboarding::Service.advance(ws, to: "analyzing")
-      Onboarding::AnalyzeJob.perform_later(ws.id)
     end
 
     # Fora do onboarding, dispara a detecção de recorrentes (RF9.1) sobre o

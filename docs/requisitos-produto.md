@@ -246,20 +246,28 @@ deixa tudo pronto para revisar.
 - **RF22.4** **Skippable em todo passo.** Cada etapa tem botão "Pular agora"
   e botão "Pular onboarding" que vai direto para a inbox. Não trava o usuário
   em nenhum momento.
-- **RF22.5** Três passos sequenciais, com indicador de progresso visível
-  (1 de 3, 2 de 3, 3 de 3):
+- **RF22.5** **Quatro passos** sequenciais, com indicador de progresso visível
+  (Conectar · Análise · Tags · Categorias):
 
   **Passo 1 — Conectar fonte de dados**
   - **RF22.5.1** Oferecer **conectar banco via Pluggy** (RF1). Botão "Conectar
-    banco" abre o widget na hora.
+    banco" abre o widget na hora. Seletor de histórico inicial (RF1.7) na tela.
   - **RF22.5.2** Quando a integração CSV/OFX (RF20) estiver pronta, esta tela
     também oferece "Importar arquivo" como alternativa equivalente.
-  - **RF22.5.3** Após a conexão, espera o **sync inicial** terminar antes de
-    avançar — com feedback "Buscando seus gastos…". Se nenhuma transação for
-    importada no sync inicial, mostra "Não encontramos transações ainda — você
-    pode pular e voltar quando o sync rodar."
-  - **RF22.5.4** "Pular agora" leva direto à inbox vazia (sem passos 2 e 3),
-    já que sem transações não há o que analisar.
+  - **RF22.5.3** A tela **permanece após conectar** — o usuário pode conectar
+    mais de uma conta (ou, no futuro, importar arquivos) e vê a lista das contas
+    já conectadas. Um botão **"Continuar para análise"** (habilitado quando há
+    ≥1 conexão) avança para o passo 2 e **dispara a análise IA**. A análise é
+    iniciada pelo usuário, não automaticamente pelo fim do sync — desacopla a
+    análise do sync e evita o passo de análise preso quando a IA falha/demora.
+  - **RF22.5.4** "Pular onboarding" leva direto à inbox (sem passos 2–4).
+
+  **Passo 2 — Análise IA**
+  - **RF22.5.4a** Tela de espera enquanto o `Onboarding::AnalyzeJob` roda
+    ("Analisando seus gastos com IA…"). Link **"Pular análise e continuar"**
+    avança direto para Tags (a análise, se concluir depois, alimenta o catálogo
+    de tags sugeridas sem travar). Se a IA falhar de vez (timeout/erro), o job
+    avança o fluxo para Tags automaticamente — o usuário nunca fica preso.
 
   **Passo 2 — Sugerir tags**
   - **RF22.5.5** A IA analisa **todas as transações** importadas no passo 1

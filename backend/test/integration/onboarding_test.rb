@@ -84,6 +84,24 @@ class OnboardingTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
   end
 
+  # F2 — a análise IA é disparada pelo clique em "Continuar" (connecting→analyzing),
+  # não mais automaticamente pelo fim do sync.
+  test "POST /onboarding/advance to analyzing enqueues the AnalyzeJob" do
+    @workspace.update!(onboarding_state: { "status" => "connecting" })
+    assert_enqueued_with(job: Onboarding::AnalyzeJob, args: [ @workspace.id ]) do
+      post "/api/v1/onboarding/advance", params: { to: "analyzing" }, as: :json
+    end
+    assert_response :ok
+    assert_equal "analyzing", @workspace.reload.onboarding_state["status"]
+  end
+
+  test "POST /onboarding/advance to other steps does not enqueue the AnalyzeJob" do
+    @workspace.update!(onboarding_state: { "status" => "tagging" })
+    assert_no_enqueued_jobs only: Onboarding::AnalyzeJob do
+      post "/api/v1/onboarding/advance", params: { to: "categorizing" }, as: :json
+    end
+  end
+
   # ---- sessions/current includes onboarding ---------------------------------
 
   test "GET /sessions/current includes onboarding summary" do

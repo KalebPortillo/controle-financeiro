@@ -14,10 +14,22 @@ vi.mock('../bank/ConnectBankButton', () => ({
   ),
 }))
 
-// Evita a chamada de start() no mount mexer no fetch global.
+// Lista de conexões controlável por teste (default: nenhuma).
+let mockConnections: { connections: Array<{ id: string; accounts: Array<{ institution_label?: string; name: string }> }> } = { connections: [] }
+vi.mock('../bank/useBankConnections', async (orig) => {
+  const actual = await orig<typeof import('../bank/useBankConnections')>()
+  return { ...actual, useBankConnectionsList: () => ({ data: mockConnections }) }
+})
+
+const startAnalysisMutate = vi.fn()
+// Evita a chamada de start() no mount mexer no fetch global; expõe startAnalysis.
 vi.mock('./useOnboarding', async (orig) => {
   const actual = await orig<typeof import('./useOnboarding')>()
-  return { ...actual, useStartOnboarding: () => ({ mutate: vi.fn(), isPending: false }) }
+  return {
+    ...actual,
+    useStartOnboarding: () => ({ mutate: vi.fn(), isPending: false }),
+    useStartAnalysis: () => ({ mutate: startAnalysisMutate, isPending: false }),
+  }
 })
 
 const state: OnboardingState = {
@@ -46,6 +58,8 @@ function historySince(): string {
 
 describe('<OnboardingStep1Connect /> — seletor de histórico (RF1.7)', () => {
   beforeEach(() => {
+    mockConnections = { connections: [] }
+    startAnalysisMutate.mockClear()
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-03T12:00:00'))
   })
@@ -72,5 +86,33 @@ describe('<OnboardingStep1Connect /> — seletor de histórico (RF1.7)', () => {
 
     fireEvent.change(picker, { target: { value: '2025-11-15' } })
     expect(historySince()).toBe('2025-11-15')
+  })
+})
+
+describe('<OnboardingStep1Connect /> — continuar para análise (F2)', () => {
+  beforeEach(() => {
+    mockConnections = { connections: [] }
+    startAnalysisMutate.mockClear()
+  })
+
+  it('disables "Continuar para análise" until a connection exists', () => {
+    renderStep()
+    expect(screen.getByTestId('continue-to-analysis')).toBeDisabled()
+  })
+
+  it('lists connected accounts and enables continue once connected', () => {
+    mockConnections = {
+      connections: [{ id: 'bc-1', accounts: [{ institution_label: 'Nubank', name: 'cc' }] }],
+    }
+    renderStep()
+    expect(screen.getByTestId('connected-list')).toHaveTextContent('Nubank')
+    expect(screen.getByTestId('continue-to-analysis')).toBeEnabled()
+  })
+
+  it('clicking continue starts the analysis (advance to analyzing)', () => {
+    mockConnections = { connections: [{ id: 'bc-1', accounts: [] }] }
+    renderStep()
+    fireEvent.click(screen.getByTestId('continue-to-analysis'))
+    expect(startAnalysisMutate).toHaveBeenCalledTimes(1)
   })
 })

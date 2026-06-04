@@ -26,12 +26,13 @@ export type OnboardingState = {
 
 export const ONBOARDING_KEY = ['onboarding'] as const
 
-// Polling em ms quando o estado está "em movimento" (esperando sync ou
-// análise IA). Em terminais e pré-fluxo, sem polling.
+// Polling em ms só quando o backend muda o status sozinho: "analyzing" (o
+// AnalyzeJob termina → vira "tagging"). Em "connecting" o avanço depende do
+// clique do usuário (F2), então não há o que esperar via polling.
 const POLLING_INTERVAL = 5_000
 
 function shouldPoll(status: OnboardingStatus | null | undefined): number | false {
-  if (status === 'connecting' || status === 'analyzing') return POLLING_INTERVAL
+  if (status === 'analyzing') return POLLING_INTERVAL
   return false
 }
 
@@ -62,6 +63,9 @@ function makeMutation(path: string, body?: unknown) {
 export const useStartOnboarding    = makeMutation('/api/v1/onboarding/start')
 export const useSkipOnboarding     = makeMutation('/api/v1/onboarding/skip')
 export const useAdvanceOnboarding  = makeMutation('/api/v1/onboarding/advance')
+// "Continuar para análise" (F2): avança connecting → analyzing, o que dispara o
+// AnalyzeJob no backend. A análise é iniciada pelo usuário, não pelo fim do sync.
+export const useStartAnalysis      = makeMutation('/api/v1/onboarding/advance', { to: 'analyzing' })
 // Pular a análise da IA: avança analyzing → tagging imediatamente. O AnalyzeJob
 // ainda pode estar rodando; se terminar, gravará no catálogo suggested_tags sem
 // sobrescrever tags já aceitas (SuggestedTag.record é não-destrutivo).

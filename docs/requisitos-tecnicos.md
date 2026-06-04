@@ -124,9 +124,15 @@ Entregue em fatias TDD (3a–5c), deployado em staging:
 
 ### Escopo e decisões de produto
 
-- A IA atua **somente na inbox** (`status = pending`). Consolidados não são retocados.
-- Saídas: **`improved_title`** + **tags sugeridas** (só existentes; nova tag só se nenhuma encaixar).
-- **Categorias são 100% manuais** — a IA não sugere categoria.
+- Na **inbox** a IA atua só em `status = pending` (consolidados não são retocados):
+  **`improved_title`** + **tags sugeridas** (prioriza existentes; nova tag só se
+  nenhuma encaixar). Tags sugeridas vão para o catálogo `suggested_tags` (não viram
+  tag real até o usuário aceitar — RF3/RF22).
+- **Taxonomia ampla**: a IA sugere tags por **tema** (Alimentação, Transporte,
+  Assinaturas, Contas da casa…), nunca nome de estabelecimento. Diretriz única em
+  `GeminiProvider::TAG_TAXONOMY_GUIDANCE`, usada nos prompts de onboarding e inbox.
+- **Categorias**: manuais no uso normal, mas **no onboarding a IA sugere categorias**
+  a partir das tags aceitas (2ª análise — `Onboarding::SuggestCategoriesJob`).
 - Confiança (`high`/`medium`/`low`) exposta por sugestão.
 
 ### Decisão: **Google Gemini** como provider inicial, com abstração para trocar

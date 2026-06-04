@@ -18,6 +18,22 @@ module AiProviders
       SocketError, IOError, OpenSSL::SSL::SSLError
     ].freeze
 
+    # Diretriz de taxonomia para a IA: tags devem ser TEMAS AMPLOS e reutilizáveis,
+    # não estabelecimentos. Reaproveitada nos prompts de onboarding e da inbox pra
+    # manter consistência (RF3/RF22). Ex.: Netflix → "Assinaturas", iFood →
+    # "Alimentação". Sem isso a IA sugere nomes específicos demais ("Netflix").
+    TAG_TAXONOMY_GUIDANCE = <<~GUIDE.freeze
+      As tags devem ser TEMAS AMPLOS e reutilizáveis que descrevam o TIPO de gasto —
+      nunca o nome do estabelecimento ou da marca. Exemplos de boas tags:
+      "Alimentação", "Transporte", "Assinaturas", "Contas da casa", "Saúde",
+      "Lazer", "Entretenimento", "Compras", "Educação", "Mensalidades recorrentes".
+      Regras:
+      - NUNCA use nome de empresa/loja como tag. "Netflix"/"Spotify" → "Assinaturas";
+        "iFood"/"restaurante X" → "Alimentação"; "Uber"/"99" → "Transporte".
+      - Prefira poucas tags abrangentes a muitas específicas; reutilize a mesma tag
+        para gastos do mesmo tema.
+    GUIDE
+
     def initialize(api_key: nil, model: nil)
       @api_key = api_key || ENV.fetch("GEMINI_API_KEY", nil)
       @model   = model   || ENV.fetch("AI_MODEL", "gemini-2.5-flash")
@@ -121,9 +137,9 @@ module AiProviders
         ]
         Regras:
         - Seja consistente: o mesmo tipo de gasto deve receber a mesma tag.
-        - Prefira nomes genéricos e reutilizáveis (ex.: "Mercado", "Delivery", "Transporte").
         - Máximo 2 tags por transação.
 
+        #{TAG_TAXONOMY_GUIDANCE}
         Transações: #{list}
       PROMPT
     end
@@ -168,12 +184,12 @@ module AiProviders
           ]
         }
         Regras:
-        - Tags são granulares (estabelecimento ou tipo específico).
         - Categorias agrupam tags por afinidade (uma tag pode estar em + de
           uma categoria).
         - Ordene tags por coverage decrescente.
         - Apenas tags com cobertura >= 1 transação.
 
+        #{TAG_TAXONOMY_GUIDANCE}
         #{exclude_clause}
 
         Transações: #{list}

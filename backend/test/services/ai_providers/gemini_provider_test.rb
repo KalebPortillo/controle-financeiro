@@ -47,4 +47,20 @@ class AiProviders::GeminiProviderTest < ActiveSupport::TestCase
     assert_equal "Mercado", result[:tags].first[:name]
     assert_equal "Alimentação", result[:categories].first[:name]
   end
+
+  # A4 — a IA deve sugerir temas amplos, não estabelecimentos. Garante que a
+  # diretriz de taxonomia entra nos prompts de descoberta e da inbox.
+  test "discovery prompt instructs broad themes, not merchant names" do
+    prompt = @provider.send(:build_discovery_prompt, [ { id: "1", description: "NETFLIX" } ], [], [])
+    assert_match(/TEMAS AMPLOS/, prompt)
+    assert_match(/Assinaturas/, prompt)
+    assert_match(/NUNCA use nome de empresa/, prompt)
+    refute_match(/Tags são granulares/, prompt)
+  end
+
+  test "inbox onboarding prompt also carries the broad-theme guidance" do
+    prompt = @provider.send(:build_onboarding_prompt, [ { id: "1", description: "SPOTIFY" } ])
+    assert_match(/TEMAS AMPLOS/, prompt)
+    assert_match(/Alimentação/, prompt)
+  end
 end

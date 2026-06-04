@@ -100,6 +100,20 @@ describe('<OnboardingStep3Categories /> (rework: aceitas + sugeridas)', () => {
     )
   })
 
+  it('shows the analysis progress while the 2nd analysis has no suggestions yet', async () => {
+    // categorizing, nada aceito e nada sugerido ainda → barra de progresso,
+    // não uma lista vazia silenciosa (regressão do reload manual).
+    setupFetch({
+      '/api/v1/categories': { status: 200, body: { categories: [] } },
+      '/api/v1/suggested_categories': { status: 200, body: { suggested_categories: [] } },
+    })
+    renderStep()
+    await waitFor(() =>
+      expect(screen.getByTestId('categories-analysis-progress')).toBeInTheDocument(),
+    )
+    expect(screen.queryByTestId('categories-empty')).not.toBeInTheDocument()
+  })
+
   it('conclude advances the onboarding (categorizing→completed)', async () => {
     const { fetchMock } = setupFetch({
       '/api/v1/categories': { status: 200, body: { categories: [category()] } },

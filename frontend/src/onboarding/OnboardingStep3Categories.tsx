@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Check, X, Sparkles } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
@@ -33,9 +33,13 @@ const ANALYSIS_STEPS = [
  * Enquanto a 2ª análise roda (sem aceitas e sem sugestões ainda), mostra o
  * progresso. "Concluir" avança categorizing→completed.
  */
+// Quanto tempo no máximo mostrar "montando categorias" antes de desistir da
+// espera e deixar o usuário seguir manualmente (a 2ª análise pode falhar/demorar).
+const ANALYSIS_WAIT_MS = 45_000
+
 export function OnboardingStep3Categories({ state }: { state: OnboardingState }) {
   const { data: categories, isLoading: loadingCats } = useCategories()
-  const { data: suggestions, isLoading: loadingSugg } = useSuggestedCategories({
+  const { data: suggestions } = useSuggestedCategories({
     // Faz polling enquanto a 2ª análise pode não ter terminado (sem sugestões).
     pollWhileEmpty: true,
   })
@@ -43,6 +47,14 @@ export function OnboardingStep3Categories({ state }: { state: OnboardingState })
   const advance = useAdvanceOnboarding()
   const [newName, setNewName] = useState('')
   const [error, setError] = useState<string | null>(null)
+
+  // Janela de espera pela 2ª análise: depois dela, paramos de mostrar o
+  // progresso (o usuário segue manual). Some assim que sugestões chegam.
+  const [waitedTooLong, setWaitedTooLong] = useState(false)
+  useEffect(() => {
+    const id = setTimeout(() => setWaitedTooLong(true), ANALYSIS_WAIT_MS)
+    return () => clearTimeout(id)
+  }, [])
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault()
@@ -59,27 +71,14 @@ export function OnboardingStep3Categories({ state }: { state: OnboardingState })
 
   const accepted = categories ?? []
   const pending = suggestions ?? []
-  // Tela de espera: nada aceito, nada sugerido ainda e ainda carregando/buscando.
-  const waiting =
-    accepted.length === 0 && pending.length === 0 && (loadingSugg || loadingCats) &&
-    state.status === 'categorizing'
-
-  if (waiting) {
-    return (
-      <div
-        className="flex flex-col items-center text-center py-12 space-y-5"
-        data-testid="onboarding-step-categories"
-      >
-        <div className="space-y-1">
-          <h1 className="text-xl font-semibold tracking-tight">Montando suas categorias</h1>
-          <p className="text-xs text-muted-foreground max-w-xs">
-            Agrupando as tags que você aceitou em categorias amplas.
-          </p>
-        </div>
-        <AnalysisProgress steps={ANALYSIS_STEPS} />
-      </div>
-    )
-  }
+  // Ainda esperando a 2ª análise: em categorizing, sem sugestões e sem nada
+  // aceito ainda, dentro da janela de espera. Mostra a barra de progresso
+  // (dentro da seção de sugeridas) em vez de uma lista vazia silenciosa.
+  const awaitingAnalysis =
+    state.status === 'categorizing' &&
+    pending.length === 0 &&
+    accepted.length === 0 &&
+    !waitedTooLong
 
   return (
     <div className="space-y-6" data-testid="onboarding-step-categories">
@@ -104,18 +103,36 @@ export function OnboardingStep3Categories({ state }: { state: OnboardingState })
       </form>
       {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
 
-      <div className="border border-border rounded-lg overflow-hidden">
-        {!loadingCats && accepted.length === 0 && (
-          <p className="text-sm text-muted-foreground px-4 py-3" data-testid="accepted-categories-empty">
-            Nenhuma categoria aceita ainda. Aceite uma sugestão abaixo ou crie a sua.
-          </p>
-        )}
-        {accepted.map((cat) => (
-          <AcceptedCategoryRow key={cat.id} category={cat} />
-        ))}
-      </div>
+      {accepted.length > 0 && (
+        <div className="border border-border rounded-lg overflow-hidden">
+          {accepted.map((cat) => (
+            <AcceptedCategoryRow key={cat.id} category={cat} />
+          ))}
+        </div>
+      )}
 
-      <SuggestedCategoriesList suggestions={pending} />
+      {awaitingAnalysis ? (
+        <div
+          className="flex flex-col items-center text-center py-8 space-y-4"
+          data-testid="categories-analysis-progress"
+        >
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Montando suas categorias</p>
+            <p className="text-xs text-muted-foreground max-w-xs">
+              Agrupando as tags que você aceitou em categorias amplas.
+            </p>
+          </div>
+          <AnalysisProgress steps={ANALYSIS_STEPS} />
+        </div>
+      ) : (
+        <SuggestedCategoriesList suggestions={pending} />
+      )}
+
+      {!loadingCats && !awaitingAnalysis && accepted.length === 0 && pending.length === 0 && (
+        <p className="text-sm text-muted-foreground" data-testid="categories-empty">
+          Nenhuma categoria ainda. Crie a sua acima ou conclua e gerencie depois.
+        </p>
+      )}
 
       <div className="flex items-center justify-end border-t border-border pt-4">
         <Button

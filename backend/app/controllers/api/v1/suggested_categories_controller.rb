@@ -1,12 +1,5 @@
 class Api::V1::SuggestedCategoriesController < ApplicationController
-  before_action :require_authentication!
-  before_action :set_suggested_category, only: [ :accept, :destroy ]
-
-  # GET /api/v1/suggested_categories — sugestões pendentes do workspace (RF22).
-  def index
-    suggestions = current_workspace.suggested_categories.pending.order(name: :asc)
-    render json: { suggested_categories: suggestions.map { |s| serialize(s) } }
-  end
+  include SuggestionsEndpoint
 
   # POST /api/v1/suggested_categories/:id/accept — promove a Category real
   # (reaproveita uma de mesmo nome) e associa as tags por nome (escopadas ao
@@ -14,25 +7,19 @@ class Api::V1::SuggestedCategoriesController < ApplicationController
   def accept
     category = nil
     ActiveRecord::Base.transaction do
-      category = current_workspace.categories.find_or_create_by!(name: @suggested_category.name)
-      tags = current_workspace.tags.where(name: @suggested_category.tag_names)
+      category = current_workspace.categories.find_or_create_by!(name: @suggestion.name)
+      tags = current_workspace.tags.where(name: @suggestion.tag_names)
       category.tags = tags if tags.any?
-      @suggested_category.update!(status: "accepted")
+      @suggestion.update!(status: "accepted")
     end
     render json: { category: serialize_category(category) }
   end
 
-  # DELETE /api/v1/suggested_categories/:id — recusa (status dismissed).
-  def destroy
-    @suggested_category.update!(status: "dismissed")
-    head :no_content
-  end
-
   private
 
-  def set_suggested_category
-    @suggested_category = current_workspace.suggested_categories.find(params[:id])
-  end
+  def suggestion_scope = current_workspace.suggested_categories
+  def index_root = :suggested_categories
+  def index_order = { name: :asc }
 
   def serialize(suggestion)
     {

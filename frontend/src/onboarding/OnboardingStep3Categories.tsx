@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Check, X, Sparkles } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { TagChip } from '../components/TagChip'
@@ -10,12 +10,8 @@ import {
   useDeleteCategory,
   type Category,
 } from '../transactions/useCategories'
-import {
-  useSuggestedCategories,
-  useAcceptSuggestedCategory,
-  useDismissSuggestedCategory,
-  type SuggestedCategory,
-} from '../transactions/useSuggestedCategories'
+import { useSuggestedCategories } from '../transactions/useSuggestedCategories'
+import { SuggestedCategoriesList } from '../transactions/SuggestedCategoriesList'
 import { AnalysisProgress } from './AnalysisProgress'
 import { useAdvanceOnboarding, type OnboardingState } from './useOnboarding'
 
@@ -178,63 +174,3 @@ function AcceptedCategoryRow({ category }: { category: Category }) {
   )
 }
 
-function SuggestedCategoriesList({ suggestions }: { suggestions: SuggestedCategory[] }) {
-  if (suggestions.length === 0) return null
-  return (
-    <section className="space-y-2" data-testid="suggested-categories-section">
-      <div className="flex items-center gap-1.5">
-        <Sparkles size={14} className="text-accent" />
-        <h2 className="text-sm font-medium">Sugeridas pela IA</h2>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        A IA agrupou suas tags aceitas. Aceite para virar uma categoria de verdade.
-      </p>
-      <div className="border border-border rounded-lg overflow-hidden">
-        {suggestions.map((s) => (
-          <SuggestedCategoryRow key={s.id} suggestion={s} />
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function SuggestedCategoryRow({ suggestion }: { suggestion: SuggestedCategory }) {
-  const accept = useAcceptSuggestedCategory()
-  const dismiss = useDismissSuggestedCategory()
-  const busy = accept.isPending || dismiss.isPending
-
-  return (
-    <div
-      className="px-4 py-3 border-b border-border last:border-b-0 flex items-center gap-3"
-      data-testid={`suggested-category-${suggestion.id}`}
-    >
-      <div className="flex-1 min-w-0">
-        <span className="text-sm font-medium">{suggestion.name}</span>
-        {suggestion.tag_names.length > 0 && (
-          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-            {suggestion.tag_names.join(', ')}
-          </p>
-        )}
-      </div>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => accept.mutate({ id: suggestion.id })}
-        disabled={busy}
-        data-testid={`accept-suggested-category-${suggestion.id}`}
-      >
-        <Check size={14} /> Aceitar
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => dismiss.mutate(suggestion.id)}
-        disabled={busy}
-        aria-label={`Recusar ${suggestion.name}`}
-        data-testid={`dismiss-suggested-category-${suggestion.id}`}
-      >
-        <X size={14} />
-      </Button>
-    </div>
-  )
-}

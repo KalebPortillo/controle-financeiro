@@ -1,11 +1,11 @@
-import { Check, X, Sparkles } from 'lucide-react'
-import { Button } from '../components/Button'
+import { Sparkles } from 'lucide-react'
 import {
   useSuggestedTags,
   useAcceptSuggestedTag,
   useDismissSuggestedTag,
   type SuggestedTag,
 } from './useSuggestedTags'
+import { SuggestionRow } from './SuggestionRow'
 
 /**
  * Seção "Sugeridas pela IA" (RF3/RF22) — catálogo de tags sugeridas, separado das
@@ -34,48 +34,28 @@ export function SuggestedTagsList() {
   )
 }
 
+function tagMeta(s: SuggestedTag) {
+  const parts: string[] = []
+  if (s.coverage > 0) parts.push(`${s.coverage} ${s.coverage === 1 ? 'gasto' : 'gastos'}`)
+  if (s.rationale) parts.push(s.rationale)
+  return parts.length > 0 ? parts.join(' · ') : undefined
+}
+
 function SuggestedTagRow({ suggestion }: { suggestion: SuggestedTag }) {
   const accept = useAcceptSuggestedTag()
   const dismiss = useDismissSuggestedTag()
-  const busy = accept.isPending || dismiss.isPending
 
   return (
-    <div
-      className="px-4 py-3 border-b border-border last:border-b-0 flex items-center gap-3"
-      data-testid={`suggested-tag-${suggestion.id}`}
-    >
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium truncate">{suggestion.name}</span>
-          {suggestion.coverage > 0 && (
-            <span className="text-[11px] text-muted-foreground shrink-0">
-              {suggestion.coverage} {suggestion.coverage === 1 ? 'gasto' : 'gastos'}
-            </span>
-          )}
-        </div>
-        {suggestion.rationale && (
-          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{suggestion.rationale}</p>
-        )}
-      </div>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => accept.mutate({ id: suggestion.id })}
-        disabled={busy}
-        data-testid={`accept-suggestion-${suggestion.id}`}
-      >
-        <Check size={14} /> Aceitar
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => dismiss.mutate(suggestion.id)}
-        disabled={busy}
-        aria-label={`Recusar ${suggestion.name}`}
-        data-testid={`dismiss-suggestion-${suggestion.id}`}
-      >
-        <X size={14} />
-      </Button>
-    </div>
+    <SuggestionRow
+      id={suggestion.id}
+      name={suggestion.name}
+      meta={tagMeta(suggestion)}
+      onAccept={() => accept.mutate({ id: suggestion.id })}
+      onDismiss={() => dismiss.mutate(suggestion.id)}
+      disabled={accept.isPending || dismiss.isPending}
+      testidPrefix="suggested-tag"
+      acceptTestid={`accept-suggestion-${suggestion.id}`}
+      dismissTestid={`dismiss-suggestion-${suggestion.id}`}
+    />
   )
 }

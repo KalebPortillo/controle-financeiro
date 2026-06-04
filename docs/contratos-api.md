@@ -232,6 +232,14 @@ de verdade no aceite. Ver tabela `suggested_tags` no modelo de dados.
 - `POST   /api/v1/suggested_tags/:id/accept` — promove a sugestão a `Tag` real (reaproveita uma tag de mesmo nome se já existir) e marca `accepted`. Body opcional `{ transaction_id }` aplica a nova tag àquela transação (caminho do chip fantasma da inbox). Retorna `{ tag: { id, name, color, icon } }`. 404 cross-workspace.
 - `DELETE /api/v1/suggested_tags/:id` — recusa a sugestão (status `dismissed`). 204.
 
+### Categorias sugeridas pela IA (RF22, 2ª análise)
+Catálogo separado das categorias reais. No onboarding, ao entrar em `categorizing`,
+o `Onboarding::SuggestCategoriesJob` pede à IA categorias amplas a partir das tags
+**aceitas** e grava aqui (`pending`). Ver tabela `suggested_categories` no modelo.
+- `GET    /api/v1/suggested_categories` — pendentes do workspace. Retorna `{ suggested_categories: [{ id, name, tag_names, status }] }`.
+- `POST   /api/v1/suggested_categories/:id/accept` — cria a `Category` real (reaproveita uma de mesmo nome) e associa as tags por nome (escopadas ao workspace); marca `accepted`. Retorna `{ category: { id, name, color, tags: [...] } }`. 404 cross-workspace.
+- `DELETE /api/v1/suggested_categories/:id` — recusa (status `dismissed`). 204.
+
 ### Categories (RF6) — implementado (gestão)
 - `GET    /api/v1/categories` — list, cada uma com `tags: [{ id, name, color }]`.
 - `POST   /api/v1/categories` — body: `{ name, color, icon, tag_ids }`. Nome duplicado → 422.

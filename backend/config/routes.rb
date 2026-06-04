@@ -73,6 +73,12 @@ Rails.application.routes.draw do
         member { post "accept" }
       end
 
+      # Categorias sugeridas pela IA (RF22, 2ª análise) — catálogo separado das
+      # categorias reais. accept cria a Category e associa as tags; destroy recusa.
+      resources :suggested_categories, only: [ :index, :destroy ] do
+        member { post "accept" }
+      end
+
       # Recurrences (RF9) — recorrentes detectadas + cadastradas manualmente.
       resources :recurrences, only: [ :index, :create, :update, :destroy ] do
         collection { get "upcoming" }   # RF9.3 — vencimentos previstos

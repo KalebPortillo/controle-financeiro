@@ -61,6 +61,17 @@ module AiProviders
       parse_discovery_response(raw)
     end
 
+    # 2ª análise do onboarding (RF22): a partir das tags JÁ aceitas pelo usuário,
+    # sugere categorias amplas que as agrupem. Cada categoria vem com o subconjunto
+    # de tag_names (só dentre as aceitas). Retorna [{name, tag_names}].
+    def suggest_categories_from_tags(tag_names:)
+      return [] if Array(tag_names).empty?
+
+      prompt = build_categories_prompt(tag_names)
+      raw    = call_api(prompt)
+      parse_categories_response(raw)
+    end
+
     private
 
     def call_api(prompt)
@@ -194,6 +205,42 @@ module AiProviders
 
         Transações: #{list}
       PROMPT
+    end
+
+    def build_categories_prompt(tag_names)
+      <<~PROMPT
+        Você é um assistente de finanças pessoais. O usuário já escolheu estas
+        tags para o seu catálogo:
+        #{Array(tag_names).to_json}
+
+        Agrupe-as em CATEGORIAS amplas (uma categoria reúne tags afins). Retorne JSON:
+        {
+          "categories": [
+            {
+              "name": "Nome da categoria em PT-BR (1-3 palavras)",
+              "tag_names": ["apenas nomes que estão na lista de tags acima"]
+            }
+          ]
+        }
+        Regras:
+        - Use SOMENTE tags da lista fornecida; não invente tags novas.
+        - Uma tag pode estar em mais de uma categoria.
+        - Toda tag deve aparecer em ao menos uma categoria, se fizer sentido.
+        - Nomes de categoria amplos e reutilizáveis (ex.: "Essenciais", "Moradia",
+          "Lazer", "Transporte", "Saúde").
+      PROMPT
+    end
+
+    def parse_categories_response(raw)
+      data = JSON.parse(raw)
+      Array(data["categories"]).map do |c|
+        {
+          name:      c["name"].to_s.strip,
+          tag_names: Array(c["tag_names"]).map { |n| n.to_s.strip }.reject(&:empty?)
+        }
+      end.reject { |c| c[:name].empty? }
+    rescue JSON::ParserError
+      []
     end
 
     def parse_discovery_response(raw)

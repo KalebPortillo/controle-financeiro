@@ -102,6 +102,14 @@ class OnboardingTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # B-cat-2 — entrar em categorizing dispara a 2ª análise (categorias das tags).
+  test "POST /onboarding/advance to categorizing enqueues SuggestCategoriesJob" do
+    @workspace.update!(onboarding_state: { "status" => "tagging" })
+    assert_enqueued_with(job: Onboarding::SuggestCategoriesJob, args: [ @workspace.id ]) do
+      post "/api/v1/onboarding/advance", params: { to: "categorizing" }, as: :json
+    end
+  end
+
   # ---- sessions/current includes onboarding ---------------------------------
 
   test "GET /sessions/current includes onboarding summary" do

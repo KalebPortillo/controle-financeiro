@@ -63,4 +63,33 @@ class AiProviders::GeminiProviderTest < ActiveSupport::TestCase
     assert_match(/TEMAS AMPLOS/, prompt)
     assert_match(/Alimentação/, prompt)
   end
+
+  # B-cat-2 — 2ª análise: categorias a partir das tags aceitas.
+  test "suggest_categories_from_tags returns [] for empty tag list without calling the API" do
+    assert_equal [], @provider.suggest_categories_from_tags(tag_names: [])
+  end
+
+  test "suggest_categories_from_tags parses categories grouping the given tags" do
+    payload = { candidates: [ { content: { parts: [ { text: {
+      categories: [ { name: "Essenciais", tag_names: [ "Alimentação", "Contas da casa" ] } ]
+    }.to_json } ] } } ] }
+    stub_request(:post, @url).to_return(status: 200, body: payload.to_json)
+
+    result = @provider.suggest_categories_from_tags(tag_names: [ "Alimentação", "Contas da casa", "Lazer" ])
+    assert_equal "Essenciais", result.first[:name]
+    assert_equal [ "Alimentação", "Contas da casa" ], result.first[:tag_names]
+  end
+
+  test "suggest_categories_from_tags wraps network timeout as ApiError" do
+    stub_request(:post, @url).to_timeout
+    assert_raises(AiProviders::ApiError) do
+      @provider.suggest_categories_from_tags(tag_names: [ "Alimentação" ])
+    end
+  end
+
+  test "categories prompt restricts to the provided tags" do
+    prompt = @provider.send(:build_categories_prompt, [ "Alimentação", "Transporte" ])
+    assert_match(/SOMENTE tags da lista/, prompt)
+    assert_match(/Alimentação/, prompt)
+  end
 end

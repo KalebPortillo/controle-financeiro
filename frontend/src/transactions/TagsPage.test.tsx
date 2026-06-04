@@ -8,13 +8,18 @@ import type { Tag } from './useTags'
 
 type MockResponse = { status: number; body: unknown }
 
-function setupFetch(
-  responses: Record<string, MockResponse | ((init?: RequestInit) => MockResponse)>
-) {
+type Handler = MockResponse | ((init?: RequestInit) => MockResponse)
+
+function setupFetch(responses: Record<string, Handler>) {
+  // Default: suggested_tags vazio, pra não precisar declarar em todo teste.
+  const withDefaults: Record<string, Handler> = {
+    '/api/v1/suggested_tags': { status: 200, body: { suggested_tags: [] } },
+    ...responses,
+  }
   const calls: Array<{ url: string; init?: RequestInit }> = []
   const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
     calls.push({ url, init })
-    const handler = responses[`${init?.method ?? 'GET'} ${url}`] ?? responses[url]
+    const handler = withDefaults[`${init?.method ?? 'GET'} ${url}`] ?? withDefaults[url]
     if (!handler) throw new Error(`unmocked: ${init?.method ?? 'GET'} ${url}`)
     const { status, body } = typeof handler === 'function' ? handler(init) : handler
     return { ok: status >= 200 && status < 300, status, json: async () => body } as Response
@@ -91,5 +96,68 @@ describe('<TagsPage />', () => {
     const row = await screen.findByTestId('tag-row-t1')
     await user.click(within(row).getByTestId('tag-delete-t1'))
     await waitFor(() => expect(within(row).getByRole('alert')).toHaveTextContent(/mesclar/i))
+  })
+})
+
+const suggestion = {
+  id: 's1', name: 'Delivery', rationale: '5 pedidos no iFood',
+  coverage: 5, source: 'detected', status: 'pending',
+}
+
+describe('<TagsPage /> — tags sugeridas pela IA (F3)', () => {
+  beforeEach(() => vi.restoreAllMocks())
+
+  it('lists AI suggestions in a separate section', async () => {
+    setupFetch({
+      'GET /api/v1/tags': { status: 200, body: { tags: [] } },
+      '/api/v1/suggested_tags': { status: 200, body: { suggested_tags: [suggestion] } },
+    })
+    renderTags()
+    await waitFor(() => expect(screen.getByTestId('suggested-tag-s1')).toBeInTheDocument())
+    expect(screen.getByText('Delivery')).toBeInTheDocument()
+    expect(screen.getByText(/5 pedidos no iFood/)).toBeInTheDocument()
+  })
+
+  it('accepts a suggestion (POST accept)', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/tags': { status: 200, body: { tags: [] } },
+      '/api/v1/suggested_tags': { status: 200, body: { suggested_tags: [suggestion] } },
+      'POST /api/v1/suggested_tags/s1/accept': { status: 200, body: { tag: tag({ name: 'Delivery' }) } },
+    })
+    renderTags()
+    const user = userEvent.setup()
+    const row = await screen.findByTestId('suggested-tag-s1')
+    await user.click(within(row).getByTestId('accept-suggestion-s1'))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/suggested_tags/s1/accept',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    )
+  })
+
+  it('dismisses a suggestion (DELETE)', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/tags': { status: 200, body: { tags: [] } },
+      '/api/v1/suggested_tags': { status: 200, body: { suggested_tags: [suggestion] } },
+      'DELETE /api/v1/suggested_tags/s1': { status: 204, body: null },
+    })
+    renderTags()
+    const user = userEvent.setup()
+    const row = await screen.findByTestId('suggested-tag-s1')
+    await user.click(within(row).getByTestId('dismiss-suggestion-s1'))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/suggested_tags/s1',
+        expect.objectContaining({ method: 'DELETE' }),
+      )
+    )
+  })
+
+  it('hides the suggestions section when there are none', async () => {
+    setupFetch({ 'GET /api/v1/tags': { status: 200, body: { tags: [tag()] } } })
+    renderTags()
+    await screen.findByTestId('tag-row-t1')
+    expect(screen.queryByTestId('suggested-section')).not.toBeInTheDocument()
   })
 })

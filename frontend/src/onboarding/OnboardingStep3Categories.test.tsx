@@ -1,130 +1,118 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { OnboardingStep3Categories } from './OnboardingStep3Categories'
 import type { OnboardingState } from './useOnboarding'
 
-type Mock = { status: number; body: unknown }
-function setupFetch(responses: Record<string, Mock>) {
-  const calls: { url: string; body?: string }[] = []
-  globalThis.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
-    calls.push({ url, body: init?.body?.toString() })
-    const key = `${init?.method ?? 'GET'} ${url}`
-    const handler = responses[key] ?? responses[url]
-    if (!handler) {
-      return { ok: true, status: 200, json: async () => ({ tags: [] }) } as Response
-    }
+type Handler = { status: number; body: unknown }
+
+function setupFetch(responses: Record<string, Handler>) {
+  const withDefaults: Record<string, Handler> = {
+    '/api/v1/categories': { status: 200, body: { categories: [] } },
+    '/api/v1/suggested_categories': { status: 200, body: { suggested_categories: [] } },
+    ...responses,
+  }
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+    calls.push({ url, init })
+    const handler = withDefaults[`${init?.method ?? 'GET'} ${url}`] ?? withDefaults[url]
+    if (!handler) throw new Error(`unmocked: ${init?.method ?? 'GET'} ${url}`)
     return { ok: handler.status >= 200 && handler.status < 300, status: handler.status, json: async () => handler.body } as Response
-  }) as unknown as typeof fetch
-  return calls
+  })
+  globalThis.fetch = fetchMock as unknown as typeof fetch
+  return { calls, fetchMock }
 }
 
-const baseState: OnboardingState = {
+const state: OnboardingState = {
   status: 'categorizing',
-  current_step: 3,
-  started_at: '2026-05-30T00:00:00Z',
+  current_step: 4,
+  started_at: '2026-06-04T00:00:00Z',
   completed_at: null,
   suggested_tags: [],
-  suggested_categories: [
-    { name: 'Alimentação', tag_names: [ 'Mercado', 'Padaria' ] },
-    { name: 'Transporte',  tag_names: [ 'Transporte' ] },
-  ],
+  suggested_categories: [],
   accepted_tag_ids: [],
   accepted_category_ids: [],
 }
 
-function renderStep(state = baseState, tags: { id: string; name: string; color: null; icon: null; usage_count: number }[] = []) {
-  const qc = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false, staleTime: Infinity },
-      mutations: { retry: false },
-    },
-  })
-  qc.setQueryData(['tags'], tags)
+function category(o = {}) {
+  return { id: 'c1', name: 'Essenciais', color: null, icon: null, tags: [{ id: 't1', name: 'Alimentação', color: null, icon: null }], ...o }
+}
+function suggestion(o = {}) {
+  return { id: 'sc1', name: 'Moradia', tag_names: ['Contas da casa'], status: 'pending', ...o }
+}
+
+function renderStep() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter>
         <OnboardingStep3Categories state={state} />
       </MemoryRouter>
-    </QueryClientProvider>
+    </QueryClientProvider>,
   )
 }
 
-describe('<OnboardingStep3Categories />', () => {
+describe('<OnboardingStep3Categories /> (rework: aceitas + sugeridas)', () => {
   beforeEach(() => vi.restoreAllMocks())
 
-  it('renders suggested categories with names', () => {
-    renderStep()
-    expect(screen.getByDisplayValue('Alimentação')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('Transporte')).toBeInTheDocument()
-  })
-
-  it('posts accepted categories with tag_ids resolved from names', async () => {
-    const tags = [
-      { id: 'uuid-1', name: 'Mercado', color: null, icon: null, usage_count: 0 },
-      { id: 'uuid-2', name: 'Padaria', color: null, icon: null, usage_count: 0 },
-    ]
-    const calls = setupFetch({
-      'POST /api/v1/onboarding/categories': {
-        status: 200,
-        body: { ...baseState, status: 'completed' },
-      },
-    })
-    renderStep(baseState, tags)
-    const user = userEvent.setup()
-
-    await user.click(screen.getByTestId('conclude-onboarding'))
-    await waitFor(() => {
-      const post = calls.find((c) => c.url.includes('/onboarding/categories'))
-      expect(post).toBeTruthy()
-      const body = JSON.parse(post!.body!)
-      const alim = body.accepted.find((c: { name: string }) => c.name === 'Alimentação')
-      expect(alim).toBeTruthy()
-      expect(alim.tag_ids).toContain('uuid-1')
-      expect(alim.tag_ids).toContain('uuid-2')
-    })
-  })
-
-  it('skip step posts with empty accepted', async () => {
-    const calls = setupFetch({
-      'POST /api/v1/onboarding/categories': { status: 200, body: { ...baseState, status: 'completed' } },
+  it('lists accepted categories and AI suggestions in separate sections', async () => {
+    setupFetch({
+      '/api/v1/categories': { status: 200, body: { categories: [category()] } },
+      '/api/v1/suggested_categories': { status: 200, body: { suggested_categories: [suggestion()] } },
     })
     renderStep()
-    const user = userEvent.setup()
-    await user.click(screen.getByTestId('skip-categories-step'))
-    await waitFor(() => {
-      const post = calls.find((c) => c.url.includes('/onboarding/categories'))
-      const body = JSON.parse(post!.body!)
-      expect(body.accepted).toEqual([])
-    })
+    await waitFor(() => expect(screen.getByTestId('accepted-category-c1')).toHaveTextContent('Essenciais'))
+    expect(screen.getByTestId('suggested-category-sc1')).toHaveTextContent('Moradia')
   })
 
-  it('adds a manual category', async () => {
-    setupFetch({})
+  it('accepts a suggested category (POST accept)', async () => {
+    const { fetchMock } = setupFetch({
+      '/api/v1/categories': { status: 200, body: { categories: [category()] } },
+      '/api/v1/suggested_categories': { status: 200, body: { suggested_categories: [suggestion()] } },
+      'POST /api/v1/suggested_categories/sc1/accept': { status: 200, body: { category: category({ id: 'c2', name: 'Moradia' }) } },
+    })
+    renderStep()
+    const row = await screen.findByTestId('suggested-category-sc1')
+    const user = userEvent.setup()
+    await user.click(within(row).getByTestId('accept-suggested-category-sc1'))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/suggested_categories/sc1/accept',
+        expect.objectContaining({ method: 'POST' }),
+      ),
+    )
+  })
+
+  it('creates a category on the spot', async () => {
+    const { fetchMock } = setupFetch({
+      '/api/v1/categories': { status: 200, body: { categories: [category()] } },
+      'POST /api/v1/categories': { status: 201, body: { category: category({ id: 'c3', name: 'Lazer' }) } },
+    })
+    renderStep()
+    await screen.findByTestId('accepted-category-c1')
+    const user = userEvent.setup()
+    await user.type(screen.getByTestId('new-category-name'), 'Lazer')
+    await user.click(screen.getByTestId('new-category-submit'))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/categories', expect.objectContaining({ method: 'POST' })),
+    )
+  })
+
+  it('conclude advances the onboarding (categorizing→completed)', async () => {
+    const { fetchMock } = setupFetch({
+      '/api/v1/categories': { status: 200, body: { categories: [category()] } },
+      'POST /api/v1/onboarding/advance': { status: 200, body: { status: 'completed', current_step: null } },
+    })
     renderStep()
     const user = userEvent.setup()
-    await user.type(screen.getByTestId('manual-category-input'), 'Casa')
-    await user.click(screen.getByRole('button', { name: /Adicionar/i }))
-    expect(screen.getByText('Casa')).toBeInTheDocument()
-  })
-
-  it('removes a tag from a category', async () => {
-    const tags = [
-      { id: 'uuid-1', name: 'Mercado', color: null, icon: null, usage_count: 0 },
-      { id: 'uuid-2', name: 'Padaria', color: null, icon: null, usage_count: 0 },
-    ]
-    setupFetch({})
-    renderStep(baseState, tags)
-    const user = userEvent.setup()
-
-    const removeButtons = screen.getAllByLabelText('Remover tag')
-    expect(removeButtons.length).toBeGreaterThanOrEqual(2)
-
-    await user.click(removeButtons[0])
-
-    const after = screen.getAllByLabelText('Remover tag')
-    expect(after.length).toBe(removeButtons.length - 1)
+    await user.click(await screen.findByTestId('conclude-onboarding'))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/onboarding/advance',
+        expect.objectContaining({ method: 'POST' }),
+      ),
+    )
   })
 })

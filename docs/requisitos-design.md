@@ -128,12 +128,20 @@ Fluxo fullscreen, **fora do AppLayout** (sem sidebar/topbar/bottomnav). O usuár
 
 **Shell comum a todos os passos:**
 
+**4 passos** (atualizado): Conectar · Análise · Tags · Categorias. As etapas de
+Tags e Categorias seguem o **mesmo modelo de duas listas** (igual à página Tags):
+uma lista de itens **aceitos** (reais, com criar na hora + remover) e abaixo uma
+lista de **sugeridos pela IA** (aceitar = vira real, recusar). O passo de Análise
+mostra uma barra de progresso por etapas (a IA não dá % real). As categorias
+sugeridas vêm de uma **2ª análise** disparada quando se entra no passo de
+categorias, agrupando as tags efetivamente aceitas.
+
 ```
 ┌─────────────────────────────────────────┐
 │  [logo CF]            Pular onboarding  │  ← header fino
 │                                         │
-│   ●─────○─────○                         │  ← step indicator
-│   Conectar  Tags  Categorias            │
+│   ●───○───○───○                         │  ← step indicator (4)
+│ Conectar Análise Tags Categorias        │
 │                                         │
 │   {{conteúdo do passo}}                 │
 │                                         │

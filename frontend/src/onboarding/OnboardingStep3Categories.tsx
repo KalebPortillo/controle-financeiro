@@ -1,287 +1,223 @@
-import { useMemo, useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
+import { Check, X, Sparkles } from 'lucide-react'
 import { Button } from '../components/Button'
+import { Input } from '../components/Input'
 import { TagChip } from '../components/TagChip'
-import { useTags } from '../transactions/useTags'
+import { ApiError } from '../api/client'
 import {
-  useAcceptOnboardingCategories,
-  type OnboardingState,
+  useCategories,
+  useCreateCategory,
+  useDeleteCategory,
+  type Category,
+} from '../transactions/useCategories'
+import {
+  useSuggestedCategories,
+  useAcceptSuggestedCategory,
+  useDismissSuggestedCategory,
   type SuggestedCategory,
-} from './useOnboarding'
+} from '../transactions/useSuggestedCategories'
+import { AnalysisProgress } from './AnalysisProgress'
+import { useAdvanceOnboarding, type OnboardingState } from './useOnboarding'
 
-const PAGE_SIZE = 10
+const ANALYSIS_STEPS = [
+  'Lendo suas tags',
+  'Agrupando por afinidade',
+  'Montando categorias',
+]
 
-type RowState = {
-  selected: boolean
-  editedName: string
-  tagIds: string[]
-  dismissed: boolean
-}
-
-type ManualCategory = { name: string; tagIds: string[] }
-
+/**
+ * Passo 4 do onboarding (RF22) — categorias. Mesmo modelo das tags:
+ * - lista de categorias ACEITAS (reais) no topo, com criar na hora + excluir;
+ * - lista de categorias SUGERIDAS pela IA abaixo (a 2ª análise as gera a partir
+ *   das tags aceitas; aceitar = vira real + associa as tags, recusar).
+ * Enquanto a 2ª análise roda (sem aceitas e sem sugestões ainda), mostra o
+ * progresso. "Concluir" avança categorizing→completed.
+ */
 export function OnboardingStep3Categories({ state }: { state: OnboardingState }) {
-  const accept = useAcceptOnboardingCategories()
-  const { data: tags } = useTags()
+  const { data: categories, isLoading: loadingCats } = useCategories()
+  const { data: suggestions, isLoading: loadingSugg } = useSuggestedCategories({
+    // Faz polling enquanto a 2ª análise pode não ter terminado (sem sugestões).
+    pollWhileEmpty: true,
+  })
+  const createCategory = useCreateCategory()
+  const advance = useAdvanceOnboarding()
+  const [newName, setNewName] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
-  const nameToId = useMemo(() => {
-    const map: Record<string, string> = {}
-    ;(tags ?? []).forEach((t) => { map[t.name] = t.id })
-    return map
-  }, [tags])
-
-  const idToName = useMemo(() => {
-    const map: Record<string, string> = {}
-    ;(tags ?? []).forEach((t) => { map[t.id] = t.name })
-    return map
-  }, [tags])
-
-  const allSuggestions = state.suggested_categories
-
-  // Base rows derived from server suggestions + resolved tag IDs (no effect needed).
-  const baseRows = useMemo(() => initRows(allSuggestions, nameToId), [allSuggestions, nameToId])
-
-  // User edits on top of the base (check/uncheck, rename, add/remove tags, dismiss).
-  const [patches, setPatches] = useState<Record<string, Partial<RowState>>>({})
-  const rows = useMemo(() => {
-    const result: Record<string, RowState> = {}
-    for (const [k, v] of Object.entries(baseRows)) {
-      result[k] = patches[k] ? { ...v, ...patches[k] } : v
-    }
-    return result
-  }, [baseRows, patches])
-
-  const [shown, setShown] = useState(() => Math.min(PAGE_SIZE, allSuggestions.length))
-  const [manualCategories, setManualCategories] = useState<ManualCategory[]>([])
-  const [manualName, setManualName] = useState('')
-
-  const applyPatch = (name: string, patch: Partial<RowState>) =>
-    setPatches((prev) => ({ ...prev, [name]: { ...prev[name], ...patch } }))
-
-  const visible = allSuggestions.slice(0, shown).filter((c) => !rows[c.name]?.dismissed)
-  const hasMore = shown < allSuggestions.length
-
-  const selectedCount =
-    Object.values(rows).filter((r) => r.selected && !r.dismissed).length + manualCategories.length
-
-  const onConclude = async () => {
-    const accepted = [
-      ...Object.entries(rows)
-        .filter(([, r]) => r.selected && !r.dismissed && r.editedName.trim() !== '')
-        .map(([, r]) => ({ name: r.editedName.trim(), tag_ids: r.tagIds })),
-      ...manualCategories
-        .filter((c) => c.name.trim() !== '')
-        .map((c) => ({ name: c.name.trim(), tag_ids: c.tagIds })),
-    ]
-    await accept.mutateAsync({ accepted })
-  }
-
-  const onSkipStep = async () => {
-    await accept.mutateAsync({ accepted: [] })
-  }
-
-  const addManual = () => {
-    const name = manualName.trim()
+  const handleCreate = async (e: FormEvent) => {
+    e.preventDefault()
+    const name = newName.trim()
     if (!name) return
-    setManualCategories((prev) => [...prev, { name, tagIds: [] }])
-    setManualName('')
+    setError(null)
+    try {
+      await createCategory.mutateAsync({ name })
+      setNewName('')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Erro ao criar categoria')
+    }
+  }
+
+  const accepted = categories ?? []
+  const pending = suggestions ?? []
+  // Tela de espera: nada aceito, nada sugerido ainda e ainda carregando/buscando.
+  const waiting =
+    accepted.length === 0 && pending.length === 0 && (loadingSugg || loadingCats) &&
+    state.status === 'categorizing'
+
+  if (waiting) {
+    return (
+      <div
+        className="flex flex-col items-center text-center py-12 space-y-5"
+        data-testid="onboarding-step-categories"
+      >
+        <div className="space-y-1">
+          <h1 className="text-xl font-semibold tracking-tight">Montando suas categorias</h1>
+          <p className="text-xs text-muted-foreground max-w-xs">
+            Agrupando as tags que você aceitou em categorias amplas.
+          </p>
+        </div>
+        <AnalysisProgress steps={ANALYSIS_STEPS} />
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6" data-testid="onboarding-step-3">
+    <div className="space-y-6" data-testid="onboarding-step-categories">
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Suas categorias</h1>
         <p className="text-sm text-muted-foreground">
-          Categorias agrupam tags pra relatórios e orçamentos. Edite como quiser.
+          Categorias agrupam tags para relatórios e orçamentos. Aceite as sugestões
+          da IA ou crie as suas.
         </p>
       </div>
 
-      <ul className="space-y-2" data-testid="category-suggestions">
-        {visible.map((cat) => (
-          <CategoryRow
-            key={cat.name}
-            cat={cat}
-            state={rows[cat.name]}
-            idToName={idToName}
-            allTags={tags ?? []}
-            onChange={(patch) => applyPatch(cat.name, patch)}
-          />
-        ))}
-        {visible.length === 0 && (
-          <li className="text-sm text-muted-foreground text-center py-4">
-            Nenhuma sugestão para mostrar.
-          </li>
-        )}
-      </ul>
-
-      {hasMore && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShown((s) => Math.min(s + PAGE_SIZE, allSuggestions.length))}
-          data-testid="show-more-categories"
-        >
-          <Plus size={14} /> Mostrar mais sugestões
+      <form onSubmit={handleCreate} className="flex gap-2 items-stretch">
+        <Input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="Nova categoria…"
+          data-testid="new-category-name"
+        />
+        <Button type="submit" disabled={createCategory.isPending || !newName.trim()} data-testid="new-category-submit">
+          {createCategory.isPending ? 'Criando…' : 'Adicionar'}
         </Button>
-      )}
+      </form>
+      {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
 
-      <div className="border-t border-border pt-4 space-y-2">
-        <div className="flex items-center gap-2">
-          <input
-            value={manualName}
-            onChange={(e) => setManualName(e.target.value)}
-            placeholder="Adicionar categoria manual"
-            data-testid="manual-category-input"
-            className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:border-ring focus:outline-2 focus:outline-ring/30"
-            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addManual())}
-          />
-          <Button variant="outline" size="sm" onClick={addManual} disabled={!manualName.trim()}>
-            Adicionar
-          </Button>
-        </div>
-        {manualCategories.length > 0 && (
-          <ul className="space-y-1.5">
-            {manualCategories.map((c, i) => (
-              <li key={`${c.name}-${i}`} className="text-[12px] flex items-center gap-2">
-                <span className="font-medium">{c.name}</span>
-                <button
-                  type="button"
-                  onClick={() => setManualCategories((prev) => prev.filter((_, idx) => idx !== i))}
-                  className="text-muted-foreground hover:text-destructive"
-                  aria-label={`Remover ${c.name}`}
-                >
-                  <X size={11} />
-                </button>
-              </li>
-            ))}
-          </ul>
+      <div className="border border-border rounded-lg overflow-hidden">
+        {!loadingCats && accepted.length === 0 && (
+          <p className="text-sm text-muted-foreground px-4 py-3" data-testid="accepted-categories-empty">
+            Nenhuma categoria aceita ainda. Aceite uma sugestão abaixo ou crie a sua.
+          </p>
         )}
+        {accepted.map((cat) => (
+          <AcceptedCategoryRow key={cat.id} category={cat} />
+        ))}
       </div>
 
-      <div className="flex items-center justify-between pt-2">
-        <button
-          type="button"
-          onClick={onSkipStep}
-          disabled={accept.isPending}
-          className="text-xs text-muted-foreground hover:text-foreground underline"
-          data-testid="skip-categories-step"
-        >
-          Pular este passo
-        </button>
+      <SuggestedCategoriesList suggestions={pending} />
+
+      <div className="flex items-center justify-end border-t border-border pt-4">
         <Button
-          variant="primary"
-          size="sm"
-          onClick={onConclude}
-          disabled={accept.isPending}
+          onClick={() => advance.mutate()}
+          disabled={advance.isPending}
           data-testid="conclude-onboarding"
         >
-          {accept.isPending ? 'Aplicando…' : `Concluir (${selectedCount})`}
+          {advance.isPending ? 'Concluindo…' : 'Concluir'}
         </Button>
       </div>
     </div>
   )
 }
 
-function initRows(
-  suggestions: SuggestedCategory[],
-  nameToId: Record<string, string>
-): Record<string, RowState> {
-  const rows: Record<string, RowState> = {}
-  suggestions.forEach((c, idx) => {
-    const tagIds = c.tag_names.map((n) => nameToId[n]).filter(Boolean)
-    rows[c.name] = { selected: idx < 5, editedName: c.name, tagIds, dismissed: false }
-  })
-  return rows
-}
-
-function CategoryRow({
-  cat, state, idToName, allTags, onChange,
-}: {
-  cat: SuggestedCategory
-  state: RowState | undefined
-  idToName: Record<string, string>
-  allTags: { id: string; name: string; color: string | null; icon: string | null; usage_count: number }[]
-  onChange: (patch: Partial<RowState>) => void
-}) {
-  const s = state || { selected: false, editedName: cat.name, tagIds: [], dismissed: false }
-  const [addingTag, setAddingTag] = useState(false)
-  const availableTags = allTags.filter((t) => !s.tagIds.includes(t.id))
-
+function AcceptedCategoryRow({ category }: { category: Category }) {
+  const del = useDeleteCategory()
   return (
-    <li className="border border-border rounded-md p-3 flex items-start gap-3">
-      <input
-        type="checkbox"
-        checked={s.selected}
-        onChange={(e) => onChange({ selected: e.target.checked })}
-        className="mt-1 h-4 w-4 accent-accent"
-        aria-label={`Aceitar ${cat.name}`}
-        data-testid={`category-checkbox-${cat.name}`}
-      />
-      <div className="flex-1 min-w-0 space-y-2">
-        <input
-          value={s.editedName}
-          onChange={(e) => onChange({ editedName: e.target.value })}
-          className="w-full bg-transparent text-sm font-medium border-0 p-0 focus:outline-none focus:bg-muted/30 rounded px-1"
-          data-testid={`category-name-${cat.name}`}
-        />
-        <div className="flex flex-wrap gap-1.5 items-center">
-          {s.tagIds.map((id) => {
-            const allTag = allTags.find((t) => t.id === id)
-            return (
-              <span
-                key={id}
-                className="inline-flex items-center gap-1 rounded-sm bg-muted px-2 py-0.5 text-[12px]"
-              >
-                <TagChip name={idToName[id] || '?'} color={allTag?.color ?? null} />
-                <button
-                  type="button"
-                  onClick={() => onChange({ tagIds: s.tagIds.filter((x) => x !== id) })}
-                  className="text-muted-foreground hover:text-destructive"
-                  aria-label="Remover tag"
-                >
-                  <X size={11} />
-                </button>
-              </span>
-            )
-          })}
-          {availableTags.length > 0 && !addingTag && (
-            <button
-              type="button"
-              onClick={() => setAddingTag(true)}
-              className="text-[12px] text-accent hover:underline"
-            >
-              + tag
-            </button>
-          )}
-          {addingTag && (
-            <select
-              onChange={(e) => {
-                const id = e.target.value
-                if (id) onChange({ tagIds: [...s.tagIds, id] })
-                setAddingTag(false)
-              }}
-              onBlur={() => setAddingTag(false)}
-              className="text-xs border border-border rounded px-1 py-0.5 bg-background"
-              defaultValue=""
-              autoFocus
-            >
-              <option value="" disabled>escolha…</option>
-              {availableTags.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          )}
-        </div>
+    <div
+      className="px-4 py-3 border-b border-border last:border-b-0 flex items-center gap-3"
+      data-testid={`accepted-category-${category.id}`}
+    >
+      <div className="flex-1 min-w-0">
+        <span className="text-sm font-medium">{category.name}</span>
+        {category.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {category.tags.map((t) => (
+              <TagChip key={t.id} name={t.name} color={t.color} />
+            ))}
+          </div>
+        )}
       </div>
-      <button
-        type="button"
-        onClick={() => onChange({ dismissed: true })}
-        className="text-muted-foreground hover:text-destructive shrink-0"
-        aria-label={`Recusar ${cat.name}`}
-        data-testid={`category-dismiss-${cat.name}`}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => del.mutate(category.id)}
+        disabled={del.isPending}
+        aria-label={`Remover ${category.name}`}
+        data-testid={`remove-category-${category.id}`}
       >
         <X size={14} />
-      </button>
-    </li>
+      </Button>
+    </div>
+  )
+}
+
+function SuggestedCategoriesList({ suggestions }: { suggestions: SuggestedCategory[] }) {
+  if (suggestions.length === 0) return null
+  return (
+    <section className="space-y-2" data-testid="suggested-categories-section">
+      <div className="flex items-center gap-1.5">
+        <Sparkles size={14} className="text-accent" />
+        <h2 className="text-sm font-medium">Sugeridas pela IA</h2>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        A IA agrupou suas tags aceitas. Aceite para virar uma categoria de verdade.
+      </p>
+      <div className="border border-border rounded-lg overflow-hidden">
+        {suggestions.map((s) => (
+          <SuggestedCategoryRow key={s.id} suggestion={s} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function SuggestedCategoryRow({ suggestion }: { suggestion: SuggestedCategory }) {
+  const accept = useAcceptSuggestedCategory()
+  const dismiss = useDismissSuggestedCategory()
+  const busy = accept.isPending || dismiss.isPending
+
+  return (
+    <div
+      className="px-4 py-3 border-b border-border last:border-b-0 flex items-center gap-3"
+      data-testid={`suggested-category-${suggestion.id}`}
+    >
+      <div className="flex-1 min-w-0">
+        <span className="text-sm font-medium">{suggestion.name}</span>
+        {suggestion.tag_names.length > 0 && (
+          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+            {suggestion.tag_names.join(', ')}
+          </p>
+        )}
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => accept.mutate(suggestion.id)}
+        disabled={busy}
+        data-testid={`accept-suggested-category-${suggestion.id}`}
+      >
+        <Check size={14} /> Aceitar
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => dismiss.mutate(suggestion.id)}
+        disabled={busy}
+        aria-label={`Recusar ${suggestion.name}`}
+        data-testid={`dismiss-suggested-category-${suggestion.id}`}
+      >
+        <X size={14} />
+      </Button>
+    </div>
   )
 }

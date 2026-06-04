@@ -322,6 +322,10 @@ Fluxo fullscreen, **fora do AppLayout** (sem sidebar/topbar/bottomnav). O usuár
 - Campo de **valor** (editável; formato monetário com `font-mono`).
 - Campo de **data** (calendar picker).
 - **Tags** (combobox com autocomplete; criar nova inline; chips coloridos).
+  - **Chips fantasma** (RF3): abaixo das tags aplicadas, as tags que a IA sugeriu
+    para esta transação mas que ainda não foram aceitas aparecem como chips
+    tracejados/apagados (acento violet). Clicar aceita a sugestão — vira tag de
+    verdade (catálogo `suggested_tags` → `tags`) e é aplicada à transação.
 - **Categoria** (select; mostra quais tags compõem cada uma).
 - Ações primárias (footer fixo):
   - `Aceitar` (primary, atalho `A`)

@@ -4,6 +4,7 @@ import { Sheet } from '../components/Sheet'
 import { Button } from '../components/Button'
 import { Money } from '../components/Money'
 import { TagEditor } from './TagEditor'
+import { GhostTagChips } from './GhostTagChips'
 import {
   useConsolidate,
   useReject,
@@ -158,6 +159,10 @@ function SheetInner({
           disabled={busy}
           onChange={(tagIds) => onUpdate({ id: t.id, lock_version: t.lock_version, tag_ids: tagIds })}
         />
+        {/* Chips fantasma: tags sugeridas pela IA, ainda não aceitas (RF3). */}
+        {mode === 'inbox' && t.ai_suggestion && t.ai_suggestion.new_tags.length > 0 && (
+          <GhostTagChips transactionId={t.id} suggestedNames={t.ai_suggestion.new_tags} />
+        )}
 
         <div className="flex flex-col items-start gap-2 mt-2 pt-3.5 border-t border-border">
           <button

@@ -38,6 +38,9 @@ export function useAcceptSuggestedTag() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: suggestedTagsKey })
       qc.invalidateQueries({ queryKey: tagsKey })
+      // Quando aceito a partir do inbox (transaction_id), a tag passa a estar
+      // aplicada — recarrega as transações pra refletir.
+      qc.invalidateQueries({ queryKey: ['transactions'] })
     },
   })
 }

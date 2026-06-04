@@ -1,209 +1,111 @@
-import { useMemo, useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
+import { X } from 'lucide-react'
 import { Button } from '../components/Button'
-import { useAcceptOnboardingTags, useSkipOnboarding, type OnboardingState, type SuggestedTag } from './useOnboarding'
+import { Input } from '../components/Input'
+import { ApiError } from '../api/client'
+import { useTags, useCreateTag, useDeleteTag, type Tag } from '../transactions/useTags'
+import { SuggestedTagsList } from '../transactions/SuggestedTagsList'
+import { useAdvanceOnboarding } from './useOnboarding'
 
-const PAGE_SIZE = 10
+/**
+ * Passo 3 do onboarding (RF22) — tags. Mesmo modelo da página Tags:
+ * - lista de tags ACEITAS (reais) no topo, com criar na hora + excluir;
+ * - lista de tags SUGERIDAS pela IA abaixo (aceitar = vira real, recusar).
+ * "Continuar" só avança (tagging→categorizing) — as tags já foram criadas
+ * incrementalmente, então a transição dispara a 2ª análise (categorias).
+ */
+export function OnboardingStep2Tags() {
+  const { data: tags, isLoading } = useTags()
+  const createTag = useCreateTag()
+  const advance = useAdvanceOnboarding()
+  const [newName, setNewName] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
-type RowState = {
-  selected: boolean
-  editedName: string
-  dismissed: boolean
-}
-
-export function OnboardingStep2Tags({ state }: { state: OnboardingState }) {
-  const accept = useAcceptOnboardingTags()
-  const skip = useSkipOnboarding()
-
-  const allSuggestions = state.suggested_tags
-
-  const baseRows = useMemo(() => initRows(allSuggestions), [allSuggestions])
-  const [patches, setPatches] = useState<Record<string, Partial<RowState>>>({})
-  const rows = useMemo(() => {
-    const result: Record<string, RowState> = {}
-    for (const [k, v] of Object.entries(baseRows)) {
-      result[k] = patches[k] ? { ...v, ...patches[k] } : v
-    }
-    return result
-  }, [baseRows, patches])
-
-  const applyPatch = (name: string, patch: Partial<RowState>) =>
-    setPatches((prev) => ({ ...prev, [name]: { ...prev[name], ...patch } }))
-
-  const [shown, setShown] = useState(() => Math.min(PAGE_SIZE, allSuggestions.length))
-  const [manualName, setManualName] = useState('')
-  const [manualNames, setManualNames] = useState<string[]>([])
-
-  const visible = useMemo(() => allSuggestions.slice(0, shown), [allSuggestions, shown])
-  const visibleAfterDismiss = visible.filter((t) => !rows[t.name]?.dismissed)
-  const hasMore = shown < allSuggestions.length
-
-  const selectedCount =
-    Object.values(rows).filter((r) => r.selected && !r.dismissed).length + manualNames.length
-
-  const onContinue = async () => {
-    const accepted = [
-      ...Object.entries(rows)
-        .filter(([, r]) => r.selected && !r.dismissed && r.editedName.trim() !== '')
-        .map(([, r]) => ({ name: r.editedName.trim() })),
-      ...manualNames.map((name) => ({ name: name.trim() })).filter((t) => t.name !== ''),
-    ]
-    await accept.mutateAsync({ accepted })
-  }
-
-  const onSkipStep = async () => {
-    await accept.mutateAsync({ accepted: [] })
-  }
-
-  const addManual = () => {
-    const name = manualName.trim()
+  const handleCreate = async (e: FormEvent) => {
+    e.preventDefault()
+    const name = newName.trim()
     if (!name) return
-    setManualNames((prev) => [...prev, name])
-    setManualName('')
+    setError(null)
+    try {
+      await createTag.mutateAsync(name)
+      setNewName('')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Erro ao criar tag')
+    }
   }
 
   return (
-    <div className="space-y-6" data-testid="onboarding-step-2">
+    <div className="space-y-6" data-testid="onboarding-step-tags">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Suas tags iniciais</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Suas tags</h1>
         <p className="text-sm text-muted-foreground">
-          A IA sugeriu essas tags com base nos seus gastos. Aceite, edite ou recuse.
+          Aceite as sugestões da IA ou crie as suas. As tags aceitas viram a base
+          das suas categorias no próximo passo.
         </p>
       </div>
 
-      <ul className="space-y-2" data-testid="tag-suggestions">
-        {visibleAfterDismiss.map((tag) => (
-          <SuggestionRow
-            key={tag.name}
-            tag={tag}
-            state={rows[tag.name]}
-            onChange={(patch) => applyPatch(tag.name, patch)}
-          />
-        ))}
-        {visibleAfterDismiss.length === 0 && (
-          <li className="text-sm text-muted-foreground text-center py-4">
-            Nenhuma sugestão para mostrar.
-          </li>
-        )}
-      </ul>
-
-      {hasMore && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShown((s) => Math.min(s + PAGE_SIZE, allSuggestions.length))}
-          data-testid="show-more-tags"
-        >
-          <Plus size={14} /> Mostrar mais sugestões
+      <form onSubmit={handleCreate} className="flex gap-2 items-stretch">
+        <Input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="Nova tag…"
+          data-testid="new-tag-name"
+        />
+        <Button type="submit" disabled={createTag.isPending || !newName.trim()} data-testid="new-tag-submit">
+          {createTag.isPending ? 'Criando…' : 'Adicionar'}
         </Button>
-      )}
+      </form>
+      {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
 
-      <div className="border-t border-border pt-4 space-y-2">
-        <div className="flex items-center gap-2">
-          <input
-            value={manualName}
-            onChange={(e) => setManualName(e.target.value)}
-            placeholder="Adicionar tag manual"
-            data-testid="manual-tag-input"
-            className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:border-ring focus:outline-2 focus:outline-ring/30"
-            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addManual())}
-          />
-          <Button variant="outline" size="sm" onClick={addManual} disabled={!manualName.trim()}>
-            Adicionar
-          </Button>
-        </div>
-        {manualNames.length > 0 && (
-          <ul className="flex flex-wrap gap-1.5" data-testid="manual-tag-list">
-            {manualNames.map((name, i) => (
-              <li key={`${name}-${i}`} className="inline-flex items-center gap-1 rounded-sm bg-muted px-2 py-0.5 text-[12px]">
-                {name}
-                <button
-                  type="button"
-                  onClick={() => setManualNames((prev) => prev.filter((_, idx) => idx !== i))}
-                  className="text-muted-foreground hover:text-destructive"
-                  aria-label={`Remover ${name}`}
-                >
-                  <X size={11} />
-                </button>
-              </li>
-            ))}
-          </ul>
+      <div className="border border-border rounded-lg overflow-hidden">
+        {isLoading && <p className="text-xs text-muted-foreground px-4 py-3">Carregando…</p>}
+        {!isLoading && (tags?.length ?? 0) === 0 && (
+          <p className="text-sm text-muted-foreground px-4 py-3" data-testid="accepted-tags-empty">
+            Nenhuma tag aceita ainda. Aceite uma sugestão abaixo ou crie a sua.
+          </p>
         )}
+        {tags?.map((tag) => (
+          <AcceptedTagRow key={tag.id} tag={tag} />
+        ))}
       </div>
 
-      <div className="flex items-center justify-between pt-2">
-        <button
-          type="button"
-          onClick={onSkipStep}
-          disabled={accept.isPending}
-          className="text-xs text-muted-foreground hover:text-foreground underline"
-          data-testid="skip-tags-step"
-        >
-          Pular este passo
-        </button>
+      <SuggestedTagsList />
+
+      <div className="flex items-center justify-end border-t border-border pt-4">
         <Button
-          variant="primary"
-          size="sm"
-          onClick={onContinue}
-          disabled={accept.isPending || skip.isPending || selectedCount === 0}
+          onClick={() => advance.mutate()}
+          disabled={advance.isPending}
           data-testid="continue-tags"
         >
-          {accept.isPending ? 'Salvando…' : `Continuar (${selectedCount})`}
+          {advance.isPending ? 'Continuando…' : 'Continuar'}
         </Button>
       </div>
     </div>
   )
 }
 
-function initRows(suggestions: SuggestedTag[]): Record<string, RowState> {
-  const rows: Record<string, RowState> = {}
-  suggestions.forEach((t, idx) => {
-    rows[t.name] = { selected: idx < 5, editedName: t.name, dismissed: false }
-  })
-  return rows
-}
-
-function SuggestionRow({
-  tag, state, onChange,
-}: {
-  tag: SuggestedTag
-  state: RowState | undefined
-  onChange: (patch: Partial<RowState>) => void
-}) {
-  const s = state || { selected: false, editedName: tag.name, dismissed: false }
+function AcceptedTagRow({ tag }: { tag: Tag }) {
+  const del = useDeleteTag()
   return (
-    <li className="border border-border rounded-md p-3 flex items-start gap-3">
-      <input
-        type="checkbox"
-        checked={s.selected}
-        onChange={(e) => onChange({ selected: e.target.checked })}
-        className="mt-1 h-4 w-4 accent-accent"
-        data-testid={`tag-checkbox-${tag.name}`}
-        aria-label={`Aceitar ${tag.name}`}
+    <div
+      className="px-4 py-3 border-b border-border last:border-b-0 flex items-center gap-3"
+      data-testid={`accepted-tag-${tag.id}`}
+    >
+      <span
+        className="h-2.5 w-2.5 rounded-full shrink-0"
+        style={{ background: tag.color || 'var(--muted-foreground)' }}
       />
-      <div className="flex-1 min-w-0">
-        <input
-          value={s.editedName}
-          onChange={(e) => onChange({ editedName: e.target.value })}
-          className="w-full bg-transparent text-sm font-medium border-0 p-0 focus:outline-none focus:bg-muted/30 rounded px-1"
-          data-testid={`tag-name-${tag.name}`}
-        />
-        {tag.rationale && (
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {tag.rationale}
-            {tag.coverage !== undefined && tag.coverage > 0 && ` · ${tag.coverage} transações`}
-          </p>
-        )}
-      </div>
-      <button
-        type="button"
-        onClick={() => onChange({ dismissed: true })}
-        className="text-muted-foreground hover:text-destructive shrink-0"
-        aria-label={`Recusar ${tag.name}`}
-        data-testid={`tag-dismiss-${tag.name}`}
+      <span className="text-sm font-medium flex-1 min-w-0 truncate">{tag.name}</span>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => del.mutate(tag.id)}
+        disabled={del.isPending}
+        aria-label={`Remover ${tag.name}`}
+        data-testid={`remove-tag-${tag.id}`}
       >
         <X size={14} />
-      </button>
-    </li>
+      </Button>
+    </div>
   )
 }

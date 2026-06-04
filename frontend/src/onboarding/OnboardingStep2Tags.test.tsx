@@ -1,137 +1,104 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { OnboardingStep2Tags } from './OnboardingStep2Tags'
-import type { OnboardingState } from './useOnboarding'
 
-type Mock = { status: number; body: unknown }
-function setupFetch(responses: Record<string, Mock>) {
-  const calls: { url: string; body?: string }[] = []
-  globalThis.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
-    calls.push({ url, body: init?.body?.toString() })
-    const key = `${init?.method ?? 'GET'} ${url}`
-    const handler = responses[key] ?? responses[url]
-    if (!handler) throw new Error(`unmocked: ${key}`)
+type Handler = { status: number; body: unknown }
+
+function setupFetch(responses: Record<string, Handler>) {
+  const withDefaults: Record<string, Handler> = {
+    '/api/v1/tags': { status: 200, body: { tags: [] } },
+    '/api/v1/suggested_tags': { status: 200, body: { suggested_tags: [] } },
+    ...responses,
+  }
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+    calls.push({ url, init })
+    const handler = withDefaults[`${init?.method ?? 'GET'} ${url}`] ?? withDefaults[url]
+    if (!handler) throw new Error(`unmocked: ${init?.method ?? 'GET'} ${url}`)
     return { ok: handler.status >= 200 && handler.status < 300, status: handler.status, json: async () => handler.body } as Response
-  }) as unknown as typeof fetch
-  return calls
+  })
+  globalThis.fetch = fetchMock as unknown as typeof fetch
+  return { calls, fetchMock }
 }
 
-const baseState: OnboardingState = {
-  status: 'tagging',
-  current_step: 2,
-  started_at: '2026-05-30T00:00:00Z',
-  completed_at: null,
-  suggested_tags: [
-    { name: 'Mercado', rationale: '8 transações em mercados', coverage: 8 },
-    { name: 'Comida fora', rationale: '5 restaurantes', coverage: 5 },
-    { name: 'Transporte', rationale: '3 Uber', coverage: 3 },
-  ],
-  suggested_categories: [],
-  accepted_tag_ids: [],
-  accepted_category_ids: [],
+function tag(o = {}) {
+  return { id: 't1', name: 'Alimentação', color: null, icon: null, usage_count: 0, ...o }
+}
+function suggestion(o = {}) {
+  return { id: 's1', name: 'Transporte', rationale: null, coverage: 4, source: 'detected', status: 'pending', ...o }
 }
 
-function renderStep(state = baseState) {
+function renderStep() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter>
-        <OnboardingStep2Tags state={state} />
+        <OnboardingStep2Tags />
       </MemoryRouter>
-    </QueryClientProvider>
+    </QueryClientProvider>,
   )
 }
 
-describe('<OnboardingStep2Tags />', () => {
+describe('<OnboardingStep2Tags /> (rework: aceitas + sugeridas)', () => {
   beforeEach(() => vi.restoreAllMocks())
 
-  it('renders suggested tags with rationale', () => {
+  it('lists accepted tags and AI suggestions in separate sections', async () => {
+    setupFetch({
+      '/api/v1/tags': { status: 200, body: { tags: [tag()] } },
+      '/api/v1/suggested_tags': { status: 200, body: { suggested_tags: [suggestion()] } },
+    })
     renderStep()
-    expect(screen.getByDisplayValue('Mercado')).toBeInTheDocument()
-    expect(screen.getByText(/8 transações em mercados/)).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('accepted-tag-t1')).toHaveTextContent('Alimentação'))
+    expect(screen.getByTestId('suggested-tag-s1')).toHaveTextContent('Transporte')
   })
 
-  it('selects first 5 by default', () => {
-    renderStep()
-    const checkbox = screen.getByTestId('tag-checkbox-Mercado') as HTMLInputElement
-    expect(checkbox.checked).toBe(true)
-  })
-
-  it('submits accepted tags on Continue', async () => {
-    const calls = setupFetch({
-      'POST /api/v1/onboarding/tags': { status: 200, body: { ...baseState, status: 'categorizing' } },
+  it('creates a tag on the spot (it joins the accepted list)', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/tags': { status: 200, body: { tags: [] } },
+      'POST /api/v1/tags': { status: 201, body: { tag: tag({ name: 'Lazer' }) } },
     })
     renderStep()
     const user = userEvent.setup()
-    await user.click(screen.getByTestId('continue-tags'))
-
-    await waitFor(() => {
-      const post = calls.find((c) => c.url.includes('/onboarding/tags'))
-      expect(post).toBeTruthy()
-      const body = JSON.parse(post!.body!)
-      expect(body.accepted.length).toBe(3)
-      expect(body.accepted.map((t: { name: string }) => t.name)).toContain('Mercado')
-    })
+    await user.type(screen.getByTestId('new-tag-name'), 'Lazer')
+    await user.click(screen.getByTestId('new-tag-submit'))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/tags', expect.objectContaining({ method: 'POST' })),
+    )
   })
 
-  it('allows editing tag name before accepting', async () => {
-    const calls = setupFetch({
-      'POST /api/v1/onboarding/tags': { status: 200, body: { ...baseState, status: 'categorizing' } },
+  it('accepts a suggestion via the shared list', async () => {
+    const { fetchMock } = setupFetch({
+      '/api/v1/suggested_tags': { status: 200, body: { suggested_tags: [suggestion()] } },
+      'POST /api/v1/suggested_tags/s1/accept': { status: 200, body: { tag: tag({ name: 'Transporte' }) } },
+    })
+    renderStep()
+    const row = await screen.findByTestId('suggested-tag-s1')
+    const user = userEvent.setup()
+    await user.click(within(row).getByTestId('accept-suggestion-s1'))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/suggested_tags/s1/accept',
+        expect.objectContaining({ method: 'POST' }),
+      ),
+    )
+  })
+
+  it('continue advances the onboarding (tagging→categorizing)', async () => {
+    const { fetchMock } = setupFetch({
+      '/api/v1/tags': { status: 200, body: { tags: [tag()] } },
+      'POST /api/v1/onboarding/advance': { status: 200, body: { status: 'categorizing', current_step: 4 } },
     })
     renderStep()
     const user = userEvent.setup()
-    const input = screen.getByTestId('tag-name-Mercado') as HTMLInputElement
-    await user.clear(input)
-    await user.type(input, 'Supermercado')
-
-    await user.click(screen.getByTestId('continue-tags'))
-    await waitFor(() => {
-      const post = calls.find((c) => c.url.includes('/onboarding/tags'))
-      const body = JSON.parse(post!.body!)
-      expect(body.accepted.find((t: { name: string }) => t.name === 'Supermercado')).toBeTruthy()
-    })
-  })
-
-  it('dismisses a suggestion', async () => {
-    renderStep()
-    const user = userEvent.setup()
-    expect(screen.queryByDisplayValue('Mercado')).toBeInTheDocument()
-    await user.click(screen.getByTestId('tag-dismiss-Mercado'))
-    expect(screen.queryByDisplayValue('Mercado')).not.toBeInTheDocument()
-  })
-
-  it('adds a manual tag', async () => {
-    setupFetch({})
-    renderStep()
-    const user = userEvent.setup()
-    await user.type(screen.getByTestId('manual-tag-input'), 'Casa')
-    await user.click(screen.getByRole('button', { name: /Adicionar/i }))
-    expect(screen.getByTestId('manual-tag-list')).toHaveTextContent('Casa')
-  })
-
-  it('skip step still posts with empty accepted', async () => {
-    const calls = setupFetch({
-      'POST /api/v1/onboarding/tags': { status: 200, body: { ...baseState, status: 'categorizing' } },
-    })
-    renderStep()
-    const user = userEvent.setup()
-    await user.click(screen.getByTestId('skip-tags-step'))
-    await waitFor(() => {
-      const post = calls.find((c) => c.url.includes('/onboarding/tags'))
-      const body = JSON.parse(post!.body!)
-      expect(body.accepted).toEqual([])
-    })
-  })
-
-  it('shows "Mostrar mais" when there are more than 10 suggestions', () => {
-    const many = {
-      ...baseState,
-      suggested_tags: Array.from({ length: 15 }, (_, i) => ({ name: `Tag ${i}`, coverage: 1 })),
-    }
-    renderStep(many)
-    expect(screen.getByTestId('show-more-tags')).toBeInTheDocument()
+    await user.click(await screen.findByTestId('continue-tags'))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/onboarding/advance',
+        expect.objectContaining({ method: 'POST' }),
+      ),
+    )
   })
 })

@@ -2,38 +2,20 @@
 # onboarding (Onboarding::AnalyzeJob) ou na inbox (AiSuggestion::SuggestJob) com
 # status "pending" e só vira uma Tag de verdade quando aceita pelo usuário.
 class SuggestedTag < ApplicationRecord
-  SOURCES  = %w[detected manual inbox].freeze
-  STATUSES = %w[pending accepted dismissed].freeze
+  include SuggestibleCatalog
 
-  belongs_to :workspace
+  SOURCES = %w[detected manual inbox].freeze
 
-  validates :name, presence: true,
-                   uniqueness: { scope: :workspace_id, case_sensitive: false }
   validates :source, inclusion: { in: SOURCES }
-  validates :status, inclusion: { in: STATUSES }
   validates :coverage, numericality: { greater_than_or_equal_to: 0 }
 
-  scope :pending,   -> { where(status: "pending") }
-  scope :accepted,  -> { where(status: "accepted") }
-  scope :dismissed, -> { where(status: "dismissed") }
-
-  # Registra um nome como sugestão pendente do workspace, de forma não-destrutiva:
-  # nunca cria Tag real, não duplica um nome que já é tag real, e não ressuscita
-  # uma sugestão já aceita ou recusada. Compartilhado por AnalyzeJob (descoberta
-  # do onboarding) e SuggestJob (inbox). Retorna a SuggestedTag ou nil se ignorada.
+  # Registra um nome como sugestão pendente (não-destrutivo — ver SuggestibleCatalog).
+  # source: origem (detected/manual/inbox); coverage acumula quantas transações encaixam.
   def self.record(workspace:, name:, source:, rationale: nil, coverage: nil)
-    name = name.to_s.strip.truncate(50)
-    return if name.blank?
-    return if workspace.tags.exists?(name: name)
-
-    suggestion = workspace.suggested_tags.find_or_initialize_by(name: name)
-    return suggestion if suggestion.persisted? && suggestion.status != "pending"
-
-    suggestion.source ||= source
-    suggestion.status = "pending"
-    suggestion.rationale = rationale if rationale.present?
-    suggestion.coverage = coverage || suggestion.coverage.to_i + 1
-    suggestion.save!
-    suggestion
+    upsert_pending(name: name, real_scope: workspace.tags, suggestion_scope: workspace.suggested_tags) do |s|
+      s.source ||= source
+      s.rationale = rationale if rationale.present?
+      s.coverage = coverage || s.coverage.to_i + 1
+    end
   end
 end

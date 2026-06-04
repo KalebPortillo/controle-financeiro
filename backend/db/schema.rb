@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_30_180000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_04_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -128,6 +128,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_30_180000) do
     t.check_constraint "expected_amount_cents IS NULL OR expected_amount_cents > 0", name: "recurrences_amount_positive"
     t.check_constraint "source::text = ANY (ARRAY['detected'::character varying, 'manual'::character varying]::text[])", name: "recurrences_source_check"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'cancelled'::character varying]::text[])", name: "recurrences_status_check"
+  end
+
+  create_table "suggested_categories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.citext "name", null: false
+    t.string "status", default: "pending", null: false
+    t.string "tag_names", default: [], null: false, array: true
+    t.datetime "updated_at", null: false
+    t.uuid "workspace_id", null: false
+    t.index ["workspace_id", "name"], name: "index_suggested_categories_on_workspace_id_and_name", unique: true
+    t.index ["workspace_id", "status"], name: "index_suggested_categories_on_workspace_id_and_status"
+    t.index ["workspace_id"], name: "index_suggested_categories_on_workspace_id"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'accepted'::character varying, 'dismissed'::character varying]::text[])", name: "suggested_categories_status_check"
   end
 
   create_table "suggested_tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -266,6 +279,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_30_180000) do
   add_foreign_key "category_tags", "tags"
   add_foreign_key "recurrences", "accounts"
   add_foreign_key "recurrences", "workspaces"
+  add_foreign_key "suggested_categories", "workspaces"
   add_foreign_key "suggested_tags", "workspaces"
   add_foreign_key "tags", "workspaces"
   add_foreign_key "transaction_edits", "transactions"

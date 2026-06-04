@@ -91,15 +91,13 @@ Rails.application.routes.draw do
       end
 
       # Onboarding (RF22) — fluxo guiado de primeira vez do dono do workspace.
+      # As sugestões vêm dos endpoints suggested_tags/suggested_categories; aqui
+      # ficam só as transições de fluxo. A IA é disparada nos advances.
       resource :onboarding, only: [ :show ], controller: "onboardings" do
         collection do
           post "start"
           post "skip"
           post "advance"
-          post "tags",       to: "onboardings#accept_tags"
-          post "categories", to: "onboardings#accept_categories"
-          get  "suggestions/tags",       to: "onboardings#suggestions_tags"
-          get  "suggestions/categories", to: "onboardings#suggestions_categories"
         end
       end
 

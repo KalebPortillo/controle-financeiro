@@ -13,25 +13,25 @@ class Onboarding::AnalyzeJobTest < ActiveJob::TestCase
     end
   end
 
-  test "discovery mode persists suggested tags and categories, transitions to tagging" do
+  test "discovery mode records suggested tags in the catalog and transitions to tagging" do
     stub_provider(
       tags: [ { name: "Mercado", rationale: "3 mercados", coverage: 3 } ],
-      categories: [ { name: "Alimentação", tag_names: [ "Mercado" ] } ]
+      categories: []
     )
 
     Onboarding::AnalyzeJob.perform_now(@workspace.id)
 
-    state = @workspace.reload.onboarding_state
-    assert_equal "tagging", state["status"]
-    assert_equal 1, state["suggested_tags"].size
-    assert_equal "Mercado", state["suggested_tags"].first["name"]
-    assert_equal 1, state["suggested_categories"].size
+    assert_equal "tagging", @workspace.reload.onboarding_state["status"]
+    catalog = @workspace.suggested_tags.pending
+    assert_equal [ "Mercado" ], catalog.pluck(:name)
+    assert_equal 3, catalog.first.coverage
+    # As sugestões NÃO ficam mais no jsonb (catálogo é fonte única).
+    refute_includes @workspace.onboarding_state.keys, "suggested_tags"
   end
 
-  test "additive mode keeps status and stores new suggestions" do
+  test "additive mode keeps status and records new suggestions in the catalog" do
     @workspace.update!(onboarding_state: { "status" => "completed" })
     create(:tag, workspace: @workspace, name: "Mercado")
-    create(:category, workspace: @workspace, name: "Alimentação")
 
     stub_provider(
       tags: [ { name: "Padaria", rationale: "2 padarias", coverage: 2 } ],
@@ -40,9 +40,8 @@ class Onboarding::AnalyzeJobTest < ActiveJob::TestCase
 
     Onboarding::AnalyzeJob.perform_now(@workspace.id, mode: "additive")
 
-    state = @workspace.reload.onboarding_state
-    assert_equal "completed", state["status"], "status must NOT advance in additive mode"
-    assert_equal "Padaria", state["suggested_tags"].first["name"]
+    assert_equal "completed", @workspace.reload.onboarding_state["status"], "status must NOT advance in additive mode"
+    assert_equal [ "Padaria" ], @workspace.suggested_tags.pending.pluck(:name)
   end
 
   test "no-op when no pending transactions" do
@@ -51,10 +50,9 @@ class Onboarding::AnalyzeJobTest < ActiveJob::TestCase
 
     Onboarding::AnalyzeJob.perform_now(@workspace.id)
 
-    state = @workspace.reload.onboarding_state
     # Status não muda quando não há trabalho a fazer
-    assert_equal "analyzing", state["status"]
-    refute_includes state.keys, "suggested_tags"
+    assert_equal "analyzing", @workspace.reload.onboarding_state["status"]
+    assert_empty @workspace.suggested_tags
   end
 
   test "no-op when workspace missing" do

@@ -56,22 +56,13 @@ module Onboarding
     private
 
     def apply_result!(workspace, result, mode)
-      state = workspace.onboarding_state || {}
-
-      # Em modo aditivo, NÃO transiciona o status — só guarda as sugestões
-      # pendentes pro modal de revisão (RF22.10).
-      next_status = mode == "additive" ? state["status"] : "tagging"
-
-      workspace.update!(onboarding_state: state.merge(
-        "status"               => next_status,
-        "suggested_tags"       => result[:tags],
-        "suggested_categories" => result[:categories]
-      ))
-
-      # Também alimenta o catálogo de sugestões (RF3) — não-destrutivo, então um
+      # Alimenta o catálogo de sugestões (fonte única). Não-destrutivo, então um
       # AnalyzeJob tardio (ex.: usuário pulou a análise) nunca sobrescreve tags
-      # já aceitas. As sugestões ficam disponíveis na página de Tags / inbox.
+      # já aceitas. As sugestões ficam disponíveis na etapa de tags / página / inbox.
       record_catalog_suggestions!(workspace, result[:tags])
+
+      # Modo aditivo (RF22.10) NÃO transiciona o status — só repõe o catálogo.
+      Onboarding::Service.advance(workspace, to: "tagging") if mode != "additive"
     end
 
     def record_catalog_suggestions!(workspace, tags)

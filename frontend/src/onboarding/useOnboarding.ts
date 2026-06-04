@@ -2,26 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import { SESSION_KEY, type OnboardingStatus } from '../auth/useSession'
 
-export type SuggestedTag = {
-  name: string
-  rationale?: string
-  coverage?: number
-}
-
-export type SuggestedCategory = {
-  name: string
-  tag_names: string[]
-}
-
+// Estado de FLUXO do onboarding (RF22). As sugestões de tags/categorias NÃO
+// vivem aqui — vêm dos catálogos (useSuggestedTags / useSuggestedCategories).
 export type OnboardingState = {
   status: OnboardingStatus | null
   current_step: number | null
   started_at: string | null
   completed_at: string | null
-  suggested_tags: SuggestedTag[]
-  suggested_categories: SuggestedCategory[]
-  accepted_tag_ids: string[]
-  accepted_category_ids: string[]
 }
 
 export const ONBOARDING_KEY = ['onboarding'] as const
@@ -67,41 +54,6 @@ export const useAdvanceOnboarding  = makeMutation('/api/v1/onboarding/advance')
 // AnalyzeJob no backend. A análise é iniciada pelo usuário, não pelo fim do sync.
 export const useStartAnalysis      = makeMutation('/api/v1/onboarding/advance', { to: 'analyzing' })
 // Pular a análise da IA: avança analyzing → tagging imediatamente. O AnalyzeJob
-// ainda pode estar rodando; se terminar, gravará no catálogo suggested_tags sem
+// ainda pode estar rodando; se terminar, grava no catálogo suggested_tags sem
 // sobrescrever tags já aceitas (SuggestedTag.record é não-destrutivo).
 export const useSkipAnalysis       = makeMutation('/api/v1/onboarding/advance', { to: 'tagging' })
-
-export type AcceptedTag = { name: string }
-export type AcceptedCategory = { name: string; tag_ids: string[] }
-
-export function useAcceptOnboardingTags() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (input: { accepted: AcceptedTag[] }) =>
-      apiFetch<OnboardingState>('/api/v1/onboarding/tags', {
-        method: 'POST',
-        body: input,
-      }),
-    onSuccess: (data) => {
-      qc.setQueryData(ONBOARDING_KEY, data)
-      qc.invalidateQueries({ queryKey: SESSION_KEY })
-      qc.invalidateQueries({ queryKey: ['tags'] })
-    },
-  })
-}
-
-export function useAcceptOnboardingCategories() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (input: { accepted: AcceptedCategory[] }) =>
-      apiFetch<OnboardingState>('/api/v1/onboarding/categories', {
-        method: 'POST',
-        body: input,
-      }),
-    onSuccess: (data) => {
-      qc.setQueryData(ONBOARDING_KEY, data)
-      qc.invalidateQueries({ queryKey: SESSION_KEY })
-      qc.invalidateQueries({ queryKey: ['categories'] })
-    },
-  })
-}

@@ -39,10 +39,6 @@ const baseState = {
   current_step: 0,
   started_at: null,
   completed_at: null,
-  suggested_tags: [],
-  suggested_categories: [],
-  accepted_tag_ids: [],
-  accepted_category_ids: [],
 }
 
 describe('<OnboardingPage />', () => {

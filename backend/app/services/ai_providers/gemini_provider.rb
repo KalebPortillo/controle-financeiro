@@ -3,8 +3,20 @@ require "json"
 
 module AiProviders
   class GeminiProvider < Provider
-    BASE_URL    = "https://generativelanguage.googleapis.com/v1beta/models".freeze
-    TIMEOUT_SEC = 10
+    BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models".freeze
+    # Conexão deve ser rápida; a geração em lote (onboarding) pode demorar, então
+    # o read tem folga maior pra não estourar com prompts grandes (RF22).
+    OPEN_TIMEOUT_SEC = 10
+    READ_TIMEOUT_SEC = 30
+
+    # Erros de rede crus do Net::HTTP. Convertidos em ApiError pra que o
+    # retry_on dos jobs (AnalyzeJob/SuggestJob) os capture e re-tente com backoff,
+    # em vez de matar o job e prender o onboarding em "analyzing".
+    NETWORK_ERRORS = [
+      Net::OpenTimeout, Net::ReadTimeout, Net::WriteTimeout,
+      Errno::ECONNRESET, Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH,
+      SocketError, IOError, OpenSSL::SSL::SSLError
+    ].freeze
 
     def initialize(api_key: nil, model: nil)
       @api_key = api_key || ENV.fetch("GEMINI_API_KEY", nil)
@@ -49,15 +61,17 @@ module AiProviders
       req.body = body.to_json
 
       http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl     = true
-      http.open_timeout = TIMEOUT_SEC
-      http.read_timeout = TIMEOUT_SEC
+      http.use_ssl      = true
+      http.open_timeout = OPEN_TIMEOUT_SEC
+      http.read_timeout = READ_TIMEOUT_SEC
 
       res = http.request(req)
       raise AiProviders::ApiError, "Gemini HTTP #{res.code}: #{res.body[0, 200]}" unless res.is_a?(Net::HTTPSuccess)
 
       payload = JSON.parse(res.body)
       payload.dig("candidates", 0, "content", "parts", 0, "text").to_s
+    rescue *NETWORK_ERRORS => e
+      raise AiProviders::ApiError, "Gemini network error: #{e.class}: #{e.message}"
     end
 
     def build_normal_prompt(ctx, existing_tags)

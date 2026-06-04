@@ -9,7 +9,19 @@ module Onboarding
   class AnalyzeJob < ApplicationJob
     queue_as :ai_suggestion
 
-    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 5
+    # Re-tenta erros de rede/API com backoff. Se esgotar as tentativas, o bloco
+    # garante que o onboarding NÃO fique preso em "analyzing": avança pra
+    # "tagging" com sugestões vazias (modo discovery) — o usuário segue manual.
+    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 5 do |job, _error|
+      workspace_id, options = job.arguments
+      mode = (options || {})[:mode] || "discovery"
+      next if mode == "additive"
+
+      workspace = Workspace.find_by(id: workspace_id)
+      next unless workspace && workspace.onboarding_state&.dig("status") == "analyzing"
+
+      Onboarding::Service.advance(workspace, to: "tagging")
+    end
 
     MAX_TRANSACTIONS = 200
 

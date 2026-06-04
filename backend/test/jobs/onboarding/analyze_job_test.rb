@@ -63,12 +63,34 @@ class Onboarding::AnalyzeJobTest < ActiveJob::TestCase
     end
   end
 
+  # RF22 bug: se a IA falha de vez (timeout/erro), o onboarding NÃO pode ficar
+  # preso em "analyzing". Após esgotar os retries, avança pra "tagging" com
+  # sugestões vazias — o usuário cai no passo de tags e segue manualmente.
+  test "after the provider keeps failing, the flow advances to tagging instead of staying stuck" do
+    stub_failing_provider
+
+    perform_enqueued_jobs do
+      Onboarding::AnalyzeJob.perform_now(@workspace.id)
+    rescue AiProviders::ApiError
+      # o retry final relança; o que importa é o estado depois
+    end
+
+    assert_equal "tagging", @workspace.reload.onboarding_state["status"]
+  end
+
   private
 
   def stub_provider(result)
     klass = AiProviders::GeminiProvider
     klass.singleton_class.send(:alias_method, :__orig_new, :new) unless klass.singleton_class.method_defined?(:__orig_new)
     klass.singleton_class.send(:define_method, :new) { |**_| FakeProvider.new(result) }
+    @stubbed = true
+  end
+
+  def stub_failing_provider
+    klass = AiProviders::GeminiProvider
+    klass.singleton_class.send(:alias_method, :__orig_new, :new) unless klass.singleton_class.method_defined?(:__orig_new)
+    klass.singleton_class.send(:define_method, :new) { |**_| FailingProvider.new }
     @stubbed = true
   end
 
@@ -84,5 +106,11 @@ class Onboarding::AnalyzeJobTest < ActiveJob::TestCase
   class FakeProvider
     def initialize(result); @result = result; end
     def suggest_onboarding_discovery(**_); @result; end
+  end
+
+  class FailingProvider
+    def suggest_onboarding_discovery(**_)
+      raise AiProviders::ApiError, "Gemini network error: Net::ReadTimeout"
+    end
   end
 end

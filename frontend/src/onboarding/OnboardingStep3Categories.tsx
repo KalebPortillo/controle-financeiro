@@ -219,7 +219,7 @@ function SuggestedCategoryRow({ suggestion }: { suggestion: SuggestedCategory })
       <Button
         variant="outline"
         size="sm"
-        onClick={() => accept.mutate(suggestion.id)}
+        onClick={() => accept.mutate({ id: suggestion.id })}
         disabled={busy}
         data-testid={`accept-suggested-category-${suggestion.id}`}
       >

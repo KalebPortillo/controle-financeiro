@@ -1,6 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '../api/client'
 import { tagsKey } from './useTags'
+import { makeSuggestionHooks } from './makeSuggestionHooks'
 
 // Tag sugerida pela IA (RF3/RF22), ainda não aceita. Catálogo separado das tags
 // reais — vira Tag de verdade só quando aceita. Ver suggested_tags no backend.
@@ -15,42 +14,19 @@ export type SuggestedTag = {
 
 export const suggestedTagsKey = ['suggested_tags'] as const
 
-export function useSuggestedTags() {
-  return useQuery({
-    queryKey: suggestedTagsKey,
-    queryFn: () =>
-      apiFetch<{ suggested_tags: SuggestedTag[] }>('/api/v1/suggested_tags').then(
-        (r) => r.suggested_tags,
-      ),
-  })
-}
+const hooks = makeSuggestionHooks<SuggestedTag, { id: string; transactionId?: string }>({
+  resource: 'suggested_tags',
+  responseKey: 'suggested_tags',
+  queryKey: suggestedTagsKey,
+  // Aceitar promove a Tag real (invalida tags) e, vindo do inbox com
+  // transaction_id, a tag passa a estar aplicada (invalida transactions).
+  invalidateOnAccept: [tagsKey, ['transactions']],
+  acceptBody: (input) => (input.transactionId ? { transaction_id: input.transactionId } : undefined),
+})
 
+export const useSuggestedTags = hooks.useList
 // Aceita a sugestão → cria a Tag real (ou reusa de mesmo nome) e marca accepted.
 // Opcionalmente aplica a tag a uma transação (caminho do chip fantasma da inbox).
-export function useAcceptSuggestedTag() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (input: { id: string; transactionId?: string }) =>
-      apiFetch(`/api/v1/suggested_tags/${input.id}/accept`, {
-        method: 'POST',
-        body: input.transactionId ? { transaction_id: input.transactionId } : undefined,
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: suggestedTagsKey })
-      qc.invalidateQueries({ queryKey: tagsKey })
-      // Quando aceito a partir do inbox (transaction_id), a tag passa a estar
-      // aplicada — recarrega as transações pra refletir.
-      qc.invalidateQueries({ queryKey: ['transactions'] })
-    },
-  })
-}
-
+export const useAcceptSuggestedTag = hooks.useAccept
 // Recusa a sugestão (status dismissed) — some da lista.
-export function useDismissSuggestedTag() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch(`/api/v1/suggested_tags/${id}`, { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: suggestedTagsKey }),
-  })
-}
+export const useDismissSuggestedTag = hooks.useDismiss

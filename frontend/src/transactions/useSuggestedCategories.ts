@@ -1,6 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '../api/client'
 import { categoriesKey } from './useCategories'
+import { makeSuggestionHooks } from './makeSuggestionHooks'
 
 // Categoria sugerida pela IA (RF22, 2ª análise), ainda não aceita. Catálogo
 // separado das categorias reais — vira Category de verdade só quando aceita.
@@ -13,41 +12,19 @@ export type SuggestedCategory = {
 
 export const suggestedCategoriesKey = ['suggested_categories'] as const
 
+const hooks = makeSuggestionHooks<SuggestedCategory, { id: string }>({
+  resource: 'suggested_categories',
+  responseKey: 'suggested_categories',
+  queryKey: suggestedCategoriesKey,
+  invalidateOnAccept: [categoriesKey],
+})
+
 // `pollWhileEmpty` faz a query repetir a cada 3s enquanto a lista volta vazia —
 // usado no onboarding, onde a 2ª análise (SuggestCategoriesJob) ainda pode estar
 // rodando e as sugestões aparecem depois.
-export function useSuggestedCategories({ pollWhileEmpty = false } = {}) {
-  return useQuery({
-    queryKey: suggestedCategoriesKey,
-    queryFn: () =>
-      apiFetch<{ suggested_categories: SuggestedCategory[] }>('/api/v1/suggested_categories').then(
-        (r) => r.suggested_categories,
-      ),
-    refetchInterval: (query) =>
-      pollWhileEmpty && (query.state.data?.length ?? 0) === 0 ? 3000 : false,
-  })
-}
-
+export const useSuggestedCategories = hooks.useList
 // Aceita a sugestão → cria a Category real (ou reusa de mesmo nome) e associa as
 // tags por nome. Marca accepted.
-export function useAcceptSuggestedCategory() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch(`/api/v1/suggested_categories/${id}/accept`, { method: 'POST' }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: suggestedCategoriesKey })
-      qc.invalidateQueries({ queryKey: categoriesKey })
-    },
-  })
-}
-
+export const useAcceptSuggestedCategory = hooks.useAccept
 // Recusa a sugestão (status dismissed) — some da lista.
-export function useDismissSuggestedCategory() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch(`/api/v1/suggested_categories/${id}`, { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: suggestedCategoriesKey }),
-  })
-}
+export const useDismissSuggestedCategory = hooks.useDismiss

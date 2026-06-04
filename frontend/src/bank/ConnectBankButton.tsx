@@ -23,10 +23,16 @@ import {
 export function ConnectBankButton({
   onConnected,
   historySince,
+  variant = 'primary',
+  label = 'Conectar banco',
 }: {
   onConnected?: (connection: BankConnection) => void
   // Data ISO de início da importação (RF1.7). Ausente → default (1º jan).
   historySince?: string
+  // Permite o chamador escolher o destaque do botão (ex.: secundário quando já
+  // há uma conexão) e o texto ("Conectar outro banco").
+  variant?: 'primary' | 'outline'
+  label?: string
 }) {
   const connectToken = useConnectToken()
   const createConnection = useCreateBankConnection()
@@ -64,9 +70,10 @@ export function ConnectBankButton({
       <Button
         onClick={start}
         disabled={busy}
+        variant={variant}
         data-testid="connect-bank-button"
       >
-        {busy ? 'Conectando…' : 'Conectar banco'}
+        {busy ? 'Conectando…' : label}
       </Button>
 
       {feedback && (

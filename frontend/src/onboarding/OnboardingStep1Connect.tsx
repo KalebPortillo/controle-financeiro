@@ -8,6 +8,7 @@ import {
   resolveHistorySince,
   useBankConnectionsList,
   type HistoryPeriod,
+  type BankConnection,
 } from '../bank/useBankConnections'
 import { useStartOnboarding, useStartAnalysis, type OnboardingState } from './useOnboarding'
 
@@ -57,27 +58,9 @@ export function OnboardingStep1Connect({ state }: { state: OnboardingState }) {
       />
 
       <div className="space-y-3">
-        <ConnectBankCard historySince={historySince} />
+        <ConnectBankCard historySince={historySince} connections={connected} />
         <ImportCsvCardDisabled />
       </div>
-
-      {hasConnection && (
-        <ul className="space-y-1.5" data-testid="connected-list">
-          {connected.map((c) => (
-            <li
-              key={c.id}
-              className="flex items-center gap-2 text-sm text-muted-foreground"
-            >
-              <CheckCircle2 size={15} className="text-success shrink-0" />
-              <span>
-                {c.accounts.length > 0
-                  ? c.accounts.map((a) => a.institution_label || a.name).join(', ')
-                  : 'Conta conectada'}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
 
       <div className="flex items-center justify-end border-t border-border pt-4">
         <Button
@@ -141,7 +124,14 @@ function HistoryPeriodPicker({
   )
 }
 
-function ConnectBankCard({ historySince }: { historySince: string }) {
+function ConnectBankCard({
+  historySince,
+  connections,
+}: {
+  historySince: string
+  connections: BankConnection[]
+}) {
+  const hasConnection = connections.length > 0
   return (
     <div className="border border-border rounded-md p-4">
       <div className="flex items-start gap-3">
@@ -153,8 +143,29 @@ function ConnectBankCard({ historySince }: { historySince: string }) {
           <p className="text-xs text-muted-foreground mt-0.5">
             Conexão segura. Suportamos os principais bancos brasileiros.
           </p>
+
+          {/* Contas já conectadas — dentro do próprio card de conexão. */}
+          {hasConnection && (
+            <ul className="mt-3 space-y-1.5" data-testid="connected-list">
+              {connections.map((c) => (
+                <li key={c.id} className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 size={15} className="text-success shrink-0" />
+                  <span className="truncate">
+                    {c.accounts.length > 0
+                      ? c.accounts.map((a) => a.institution_label || a.name).join(', ')
+                      : 'Conta conectada'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+
           <div className="mt-3">
-            <ConnectBankButton historySince={historySince} />
+            <ConnectBankButton
+              historySince={historySince}
+              variant={hasConnection ? 'outline' : 'primary'}
+              label={hasConnection ? 'Conectar outro banco' : 'Conectar banco'}
+            />
           </div>
         </div>
       </div>

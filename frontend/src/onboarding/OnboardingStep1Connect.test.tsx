@@ -4,12 +4,24 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { OnboardingStep1Connect } from './OnboardingStep1Connect'
 import type { OnboardingState } from './useOnboarding'
 
-// Mocka o ConnectBankButton — não queremos o widget Pluggy aqui. Expõe a prop
-// historySince como data-attr pra podermos asseverar o que o seletor calculou.
+// Mocka o ConnectBankButton — não queremos o widget Pluggy aqui. Expõe as props
+// como data-attrs pra asseverar o seletor de histórico e o destaque/label do botão.
 vi.mock('../bank/ConnectBankButton', () => ({
-  ConnectBankButton: ({ historySince }: { historySince?: string }) => (
-    <button data-testid="fake-connect-button" data-history-since={historySince ?? ''}>
-      conectar
+  ConnectBankButton: ({
+    historySince,
+    variant,
+    label,
+  }: {
+    historySince?: string
+    variant?: string
+    label?: string
+  }) => (
+    <button
+      data-testid="fake-connect-button"
+      data-history-since={historySince ?? ''}
+      data-variant={variant ?? 'primary'}
+    >
+      {label ?? 'Conectar banco'}
     </button>
   ),
 }))
@@ -114,5 +126,21 @@ describe('<OnboardingStep1Connect /> — continuar para análise (F2)', () => {
     renderStep()
     fireEvent.click(screen.getByTestId('continue-to-analysis'))
     expect(startAnalysisMutate).toHaveBeenCalledTimes(1)
+  })
+
+  it('connect button is primary "Conectar banco" before any connection', () => {
+    mockConnections = { connections: [] }
+    renderStep()
+    const btn = screen.getByTestId('fake-connect-button')
+    expect(btn).toHaveAttribute('data-variant', 'primary')
+    expect(btn).toHaveTextContent('Conectar banco')
+  })
+
+  it('connect button becomes secondary "Conectar outro banco" once connected', () => {
+    mockConnections = { connections: [{ id: 'bc-1', accounts: [] }] }
+    renderStep()
+    const btn = screen.getByTestId('fake-connect-button')
+    expect(btn).toHaveAttribute('data-variant', 'outline')
+    expect(btn).toHaveTextContent('Conectar outro banco')
   })
 })

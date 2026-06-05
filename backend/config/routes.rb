@@ -62,6 +62,7 @@ Rails.application.routes.draw do
         end
         collection do
           post "reanalyze"
+          get  "analysis_progress" # P4 — progresso real da análise IA
         end
       end
 

@@ -112,6 +112,16 @@ class Api::V1::TransactionsController < ApplicationController
     render json: { enqueued: true, pending_count: pending_count }, status: :accepted
   end
 
+  # GET /api/v1/transactions/analysis_progress — progresso real da análise IA (P4).
+  # Uma pending está "analisada" quando já tem ai_suggestion (o BatchSuggestJob
+  # grava por tx). Dois counts indexados, barato; a barra anda em degraus de batch.
+  def analysis_progress
+    pending  = current_workspace.transactions.where(status: "pending")
+    total    = pending.count
+    analyzed = pending.where.not(ai_suggestion: nil).count
+    render json: { total: total, analyzed: analyzed, done: analyzed >= total }
+  end
+
   private
 
   def set_transaction

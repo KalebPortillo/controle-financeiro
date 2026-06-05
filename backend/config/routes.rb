@@ -71,6 +71,9 @@ Rails.application.routes.draw do
       # Transferências internas (RF11) — lista p/ reconciliação, marcar e desmarcar.
       resources :internal_transfers, only: [ :index, :create, :destroy ]
 
+      # Importação por arquivo (RF20) — upload CSV/OFX → inbox. Processamento assíncrono.
+      resources :imports, only: [ :index, :show, :create ]
+
       # AI learned rules (RF3.2) — ver e apagar regras aprendidas.
       resources :ai_learned_rules, only: [ :index, :destroy ]
 

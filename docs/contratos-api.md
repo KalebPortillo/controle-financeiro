@@ -330,11 +330,22 @@ o `Onboarding::SuggestCategoriesJob` pede à IA categorias amplas a partir das t
 ### Reanalisar inbox com IA (RF3.5)
 - `POST /api/v1/transactions/reanalyze` — enfileira `AiSuggestion::ReanalyzeJob`
   para todas as transações `pending` elegíveis (sem `improved_title`, com
-  `ai_confidence <= 0.4`, ou sem tags). Resposta `202 Accepted`:
+  `ai_confidence <= 0.4`, ou sem tags). O job processa em lotes de 25
+  (`BatchSuggestJob`). Resposta `202 Accepted`:
   ```json
   { "enqueued": true, "pending_count": 47 }
   ```
   Rate-limited a 5 req/min/IP.
+
+### Progresso da análise IA
+- `GET /api/v1/transactions/analysis_progress` — progresso **real** da análise
+  em lote. Uma transação `pending` conta como analisada quando já tem
+  `ai_suggestion` (gravado por tx pelo `BatchSuggestJob`). `done` é `true` quando
+  todas as pending estão analisadas (ou não há pending). Usado pela barra de
+  progresso da inbox, que pollar (~1,5s) até `done`. `200 OK`:
+  ```json
+  { "total": 120, "analyzed": 75, "done": false }
+  ```
 
 ### Reports (RF13)
 - `GET /api/v1/reports/overview?period=current_month` — totals + comparativo:

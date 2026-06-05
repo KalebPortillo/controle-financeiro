@@ -125,7 +125,7 @@ Entregue em fatias TDD (3a–5c), deployado em staging:
   `source_metadata['id']`, reaproveitando o índice unique de `external_transaction_id`
   (rescue RecordNotUnique conta como duplicado). Em `Imports::Process`.
 - **Mesmo fluxo de inbox** que a sync automática (RF2): pending, `manual_import`,
-  enfileira `SuggestJob` — pré-categorização e aprovação manual, sem bypass.
+  enfileira `BatchSuggestJob` em lotes — pré-categorização e aprovação manual, sem bypass.
 
 ## AI / sugestão de título e tags (RF3)
 
@@ -170,14 +170,36 @@ class AiProviders::OpenAiProvider  < AiProviders::Provider; end
 - Selecionado via `ENV['AI_PROVIDER'] = 'gemini'` (ou `'claude'`, `'openai'`).
 - Modelo via `ENV['AI_MODEL']` (ex.: `gemini-2.5-flash`).
 
-### Pipeline de sugestão (por transação, executado no SyncJob após import)
+### Pipeline de sugestão — **em lote** (executado após o sync/import)
+
+A análise roda em **lote** (não 1 chamada por transação): o `Sync`, o
+`Imports::Process` e o `ReanalyzeJob` juntam os ids das transações criadas e
+enfileiram `AiSuggestion::BatchSuggestJob` em fatias de **25**. Cada job:
 
 ```
-1. Regras manuais (RF3.3)      → match? → aplica, confidence=high, para.
-2. Regras aprendidas (RF3.2)   → match? → aplica, confidence=high, para.
-3. Chamada à API do Gemini     → retorna improved_title + tag_ids + confidence.
-4. Fallback (API falhou/cota)  → mantém original_description, sem tags sugeridas.
+1. Regras aprendidas (RF3.2)   → por tx, match? → aplica (confidence=high), NÃO vai pra API.
+2. Chamada única à API         → as tx restantes do lote numa só requisição
+                                 (AiSuggestion::BatchService → suggest_inbox_batch),
+                                 mapeada por transaction_id.
+3. Persistência (Persist)      → improved_title + ai_confidence + snapshot ai_suggestion
+                                 + tags, por tx.
+4. Fallback (API falhou/cota)  → por tx, mantém original_description, sem sugestão.
 ```
+
+Motivação: antes era 1 `SuggestJob`/tx numa fila de 1 thread → 100 tx =
+100 chamadas serializadas (minutos + 100× tokens de prompt). Com o lote são
+~4 chamadas para 100 tx. O `SuggestJob` de 1 tx foi aposentado; a fila
+`ai_suggestion` segue com **1 thread** (free tier 15 RPM), polling 1s.
+
+### Performance da chamada ao Gemini (`generationConfig`)
+
+Para classificação estruturada não precisamos do raciocínio interno do modelo.
+O `GeminiProvider` envia em toda chamada:
+- `thinkingConfig: { thinkingBudget: 0 }` — desliga o *thinking* do 2.5-flash
+  (maior ganho de latência/tokens);
+- `maxOutputTokens: 2048` — limita a saída ao JSON esperado (cabe um lote de ~25);
+- `temperature: 0.2` — classificação determinística;
+- `responseMimeType: "application/json"`.
 
 ### Dados enviados à IA (prompt compacto)
 
@@ -274,15 +296,15 @@ Endpoint acionado pelo botão "Reanalisar com IA" na inbox. Enfileira `AiSuggest
 - No momento da reanálise, o job carrega o estado atual de `ai_learned_rules` e `tags` do workspace — portanto reflete tudo que foi aprendido desde o último sync.
 - Se já existem tags no workspace, usa o modo normal (prioriza existentes). Se ainda não existem, usa o modo onboarding (sugere novas).
 
-**Pipeline do job:**
-```
-Para cada transação elegível (em lotes de 50):
-  1. Regras manuais    → match? → aplica, para.
-  2. Regras aprendidas → match? → aplica, para.
-  3. Chamada à API     → atualiza improved_title + tags sugeridas + confidence.
-```
+**Pipeline do job:** o `ReanalyzeJob` separa as elegíveis em lotes de **25** e
+enfileira um `BatchSuggestJob` por lote (mesmo pipeline em lote da seção acima:
+regras aprendidas por tx → 1 chamada para o resto → persiste por tx).
 
-**Resposta ao frontend:** o endpoint retorna `{ enqueued: true, pending_count: N }` imediatamente (202). O frontend faz polling em `GET /api/v1/transactions/reanalyze_status` (ou ouve via Action Cable) para saber quando concluiu e atualiza a lista da inbox.
+**Resposta ao frontend:** o endpoint retorna `{ enqueued: true, pending_count: N }`
+imediatamente (202). O frontend acompanha o **progresso real** via
+`GET /api/v1/transactions/analysis_progress` → `{ total, analyzed, done }` (uma
+pending conta como analisada quando já tem `ai_suggestion`), e a barra anda em
+degraus de batch até `done`, quando recarrega a inbox.
 
 ### Aprendizado passivo (RF3.2) — tabela `ai_learned_rules`
 
@@ -460,8 +482,8 @@ Transações:
 ### Pré-categorização durante o sync inicial
 
 **Decisão deliberada**: enquanto `status ∈ {connecting, analyzing, tagging,
-categorizing}`, o `SyncJob` **não** dispara `AiSuggestion::SuggestJob` por
-transação. Razões:
+categorizing}`, o `Sync` **não** enfileira `AiSuggestion::BatchSuggestJob`.
+Razões:
 
 1. Sem tags criadas, a IA cairia em modo onboarding (RF3.1) e geraria tags
    inconsistentes uma a uma — exatamente o problema que esse RF22 resolve.

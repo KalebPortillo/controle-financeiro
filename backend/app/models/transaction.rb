@@ -23,6 +23,13 @@ class Transaction < ApplicationRecord
   has_one  :refund_of, class_name: "TransactionRefund",
                        foreign_key: :refund_transaction_id, dependent: :destroy
 
+  # RF11 — transferências internas. Uma transação participa de no máximo uma
+  # (como débito de saída ou crédito de entrada).
+  has_one :transfer_as_debit,  class_name: "InternalTransfer",
+                               foreign_key: :debit_transaction_id, dependent: :destroy
+  has_one :transfer_as_credit, class_name: "InternalTransfer",
+                               foreign_key: :credit_transaction_id, dependent: :destroy
+
   validates :direction,            presence: true, inclusion: { in: DIRECTIONS }
   validates :amount_cents,         presence: true, numericality: { greater_than: 0, only_integer: true }
   validates :occurred_at,          presence: true
@@ -55,5 +62,10 @@ class Transaction < ApplicationRecord
   # (RF10.3). Para créditos/sem estorno, devolve o próprio amount_cents.
   def effective_amount_cents
     [ amount_cents - refunded_amount_cents, 0 ].max
+  end
+
+  # RF11 — participa de uma transferência interna (em qualquer ponta)?
+  def internal_transfer?
+    transfer_as_debit.present? || transfer_as_credit.present?
   end
 end

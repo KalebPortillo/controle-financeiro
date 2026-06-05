@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_04_213000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_04_214000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -107,6 +107,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_213000) do
     t.index ["category_id", "tag_id"], name: "index_category_tags_on_category_id_and_tag_id", unique: true
     t.index ["category_id"], name: "index_category_tags_on_category_id"
     t.index ["tag_id"], name: "index_category_tags_on_tag_id"
+  end
+
+  create_table "internal_transfers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "confirmed_by_membership_id"
+    t.datetime "created_at", null: false
+    t.uuid "credit_transaction_id", null: false
+    t.uuid "debit_transaction_id", null: false
+    t.datetime "detected_at", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "workspace_id", null: false
+    t.index ["confirmed_by_membership_id"], name: "index_internal_transfers_on_confirmed_by_membership_id"
+    t.index ["credit_transaction_id"], name: "index_internal_transfers_on_credit_transaction_id", unique: true
+    t.index ["debit_transaction_id"], name: "index_internal_transfers_on_debit_transaction_id", unique: true
+    t.index ["workspace_id"], name: "index_internal_transfers_on_workspace_id"
   end
 
   create_table "recurrences", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -289,6 +303,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_213000) do
   add_foreign_key "categories", "workspaces"
   add_foreign_key "category_tags", "categories"
   add_foreign_key "category_tags", "tags"
+  add_foreign_key "internal_transfers", "transactions", column: "credit_transaction_id"
+  add_foreign_key "internal_transfers", "transactions", column: "debit_transaction_id"
+  add_foreign_key "internal_transfers", "workspace_memberships", column: "confirmed_by_membership_id"
+  add_foreign_key "internal_transfers", "workspaces"
   add_foreign_key "recurrences", "accounts"
   add_foreign_key "recurrences", "workspaces"
   add_foreign_key "suggested_categories", "workspaces"

@@ -5,6 +5,8 @@ class Workspace < ApplicationRecord
   # referenciam accounts (FK), então vão ANTES de accounts. bank_connections e
   # accounts referenciam workspace_memberships via owner_membership_id, então vão
   # ANTES das memberships, senão a FK estoura ao apagar o workspace.
+  # internal_transfers referencia transactions (FK) → destrói ANTES delas.
+  has_many :internal_transfers, dependent: :destroy
   has_many :transactions, dependent: :destroy
   has_many :recurrences, dependent: :destroy
   has_many :tags, dependent: :destroy

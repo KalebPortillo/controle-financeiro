@@ -20,6 +20,17 @@ export type AiSuggestion = {
   suggested_at: string
 } | null
 
+// RF10 — resumo dos estornos recebidos por um gasto (null se nenhum).
+export type RefundInfo = {
+  refunded_amount_cents: number
+  refunds: Array<{
+    id: string
+    refund_transaction_id: string
+    amount_cents: number
+    confirmed_at: string
+  }>
+} | null
+
 export type InboxTransaction = {
   id: string
   account_id: string
@@ -36,6 +47,9 @@ export type InboxTransaction = {
   source: string
   lock_version: number
   tags: InboxTag[]
+  // RF10 — valor efetivo (amount menos estornos) + resumo dos estornos.
+  effective_amount_cents: number
+  refund: RefundInfo
 }
 
 export type InboxPayload = {

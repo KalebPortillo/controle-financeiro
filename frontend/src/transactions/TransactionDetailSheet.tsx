@@ -5,6 +5,7 @@ import { Button } from '../components/Button'
 import { Money } from '../components/Money'
 import { TagEditor } from './TagEditor'
 import { GhostTagChips } from './GhostTagChips'
+import { RefundSection } from './RefundSection'
 import {
   useConsolidate,
   useReject,
@@ -174,6 +175,9 @@ function SheetInner({
             <Trash2 size={12} /> Excluir definitivamente
           </button>
         </div>
+
+        {/* RF10 — vincular/exibir estorno. */}
+        <RefundSection transaction={t} />
 
         <ActivityTimeline transactionId={t.id} aiSuggestion={t.ai_suggestion} />
       </div>

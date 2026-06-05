@@ -40,6 +40,8 @@ function tx(overrides: Partial<InboxTransaction> = {}): InboxTransaction {
     source: 'automatic_sync',
     lock_version: 0,
     tags: [],
+    effective_amount_cents: 2500,
+    refund: null,
     ...overrides,
   }
 }

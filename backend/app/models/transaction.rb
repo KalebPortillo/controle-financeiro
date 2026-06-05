@@ -45,6 +45,13 @@ class Transaction < ApplicationRecord
   scope :inbox,        -> { where(status: "pending") }
   scope :consolidated, -> { where(status: "consolidated") }
 
+  # RF11 — exclui transações que participam de uma transferência interna (em
+  # qualquer ponta). Usado nos relatórios pra não contar transferência como
+  # gasto/receita.
+  scope :not_internal_transfer, lambda {
+    where.missing(:transfer_as_debit).where.missing(:transfer_as_credit)
+  }
+
   STATUSES.each do |s|
     define_method("#{s}?") { status == s }
   end

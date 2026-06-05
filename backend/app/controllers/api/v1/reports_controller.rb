@@ -109,7 +109,7 @@ module Api
         from = (Date.current - (n_months - 1).months).beginning_of_month
         to   = Date.current.end_of_month
 
-        rows = current_workspace.transactions
+        rows = current_workspace.transactions.not_internal_transfer
           .where(status: "consolidated", occurred_at: from..to)
           .group("DATE_TRUNC('month', occurred_at)")
           .select(
@@ -148,23 +148,22 @@ module Api
         end
       end
 
+      # RF11 — exclui transferências internas (não são gasto). Base dos breakdowns.
       def consolidated_debits(from, to)
-        current_workspace.transactions
+        current_workspace.transactions.not_internal_transfer
           .where(status: "consolidated", direction: "debit", occurred_at: from..to)
       end
 
-      # RF10 — gasto efetivo: total bruto dos débitos menos os estornos recebidos
-      # por débitos do período (o estorno reduz o gasto, RF10.3).
+      # RF10/RF11 — gasto efetivo: débitos (sem transferências) menos os estornos
+      # recebidos por débitos do período (o estorno reduz o gasto, RF10.3).
       def debit_sum(from, to)
-        gross = current_workspace.transactions
-          .where(status: "consolidated", direction: "debit", occurred_at: from..to)
-          .sum(:amount_cents)
-        gross - refunds_in_period(from, to)
+        consolidated_debits(from, to).sum(:amount_cents) - refunds_in_period(from, to)
       end
 
-      # RF10 — receita real exclui créditos que são estornos (não é renda nova).
+      # RF10/RF11 — receita real exclui créditos que são estornos (não é renda
+      # nova) e os que são entrada de transferência interna.
       def credit_sum(from, to)
-        current_workspace.transactions
+        current_workspace.transactions.not_internal_transfer
           .where(status: "consolidated", direction: "credit", occurred_at: from..to)
           .where.missing(:refund_of)
           .sum(:amount_cents)
@@ -172,11 +171,8 @@ module Api
 
       # Soma dos estornos cujos GASTOS estornados caem no período (centavos).
       def refunds_in_period(from, to)
-        debit_ids = current_workspace.transactions
-          .where(status: "consolidated", direction: "debit", occurred_at: from..to)
-          .select(:id)
         TransactionRefund
-          .where(refunded_transaction_id: debit_ids)
+          .where(refunded_transaction_id: consolidated_debits(from, to).select(:id))
           .joins(:refund_transaction)
           .sum("transactions.amount_cents")
       end

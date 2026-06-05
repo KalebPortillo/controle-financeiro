@@ -69,6 +69,40 @@ class ReportsTest < ActionDispatch::IntegrationTest
     assert_equal 50_000, body["income_cents"]
   end
 
+  # RF11 — transferências internas não contam como gasto/receita.
+  test "overview excludes internal transfers from expense and income" do
+    this_month = Date.current.beginning_of_month
+    acc_b = create(:account, workspace: @workspace)
+    out_tx = create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+                    amount_cents: 70_000, status: "consolidated", occurred_at: this_month + 6.days)
+    in_tx  = create(:transaction, workspace: @workspace, account: acc_b, direction: "credit",
+                    amount_cents: 70_000, status: "consolidated", occurred_at: this_month + 6.days)
+    create(:internal_transfer, workspace: @workspace,
+           debit_transaction: out_tx, credit_transaction: in_tx)
+
+    get "/api/v1/reports/overview?period=current_month"
+    body = JSON.parse(response.body)
+    # gasto segue 30_000 (a saída de 70k é transferência, não gasto)
+    assert_equal 30_000, body["expense_cents"]
+    # receita segue 50_000 (a entrada de 70k é transferência, não receita)
+    assert_equal 50_000, body["income_cents"]
+  end
+
+  test "by_tag excludes internal transfers" do
+    this_month = Date.current.beginning_of_month
+    acc_b = create(:account, workspace: @workspace)
+    out_tx = create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+                    amount_cents: 70_000, status: "consolidated", occurred_at: this_month + 6.days)
+    out_tx.tags << @tag_house
+    in_tx = create(:transaction, workspace: @workspace, account: acc_b, direction: "credit",
+                   amount_cents: 70_000, status: "consolidated", occurred_at: this_month + 6.days)
+    create(:internal_transfer, workspace: @workspace, debit_transaction: out_tx, credit_transaction: in_tx)
+
+    get "/api/v1/reports/by_tag", params: { from: this_month.iso8601, to: Date.current.end_of_month.iso8601 }
+    casa = JSON.parse(response.body)["tags"].find { |t| t["name"] == "Casa" }
+    assert_equal 20_000, casa["amount_cents"] # só o gasto real, não a transferência
+  end
+
   test "overview includes top_tags sorted by amount" do
     get "/api/v1/reports/overview?period=current_month"
     assert_response :ok

@@ -111,14 +111,21 @@ Entregue em fatias TDD (3a–5c), deployado em staging:
 > Pluggy; teste em staging usa o **sandbox Pluggy Bank** (`user-ok`/`password-ok`,
 > connector `2`). Detalhes operacionais em `docs/deploy-runbook.md`.
 
-### Importação manual por arquivo (RF20)
+### Importação manual por arquivo (RF20) — ✅ CSV implementado
 
-- **Endpoint** `POST /api/v1/imports` com upload de arquivo CSV ou OFX.
-- **Parsers** em `app/services/imports/`:
-  - `Imports::CsvParser` — detecta delimitador, mapeia colunas (data, descrição, valor) com heurística + override manual do usuário se necessário.
-  - `Imports::OfxParser` — usa gem `ofx` ou similar.
-- **Dedup**: chave `(account_id, occurred_at, amount, normalized_description)` antes de inserir. Itens duplicados são reportados.
-- **Mesmo fluxo de inbox** que a sync automática (RF2): pré-categorização, aprovação manual, sem bypass.
+- **Endpoint** `POST /api/v1/imports` (multipart, ≤10MB → 413). Arquivo no Active
+  Storage; processamento assíncrono via `Imports::ProcessJob` (status
+  pending→processing→completed/failed). 202 na criação.
+- **Parsers** em `app/services/imports/` (interface `call(content:) → {rows, errors}`):
+  - `Imports::CsvParser` — ✅ detecta delimitador (`, ; \t`), mapeia colunas
+    (data/descrição/valor) por heurística de cabeçalho + formato; datas BR/ISO,
+    decimal com vírgula/ponto. Linha inválida vira erro, não aborta.
+  - `Imports::OfxParser` — ⏳ pendente (mesma interface, gem `ofx` ou parser próprio).
+- **Dedup**: id sintético determinístico `SHA(account|date|amount|description)` em
+  `source_metadata['id']`, reaproveitando o índice unique de `external_transaction_id`
+  (rescue RecordNotUnique conta como duplicado). Em `Imports::Process`.
+- **Mesmo fluxo de inbox** que a sync automática (RF2): pending, `manual_import`,
+  enfileira `SuggestJob` — pré-categorização e aprovação manual, sem bypass.
 
 ## AI / sugestão de título e tags (RF3)
 

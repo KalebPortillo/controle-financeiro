@@ -430,8 +430,12 @@ Regra explicitamente criada pelo usuário (RF3.3).
 **Enum match_type**: `exact`, `contains`, `regex`.
 **RFs**: RF3.3.
 
-### `imports`
-Registro de cada upload de arquivo (RF20).
+### `imports` ✅ implementado
+Registro de cada upload de arquivo (RF20). Arquivo via Active Storage
+(`has_one_attached :file`). Processamento assíncrono (`Imports::ProcessJob`):
+parser CSV por heurística (`Imports::CsvParser`) → transações pending
+`manual_import` na inbox, dedup por id sintético (account|data|valor|descritor)
+no `external_transaction_id`. OFX fica pra fatia futura (mesma interface de parser).
 
 | coluna | tipo | constraints |
 |---|---|---|

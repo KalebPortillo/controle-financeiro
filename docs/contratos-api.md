@@ -288,7 +288,7 @@ o `Onboarding::SuggestCategoriesJob` pede à IA categorias amplas a partir das t
 - `GET    /api/v1/recurrences/upcoming?days=15` — vencimentos previstos (RF9.3).
 - `GET    /api/v1/recurrences/:id/missed` — recorrentes esperadas que não chegaram (RF9.6).
 
-### Imports (RF20)
+### Imports (RF20) — ✅ CSV implementado (OFX pendente)
 - `POST   /api/v1/imports` — `multipart/form-data` com `file`, `format`, `account_id` opcional. Resposta 202 com `id` e `status: 'pending'`.
 - `GET    /api/v1/imports` — histórico.
 - `GET    /api/v1/imports/:id` — status + resultado:

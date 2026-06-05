@@ -205,15 +205,17 @@ Formato uniforme:
 - `POST /api/v1/transactions/bulk_consolidate` — body: `{ ids: [...] }`.
 - `POST /api/v1/transactions/bulk_tag` — body: `{ ids: [...], add_tag_ids: [...], remove_tag_ids: [...] }`.
 
-### Refunds (RF10)
-- `GET  /api/v1/transactions/:id/refund_candidates` — lista de transações débito candidatas (mesmo estabelecimento, valor compatível, janela de tempo). Algoritmo retorna até 10 ordenadas por confiança.
-- `POST /api/v1/transactions/:id/link_refund` — body: `{ refunded_transaction_id }`. Transação `:id` deve ser credit. 422 se direções inconsistentes.
+### Refunds (RF10) — ✅ implementado
+- `GET  /api/v1/transactions/:id/refund_candidates` — débitos candidatos a estorno de `:id` (credit): valor dentro de ±10%, janela de 90 dias, ainda não totalmente estornados; até 10, ordenados por proximidade de valor e recência.
+- `POST /api/v1/transactions/:id/link_refund` — body: `{ refunded_transaction_id }`. `:id` deve ser credit. 422 se direções inconsistentes; 404 débito de outro workspace.
 - `DELETE /api/v1/transaction_refunds/:id` — desfaz vínculo.
+- O serializer de transação expõe `effective_amount_cents` (amount − Σ estornos, floor 0) e um bloco `refund` no gasto estornado. Nos relatórios (overview), o gasto desconta estornos e o crédito-estorno não conta como receita.
 
-### Internal Transfers (RF11)
-- `GET    /api/v1/internal_transfers`
-- `POST   /api/v1/internal_transfers` — marcar manualmente. Body: `{ debit_transaction_id, credit_transaction_id }`.
-- `DELETE /api/v1/internal_transfers/:id` — desfaz.
+### Internal Transfers (RF11) — ✅ implementado
+- `GET    /api/v1/internal_transfers` — pares do workspace p/ reconciliação. Cada item: `{ id, manual, detected_at, debit{...}, credit{...} }`.
+- `POST   /api/v1/internal_transfers` — marcar manualmente. Body: `{ debit_transaction_id, credit_transaction_id }`. 422 direções/contas inválidas; 404 cross-workspace.
+- `DELETE /api/v1/internal_transfers/:id` — desmarca.
+- Detecção automática (`InternalTransfers::DetectJob`) roda ao fim do sync (fora do onboarding): débito ↔ crédito de mesmo valor em contas diferentes, janela de 3 dias. Pares (auto ou manual) saem dos totais de gasto/receita dos relatórios.
 
 ### Tags (RF5)
 > Slice 1 implementada (criar/listar/autocomplete + aplicar na inbox). Edição,

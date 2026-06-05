@@ -360,7 +360,7 @@ Padrão recorrente detectado ou cadastrado manualmente (RF9).
 **Enum source**: `detected`, `manual`.
 **RFs**: RF9.1, RF9.2, RF9.6.
 
-### `transaction_refunds`
+### `transaction_refunds` ✅ implementado
 Vínculo de estorno a gasto original (RF10).
 
 | coluna | tipo | constraints |
@@ -375,7 +375,7 @@ Vínculo de estorno a gasto original (RF10).
 **Constraints**: workspace_id de ambas as transações deve coincidir (validação em service, mais barato que via DB).
 **RFs**: RF10. Importante: o valor consolidado efetivo do gasto original é calculado por query (`amount - SUM(refunds.amount)`), não mutado em coluna.
 
-### `internal_transfers`
+### `internal_transfers` ✅ implementado
 Vínculo de transferência interna (RF11).
 
 | coluna | tipo | constraints |

@@ -116,12 +116,33 @@ module AiProviders
       http.read_timeout = READ_TIMEOUT_SEC
 
       res = http.request(req)
-      raise AiProviders::ApiError, "Gemini HTTP #{res.code}: #{res.body[0, 200]}" unless res.is_a?(Net::HTTPSuccess)
+      unless res.is_a?(Net::HTTPSuccess)
+        raise AiProviders::ApiError.new(
+          "Gemini HTTP #{res.code}: #{res.body.to_s[0, 200]}",
+          reason: http_error_reason(res.code.to_i, res.body.to_s)
+        )
+      end
 
       payload = JSON.parse(res.body)
       payload.dig("candidates", 0, "content", "parts", 0, "text").to_s
     rescue *NETWORK_ERRORS => e
-      raise AiProviders::ApiError, "Gemini network error: #{e.class}: #{e.message}"
+      # Rede caiu / timeout → indisponível (transitório, vale re-tentar).
+      raise AiProviders::ApiError.new("Gemini network error: #{e.class}: #{e.message}", reason: :unavailable)
+    end
+
+    # Classifica o erro HTTP em uma categoria pra feedback ao usuário:
+    # - 429 com créditos esgotados/billing → :quota (permanente até recarga);
+    # - 429 de rate-limit → :rate_limit (transitório);
+    # - 5xx → :unavailable (transitório);
+    # - demais 4xx → :error.
+    def http_error_reason(code, body)
+      if code == 429
+        body.match?(/RESOURCE_EXHAUSTED/i) && body.match?(/deplet|billing|credit/i) ? :quota : :rate_limit
+      elsif code >= 500
+        :unavailable
+      else
+        :error
+      end
     end
 
     def build_normal_prompt(ctx, existing_tags)

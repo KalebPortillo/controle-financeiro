@@ -21,4 +21,26 @@ class Workspace < ApplicationRecord
   has_many :members, through: :memberships, source: :user
 
   validates :name, presence: true
+
+  # --- Canal de erro de IA (camada de feedback) ---
+  # Guarda o último erro não-recuperável de IA pra UI exibir (card no onboarding,
+  # banner na inbox). Sempre via AiProviders::ApiError pra ter reason + mensagem
+  # amigável. detail (técnico) só pra diagnóstico; a UI usa reason + message.
+
+  def record_ai_error!(api_error)
+    update_column(:ai_last_error, api_error.to_h.merge(at: Time.current.iso8601).stringify_keys)
+  end
+
+  def clear_ai_error!
+    return if ai_last_error.nil?
+
+    update_column(:ai_last_error, nil)
+  end
+
+  # { reason:, message:, at: } com chaves símbolo pra serialização; nil se limpo.
+  def ai_error_payload
+    return nil if ai_last_error.blank?
+
+    { reason: ai_last_error["reason"], message: ai_last_error["message"], at: ai_last_error["at"] }
+  end
 end

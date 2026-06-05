@@ -9,19 +9,11 @@ module Onboarding
   class AnalyzeJob < ApplicationJob
     queue_as :ai_suggestion
 
-    # Re-tenta erros de rede/API com backoff. Se esgotar as tentativas, o bloco
-    # garante que o onboarding NÃO fique preso em "analyzing": avança pra
-    # "tagging" com sugestões vazias (modo discovery) — o usuário segue manual.
-    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 5 do |job, _error|
-      workspace_id, options = job.arguments
-      mode = (options || {})[:mode] || "discovery"
-      next if mode == "additive"
-
-      workspace = Workspace.find_by(id: workspace_id)
-      next unless workspace && workspace.onboarding_state&.dig("status") == "analyzing"
-
-      Onboarding::Service.advance(workspace, to: "tagging")
-    end
+    # Re-tenta erros transitórios de IA com backoff. Quota (créditos esgotados) é
+    # permanente: não re-tenta — registra o erro no workspace pra UI mostrar e
+    # mantém o passo em "analyzing" (o usuário decide continuar manualmente). Não
+    # auto-avança em silêncio: erro de IA fica TRANSPARENTE pro usuário.
+    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 5
 
     MAX_TRANSACTIONS = 200
 
@@ -51,11 +43,19 @@ module Onboarding
       )
 
       apply_result!(workspace, result, mode)
+    rescue AiProviders::ApiError => e
+      workspace.record_ai_error!(e)
+      raise if e.retryable? # transitório → retry_on cuida do backoff
+
+      # quota: registrado; sem retry. Fica em "analyzing" com o card de erro.
     end
 
     private
 
     def apply_result!(workspace, result, mode)
+      # Sucesso de IA → limpa qualquer erro pendente (o card/banner some).
+      workspace.clear_ai_error!
+
       # Alimenta o catálogo de sugestões (fonte única). Não-destrutivo, então um
       # AnalyzeJob tardio (ex.: usuário pulou a análise) nunca sobrescreve tags
       # já aceitas. As sugestões ficam disponíveis na etapa de tags / página / inbox.

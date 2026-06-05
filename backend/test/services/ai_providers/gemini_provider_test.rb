@@ -82,6 +82,38 @@ class AiProviders::GeminiProviderTest < ActiveSupport::TestCase
     end
   end
 
+  # --- Classificação de erro (camada de feedback) ---
+
+  test "429 with depleted credits classifies as :quota (not retryable)" do
+    body = { error: { code: 429, status: "RESOURCE_EXHAUSTED",
+                      message: "Your prepayment credits are depleted." } }.to_json
+    stub_request(:post, @url).to_return(status: 429, body: body)
+    err = assert_raises(AiProviders::ApiError) { @provider.suggest_onboarding_discovery(transactions_context: []) }
+    assert_equal :quota, err.reason
+    refute err.retryable?
+  end
+
+  test "429 rate-limit classifies as :rate_limit (retryable)" do
+    body = { error: { code: 429, status: "RESOURCE_EXHAUSTED",
+                      message: "Quota exceeded: requests per minute" } }.to_json
+    stub_request(:post, @url).to_return(status: 429, body: body)
+    err = assert_raises(AiProviders::ApiError) { @provider.suggest_onboarding_discovery(transactions_context: []) }
+    assert_equal :rate_limit, err.reason
+    assert err.retryable?
+  end
+
+  test "5xx classifies as :unavailable" do
+    stub_request(:post, @url).to_return(status: 503, body: "upstream down")
+    err = assert_raises(AiProviders::ApiError) { @provider.suggest_onboarding_discovery(transactions_context: []) }
+    assert_equal :unavailable, err.reason
+  end
+
+  test "network timeout classifies as :unavailable" do
+    stub_request(:post, @url).to_timeout
+    err = assert_raises(AiProviders::ApiError) { @provider.suggest_onboarding_discovery(transactions_context: []) }
+    assert_equal :unavailable, err.reason
+  end
+
   test "parses a successful discovery response" do
     payload = {
       candidates: [ { content: { parts: [ { text: {

@@ -108,6 +108,7 @@ class Api::V1::TransactionsController < ApplicationController
   # POST /api/v1/transactions/reanalyze — RF3.5 botão "Reanalisar com IA".
   def reanalyze
     pending_count = current_workspace.transactions.where(status: "pending").count
+    current_workspace.clear_ai_error! # nova tentativa → some o banner de erro
     AiSuggestion::ReanalyzeJob.perform_later(current_workspace.id)
     render json: { enqueued: true, pending_count: pending_count }, status: :accepted
   end
@@ -119,7 +120,10 @@ class Api::V1::TransactionsController < ApplicationController
     pending  = current_workspace.transactions.where(status: "pending")
     total    = pending.count
     analyzed = pending.where.not(ai_suggestion: nil).count
-    render json: { total: total, analyzed: analyzed, done: analyzed >= total }
+    render json: {
+      total: total, analyzed: analyzed, done: analyzed >= total,
+      error: current_workspace.ai_error_payload # {reason, message, at} | null
+    }
   end
 
   private

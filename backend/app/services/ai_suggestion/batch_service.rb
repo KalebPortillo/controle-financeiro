@@ -55,12 +55,15 @@ module AiSuggestion
       txs.each_with_object({}) do |tx, acc|
         acc[tx.id] = build_result(by_id[tx.id.to_s] || {}, onboarding)
       end
-    rescue AiProviders::ApiError => e
-      # 429 é relançado — o BatchSuggestJob tem retry_on com backoff e re-tenta o lote.
-      raise if e.message.include?("429")
-      Rails.logger.warn("[AiSuggestion::Batch] falhou para lote de #{txs.size}: #{e.message}")
-      fallback_for(txs)
-    rescue AiProviders::ConfigurationError, StandardError => e
+    rescue AiProviders::ApiError
+      # Erros de IA SOBEM pro job, que registra no workspace pra UI (feedback) e
+      # decide retry (transitório) vs descarte (quota). Sem fallback silencioso.
+      raise
+    rescue AiProviders::ConfigurationError => e
+      # Chave ausente/config inválida = IA indisponível pro usuário.
+      raise AiProviders::ApiError.new(e.message, reason: :unavailable)
+    rescue StandardError => e
+      # Bug inesperado (não-IA): degrada por tx pra não derrubar o lote inteiro.
       Rails.logger.warn("[AiSuggestion::Batch] falhou para lote de #{txs.size}: #{e.message}")
       fallback_for(txs)
     end

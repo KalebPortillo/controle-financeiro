@@ -42,6 +42,34 @@ class AiSuggestion::BatchSuggestJobTest < ActiveJob::TestCase
     end
   end
 
+  test "records the ai error and does not retry on quota" do
+    stub_batch_raises(AiProviders::ApiError.new("HTTP 429 depleted", reason: :quota))
+
+    assert_enqueued_jobs 0, only: AiSuggestion::BatchSuggestJob do
+      AiSuggestion::BatchSuggestJob.perform_now([ @tx1.id ])
+    end
+    assert_equal "quota", @workspace.reload.ai_error_payload[:reason]
+  end
+
+  test "records the ai error and retries on a transient error" do
+    stub_batch_raises(AiProviders::ApiError.new("down", reason: :unavailable))
+
+    # retry_on engole o relançamento e reagenda — um novo job é enfileirado.
+    assert_enqueued_jobs 1, only: AiSuggestion::BatchSuggestJob do
+      AiSuggestion::BatchSuggestJob.perform_now([ @tx1.id ])
+    end
+    assert_equal "unavailable", @workspace.reload.ai_error_payload[:reason]
+  end
+
+  test "clears a previously recorded ai error on success" do
+    @workspace.record_ai_error!(AiProviders::ApiError.new("old", reason: :quota))
+    stub_batch(@tx1.id => result(improved_title: "Mercado ABC", confidence: "high"))
+
+    AiSuggestion::BatchSuggestJob.perform_now([ @tx1.id ])
+
+    assert_nil @workspace.reload.ai_last_error
+  end
+
   private
 
   def result(overrides)
@@ -55,6 +83,13 @@ class AiSuggestion::BatchSuggestJobTest < ActiveJob::TestCase
     sclass = AiSuggestion::BatchService.singleton_class
     sclass.send(:alias_method, :__original_call, :call)
     sclass.send(:define_method, :call) { |**_| results }
+    @batch_stubbed = true
+  end
+
+  def stub_batch_raises(error)
+    sclass = AiSuggestion::BatchService.singleton_class
+    sclass.send(:alias_method, :__original_call, :call)
+    sclass.send(:define_method, :call) { |**_| raise error }
     @batch_stubbed = true
   end
 

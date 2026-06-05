@@ -39,6 +39,7 @@ module Api
         Onboarding::Service.advance(current_workspace, to: params[:to])
         case current_workspace.onboarding_state["status"]
         when "analyzing"
+          current_workspace.clear_ai_error! # nova análise → limpa erro anterior
           Onboarding::AnalyzeJob.perform_later(current_workspace.id)
         when "categorizing"
           Onboarding::SuggestCategoriesJob.perform_later(current_workspace.id)
@@ -65,10 +66,11 @@ module Api
       def serialize(workspace)
         state = workspace.onboarding_state || {}
         {
-          status:       state["status"],
-          current_step: current_step_for(state["status"]),
-          started_at:   state["started_at"],
-          completed_at: state["completed_at"]
+          status:         state["status"],
+          current_step:   current_step_for(state["status"]),
+          started_at:     state["started_at"],
+          completed_at:   state["completed_at"],
+          analysis_error: workspace.ai_error_payload # {reason, message, at} | null
         }
       end
 

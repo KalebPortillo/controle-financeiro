@@ -14,6 +14,11 @@ module AiSuggestion
 
       results = AiSuggestion::BatchService.call(transactions: txs)
       txs.each { |tx| AiSuggestion::Persist.call(tx, results[tx.id]) if results[tx.id] }
+      txs.first.workspace.clear_ai_error! # sucesso → some o banner de IA indisponível
+    rescue AiProviders::ApiError => e
+      # Feedback transparente: registra no workspace pra inbox mostrar o banner.
+      Transaction.find_by(id: transaction_ids.first)&.workspace&.record_ai_error!(e)
+      raise if e.retryable? # transitório → retry_on; quota → engole (sem retry inútil)
     end
   end
 end

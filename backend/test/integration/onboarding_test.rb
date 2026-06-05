@@ -17,6 +17,25 @@ class OnboardingTest < ActionDispatch::IntegrationTest
     body = JSON.parse(response.body)
     assert_equal "not_started", body["status"]
     assert_equal 0,             body["current_step"]
+    assert_nil body["analysis_error"]
+  end
+
+  test "GET /onboarding exposes a recorded ai analysis error" do
+    @workspace.update!(onboarding_state: { "status" => "analyzing" })
+    @workspace.record_ai_error!(AiProviders::ApiError.new("HTTP 429 depleted", reason: :quota))
+
+    get "/api/v1/onboarding"
+    err = JSON.parse(response.body)["analysis_error"]
+    assert_equal "quota", err["reason"]
+    assert_match(/limite/i, err["message"])
+  end
+
+  test "POST /onboarding/advance to analyzing clears a previous ai error" do
+    @workspace.update!(onboarding_state: { "status" => "connecting" })
+    @workspace.record_ai_error!(AiProviders::ApiError.new("x", reason: :quota))
+
+    post "/api/v1/onboarding/advance", params: { to: "analyzing" }
+    assert_nil @workspace.reload.ai_last_error
   end
 
   test "GET /onboarding requires authentication" do

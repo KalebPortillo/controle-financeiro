@@ -61,10 +61,10 @@ class Onboarding::AnalyzeJobTest < ActiveJob::TestCase
     end
   end
 
-  # RF22 bug: se a IA falha de vez (timeout/erro), o onboarding NÃO pode ficar
-  # preso em "analyzing". Após esgotar os retries, avança pra "tagging" com
-  # sugestões vazias — o usuário cai no passo de tags e segue manualmente.
-  test "after the provider keeps failing, the flow advances to tagging instead of staying stuck" do
+  # Erro de IA fica TRANSPARENTE pro usuário (camada de feedback): em vez de
+  # avançar em silêncio, registra o erro no workspace e mantém "analyzing" — a UI
+  # mostra o card amigável com "Continuar manualmente".
+  test "a transient failure records the ai error and keeps analyzing" do
     stub_failing_provider
 
     perform_enqueued_jobs do
@@ -73,7 +73,30 @@ class Onboarding::AnalyzeJobTest < ActiveJob::TestCase
       # o retry final relança; o que importa é o estado depois
     end
 
-    assert_equal "tagging", @workspace.reload.onboarding_state["status"]
+    @workspace.reload
+    assert_equal "analyzing", @workspace.onboarding_state["status"]
+    assert_equal "unavailable", @workspace.ai_error_payload[:reason]
+  end
+
+  test "a quota error is recorded without burning the 5 retries" do
+    stub_quota_provider
+
+    assert_enqueued_jobs 0, only: Onboarding::AnalyzeJob do
+      Onboarding::AnalyzeJob.perform_now(@workspace.id) # quota não re-tenta
+    end
+
+    @workspace.reload
+    assert_equal "analyzing", @workspace.onboarding_state["status"]
+    assert_equal "quota", @workspace.ai_error_payload[:reason]
+  end
+
+  test "a successful analysis clears a previously recorded ai error" do
+    @workspace.record_ai_error!(AiProviders::ApiError.new("old", reason: :quota))
+    stub_provider(tags: [ { name: "Mercado", rationale: "x", coverage: 1 } ], categories: [])
+
+    Onboarding::AnalyzeJob.perform_now(@workspace.id)
+
+    assert_nil @workspace.reload.ai_last_error
   end
 
   private
@@ -89,6 +112,13 @@ class Onboarding::AnalyzeJobTest < ActiveJob::TestCase
     klass = AiProviders::GeminiProvider
     klass.singleton_class.send(:alias_method, :__orig_new, :new) unless klass.singleton_class.method_defined?(:__orig_new)
     klass.singleton_class.send(:define_method, :new) { |**_| FailingProvider.new }
+    @stubbed = true
+  end
+
+  def stub_quota_provider
+    klass = AiProviders::GeminiProvider
+    klass.singleton_class.send(:alias_method, :__orig_new, :new) unless klass.singleton_class.method_defined?(:__orig_new)
+    klass.singleton_class.send(:define_method, :new) { |**_| QuotaProvider.new }
     @stubbed = true
   end
 
@@ -108,7 +138,13 @@ class Onboarding::AnalyzeJobTest < ActiveJob::TestCase
 
   class FailingProvider
     def suggest_onboarding_discovery(**_)
-      raise AiProviders::ApiError, "Gemini network error: Net::ReadTimeout"
+      raise AiProviders::ApiError.new("Gemini network error: Net::ReadTimeout", reason: :unavailable)
+    end
+  end
+
+  class QuotaProvider
+    def suggest_onboarding_discovery(**_)
+      raise AiProviders::ApiError.new("Gemini HTTP 429: depleted", reason: :quota)
     end
   end
 end

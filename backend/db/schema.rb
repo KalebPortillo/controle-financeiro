@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_04_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_04_213000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -183,6 +183,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_150000) do
     t.index ["transaction_id"], name: "index_transaction_edits_on_transaction_id"
   end
 
+  create_table "transaction_refunds", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "confirmed_at", null: false
+    t.uuid "confirmed_by_membership_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "refund_transaction_id", null: false
+    t.uuid "refunded_transaction_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["confirmed_by_membership_id"], name: "index_transaction_refunds_on_confirmed_by_membership_id"
+    t.index ["refund_transaction_id"], name: "index_transaction_refunds_on_refund_transaction_id", unique: true
+    t.index ["refunded_transaction_id"], name: "index_transaction_refunds_on_refunded_transaction_id"
+  end
+
   create_table "transaction_tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.uuid "tag_id", null: false
@@ -284,6 +296,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_150000) do
   add_foreign_key "tags", "workspaces"
   add_foreign_key "transaction_edits", "transactions"
   add_foreign_key "transaction_edits", "workspace_memberships", column: "edited_by_membership_id"
+  add_foreign_key "transaction_refunds", "transactions", column: "refund_transaction_id"
+  add_foreign_key "transaction_refunds", "transactions", column: "refunded_transaction_id"
+  add_foreign_key "transaction_refunds", "workspace_memberships", column: "confirmed_by_membership_id"
   add_foreign_key "transaction_tags", "tags"
   add_foreign_key "transaction_tags", "transactions"
   add_foreign_key "transactions", "accounts"

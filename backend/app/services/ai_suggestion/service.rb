@@ -30,7 +30,7 @@ module AiSuggestion
         normal_suggest(context, existing_tags)
       end
     rescue AiProviders::ApiError => e
-      # 429 é relançado — o SuggestJob tem retry_on com backoff exponencial.
+      # 429 é relançado — o job tem retry_on com backoff exponencial.
       raise if e.message.include?("429")
       Rails.logger.warn("[AiSuggestion] falhou para tx #{@transaction.id}: #{e.message}")
       fallback

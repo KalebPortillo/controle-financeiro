@@ -1,7 +1,7 @@
 require "test_helper"
 
 # Integração entre sync e onboarding (RF22):
-# - SuggestJob NÃO dispara durante onboarding ativo
+# - BatchSuggestJob NÃO dispara durante onboarding ativo
 # - O sync NÃO toca no onboarding_state nem dispara o AnalyzeJob (F2): a análise
 #   é iniciada explicitamente pelo usuário (clique em "Continuar" → advance para
 #   analyzing). Isso desacopla a análise do sync e evita o passo preso.
@@ -14,7 +14,7 @@ class BankConnections::OnboardingIntegrationTest < ActiveJob::TestCase
                          owner_membership: @membership)
   end
 
-  test "sync does not enqueue SuggestJob while onboarding is active" do
+  test "sync does not enqueue BatchSuggestJob while onboarding is active" do
     @workspace.update!(onboarding_state: { "status" => "connecting" })
 
     fake_tx = {
@@ -23,7 +23,7 @@ class BankConnections::OnboardingIntegrationTest < ActiveJob::TestCase
     }
     provider = FakeProvider.new(transactions: [ fake_tx ])
 
-    assert_no_enqueued_jobs only: AiSuggestion::SuggestJob do
+    assert_no_enqueued_jobs only: AiSuggestion::BatchSuggestJob do
       BankConnections::Sync.call(connection: @connection, provider: provider)
     end
   end
@@ -41,7 +41,7 @@ class BankConnections::OnboardingIntegrationTest < ActiveJob::TestCase
     assert_equal "connecting", @workspace.reload.onboarding_state["status"]
   end
 
-  test "sync enqueues SuggestJob normally when no onboarding is active" do
+  test "sync enqueues one BatchSuggestJob with the created tx ids when no onboarding is active" do
     @workspace.update!(onboarding_state: { "status" => "completed" })
 
     fake_tx = {
@@ -50,9 +50,12 @@ class BankConnections::OnboardingIntegrationTest < ActiveJob::TestCase
     }
     provider = FakeProvider.new(transactions: [ fake_tx ])
 
-    assert_enqueued_jobs 1, only: AiSuggestion::SuggestJob do
+    assert_enqueued_jobs 1, only: AiSuggestion::BatchSuggestJob do
       BankConnections::Sync.call(connection: @connection, provider: provider)
     end
+    batch = enqueued_jobs.find { |j| j[:job] == AiSuggestion::BatchSuggestJob }
+    tx = @workspace.transactions.find_by(source_metadata: { "id" => "ext-2" })
+    assert_equal [ tx.id ], batch[:args].first
   end
 
   # RF9.1 — detecção de recorrentes roda ao fim do sync (fora do onboarding).

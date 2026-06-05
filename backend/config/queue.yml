@@ -8,11 +8,13 @@ default: &default
       processes: <%= ENV.fetch("JOB_CONCURRENCY", 1) %>
       polling_interval: 0.1
     # AI suggestion jobs ficam numa queue separada com 1 thread — limita
-    # a 1 chamada Gemini por vez, respeitando o free tier (15 RPM).
+    # a 1 chamada Gemini por vez, respeitando o free tier (15 RPM). Com
+    # batching (P3) há poucos jobs, então o polling baixo pega o próximo
+    # lote rápido sem arriscar 429.
     - queues: "ai_suggestion"
       threads: 1
       processes: 1
-      polling_interval: 5
+      polling_interval: 1
 
 development:
   <<: *default

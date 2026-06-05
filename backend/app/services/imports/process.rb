@@ -8,6 +8,7 @@ module Imports
   # external_transaction_id. Grava contadores + error_log no Import.
   class Process
     PARSERS = { "csv" => Imports::CsvParser }.freeze
+    SUGGEST_BATCH_SIZE = 25
 
     def self.call(**kwargs)
       new(**kwargs).call
@@ -28,6 +29,7 @@ module Imports
       created = 0
       duplicated = 0
       row_errors = result[:errors].dup
+      @created_ids = []
       result[:rows].each_with_index do |row, i|
         case import_row(row)
         when :created    then created += 1
@@ -36,6 +38,7 @@ module Imports
         end
       end
 
+      dispatch_suggestions
       @import.complete!(created: created, duplicate: duplicated, errors: row_errors)
     rescue StandardError => e
       @import.fail!(e.message)
@@ -57,12 +60,19 @@ module Imports
         source:               "manual_import",
         source_metadata:      row[:raw].merge("id" => synthetic_id(row))
       )
-      AiSuggestion::SuggestJob.perform_later(tx.id)
+      @created_ids << tx.id
       :created
     rescue ActiveRecord::RecordNotUnique
       :duplicated
     rescue ActiveRecord::RecordInvalid, ArgumentError
       :errored
+    end
+
+    # IA em lote (P3): poucas chamadas ao Gemini em vez de 1 por linha importada.
+    def dispatch_suggestions
+      @created_ids.each_slice(SUGGEST_BATCH_SIZE) do |ids|
+        AiSuggestion::BatchSuggestJob.perform_later(ids)
+      end
     end
 
     # Conta destino: a do import, ou a conta manual do workspace (RF12).

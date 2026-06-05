@@ -18,7 +18,7 @@ module AiProviders
     TEMPERATURE       = 0.2
 
     # Erros de rede crus do Net::HTTP. Convertidos em ApiError pra que o
-    # retry_on dos jobs (AnalyzeJob/SuggestJob) os capture e re-tente com backoff,
+    # retry_on dos jobs (AnalyzeJob/BatchSuggestJob) os capture e re-tente com backoff,
     # em vez de matar o job e prender o onboarding em "analyzing".
     NETWORK_ERRORS = [
       Net::OpenTimeout, Net::ReadTimeout, Net::WriteTimeout,

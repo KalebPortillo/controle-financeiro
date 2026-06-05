@@ -6,31 +6,37 @@ class AiSuggestion::ReanalyzeJobTest < ActiveJob::TestCase
     @account   = create(:account, workspace: @workspace)
   end
 
-  test "enqueues SuggestJob for pending transactions without improved_title" do
+  # Reúne os ids enviados aos BatchSuggestJob enfileirados durante o bloco.
+  def batched_ids
+    assert_enqueued_jobs 1, only: AiSuggestion::BatchSuggestJob do
+      yield
+    end
+    enqueued_jobs.select { |j| j[:job] == AiSuggestion::BatchSuggestJob }
+                 .flat_map { |j| j[:args].first }
+  end
+
+  test "enqueues a batch for pending transactions without improved_title" do
     tx = create(:transaction, workspace: @workspace, account: @account,
                 status: "pending", improved_title: nil)
 
-    assert_enqueued_with(job: AiSuggestion::SuggestJob, args: [ tx.id ]) do
-      AiSuggestion::ReanalyzeJob.perform_now(@workspace.id)
-    end
+    ids = batched_ids { AiSuggestion::ReanalyzeJob.perform_now(@workspace.id) }
+    assert_includes ids, tx.id
   end
 
-  test "enqueues SuggestJob for low-confidence transactions" do
+  test "enqueues a batch for low-confidence transactions" do
     tx = create(:transaction, workspace: @workspace, account: @account,
                 status: "pending", improved_title: "ok", ai_confidence: 0.3)
 
-    assert_enqueued_with(job: AiSuggestion::SuggestJob, args: [ tx.id ]) do
-      AiSuggestion::ReanalyzeJob.perform_now(@workspace.id)
-    end
+    ids = batched_ids { AiSuggestion::ReanalyzeJob.perform_now(@workspace.id) }
+    assert_includes ids, tx.id
   end
 
-  test "enqueues SuggestJob for transactions without tags" do
+  test "enqueues a batch for transactions without tags" do
     tx = create(:transaction, workspace: @workspace, account: @account,
                 status: "pending", improved_title: "Titulo OK", ai_confidence: 0.9)
 
-    assert_enqueued_with(job: AiSuggestion::SuggestJob, args: [ tx.id ]) do
-      AiSuggestion::ReanalyzeJob.perform_now(@workspace.id)
-    end
+    ids = batched_ids { AiSuggestion::ReanalyzeJob.perform_now(@workspace.id) }
+    assert_includes ids, tx.id
   end
 
   test "ignores transactions that have title, high confidence and tags" do
@@ -38,7 +44,7 @@ class AiSuggestion::ReanalyzeJobTest < ActiveJob::TestCase
                 status: "pending", improved_title: "Titulo", ai_confidence: 0.9)
     tx.tags << create(:tag, workspace: @workspace)
 
-    assert_no_enqueued_jobs only: AiSuggestion::SuggestJob do
+    assert_no_enqueued_jobs only: AiSuggestion::BatchSuggestJob do
       AiSuggestion::ReanalyzeJob.perform_now(@workspace.id)
     end
   end
@@ -47,7 +53,7 @@ class AiSuggestion::ReanalyzeJobTest < ActiveJob::TestCase
     create(:transaction, workspace: @workspace, account: @account,
            status: "consolidated", improved_title: nil)
 
-    assert_no_enqueued_jobs only: AiSuggestion::SuggestJob do
+    assert_no_enqueued_jobs only: AiSuggestion::BatchSuggestJob do
       AiSuggestion::ReanalyzeJob.perform_now(@workspace.id)
     end
   end
@@ -58,7 +64,7 @@ class AiSuggestion::ReanalyzeJobTest < ActiveJob::TestCase
     create(:transaction, workspace: other_workspace, account: other_account,
            status: "pending", improved_title: nil)
 
-    assert_no_enqueued_jobs only: AiSuggestion::SuggestJob do
+    assert_no_enqueued_jobs only: AiSuggestion::BatchSuggestJob do
       AiSuggestion::ReanalyzeJob.perform_now(@workspace.id)
     end
   end

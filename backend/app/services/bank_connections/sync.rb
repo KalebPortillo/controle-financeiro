@@ -15,11 +15,16 @@ module BankConnections
       @provider   = provider
     end
 
+    # Transações por lote enviado à IA (P3). Com batching há poucos jobs e cada
+    # um classifica até SUGGEST_BATCH_SIZE numa única chamada ao Gemini.
+    SUGGEST_BATCH_SIZE = 25
+
     def call
       created = 0
       duplicated = 0
       errored = 0
       started = Time.current
+      @suggest_ids = []
 
       @connection.accounts.find_each do |account|
         next if account.external_id.blank?
@@ -51,9 +56,13 @@ module BankConnections
         last_sync_duration_seconds: (finished - started).round
       )
 
+      # IA em lote (P3): fora do onboarding, enfileira BatchSuggestJob em fatias
+      # de SUGGEST_BATCH_SIZE — poucas chamadas ao Gemini em vez de 1 por tx.
       # RF22/F2: o sync NÃO inicia mais a análise IA do onboarding. Ela é
       # disparada pelo usuário (clique em "Continuar" → advance para analyzing),
       # pra desacoplar a análise do sync e não prender o passo de análise.
+      dispatch_suggestions
+
       # RF9.1: detecção de recorrentes ao fim do sync (fora do onboarding).
       maybe_kickoff_recurrence_detection
 
@@ -79,6 +88,17 @@ module BankConnections
         error_count:      errored,
         error_message:    error_message
       )
+    end
+
+    # Fora do onboarding, enfileira a análise IA em lotes (P3). Durante o
+    # onboarding a IA roda em batch único pelo AnalyzeJob, disparado pelo usuário.
+    def dispatch_suggestions
+      return if @suggest_ids.empty?
+      return if onboarding_in_progress?(@connection.workspace)
+
+      @suggest_ids.each_slice(SUGGEST_BATCH_SIZE) do |ids|
+        AiSuggestion::BatchSuggestJob.perform_later(ids)
+      end
     end
 
     # Fora do onboarding, dispara as detecções sobre o histórico consolidado do
@@ -116,10 +136,7 @@ module BankConnections
           account_id: account.id, description: t[:description], total: installment.total
         )
       )
-      # RF22: durante o onboarding, NÃO disparamos o SuggestJob por tx —
-      # a IA roda em batch (AnalyzeJob) no fim do sync inicial pra evitar
-      # tags inconsistentes em modo onboarding um a um.
-      AiSuggestion::SuggestJob.perform_later(tx.id) unless onboarding_in_progress?(account.workspace)
+      @suggest_ids << tx.id
       :created
     rescue ActiveRecord::RecordNotUnique
       :duplicated

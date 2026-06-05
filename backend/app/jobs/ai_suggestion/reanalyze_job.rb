@@ -5,14 +5,16 @@ module AiSuggestion
   class ReanalyzeJob < ApplicationJob
     queue_as :default
 
-    BATCH_SIZE = 50
+    # Lote enviado à IA por chamada (P3): poucas chamadas ao Gemini em vez de
+    # 1 por tx.
+    BATCH_SIZE = 25
 
     def perform(workspace_id)
       workspace = Workspace.find_by(id: workspace_id)
       return unless workspace
 
-      eligible_transactions(workspace).find_each(batch_size: BATCH_SIZE) do |tx|
-        AiSuggestion::SuggestJob.perform_later(tx.id)
+      eligible_transactions(workspace).in_batches(of: BATCH_SIZE) do |batch|
+        AiSuggestion::BatchSuggestJob.perform_later(batch.ids)
       end
     end
 

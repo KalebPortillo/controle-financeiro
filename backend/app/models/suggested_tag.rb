@@ -1,5 +1,5 @@
 # Tag sugerida pela IA (RF3/RF22), separada das Tags reais (aceitas). Nasce no
-# onboarding (Onboarding::AnalyzeJob) ou na inbox (AiSuggestion::SuggestJob) com
+# onboarding (Onboarding::AnalyzeJob) ou na inbox (AiSuggestion::BatchSuggestJob) com
 # status "pending" e só vira uma Tag de verdade quando aceita pelo usuário.
 class SuggestedTag < ApplicationRecord
   include SuggestibleCatalog

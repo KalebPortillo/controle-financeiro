@@ -9,6 +9,14 @@ module AiProviders
     OPEN_TIMEOUT_SEC = 10
     READ_TIMEOUT_SEC = 30
 
+    # Performance (RF22): pra tarefa estruturada de classificação não precisamos do
+    # raciocínio interno do 2.5-flash (thinking) — desligá-lo (thinkingBudget: 0) é
+    # o maior ganho de latência/tokens. maxOutputTokens limita a saída ao JSON
+    # esperado (~25 itens em lote cabem folgado), e temperature baixa torna a
+    # classificação determinística. Vale pros 2 fluxos (inbox + onboarding).
+    MAX_OUTPUT_TOKENS = 2048
+    TEMPERATURE       = 0.2
+
     # Erros de rede crus do Net::HTTP. Convertidos em ApiError pra que o
     # retry_on dos jobs (AnalyzeJob/SuggestJob) os capture e re-tente com backoff,
     # em vez de matar o job e prender o onboarding em "analyzing".
@@ -80,7 +88,12 @@ module AiProviders
       uri = URI("#{BASE_URL}/#{@model}:generateContent?key=#{@api_key}")
       body = {
         contents: [ { parts: [ { text: prompt } ] } ],
-        generationConfig: { responseMimeType: "application/json" }
+        generationConfig: {
+          responseMimeType: "application/json",
+          thinkingConfig:   { thinkingBudget: 0 },
+          maxOutputTokens:  MAX_OUTPUT_TOKENS,
+          temperature:      TEMPERATURE
+        }
       }
 
       req      = Net::HTTP::Post.new(uri)

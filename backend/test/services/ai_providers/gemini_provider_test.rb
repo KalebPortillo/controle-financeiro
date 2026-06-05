@@ -6,6 +6,19 @@ class AiProviders::GeminiProviderTest < ActiveSupport::TestCase
     @url = %r{https://generativelanguage\.googleapis\.com/v1beta/models/.+:generateContent}
   end
 
+  # Performance: thinking desligado + saída limitada reduzem latência e tokens.
+  test "request disables thinking and caps output tokens" do
+    captured = nil
+    stub_request(:post, @url).with { |req| captured = JSON.parse(req.body); true }
+                             .to_return(status: 200, body: { candidates: [] }.to_json)
+    @provider.suggest_categories_from_tags(tag_names: [ "Alimentação" ])
+
+    gen = captured["generationConfig"]
+    assert_equal 0, gen.dig("thinkingConfig", "thinkingBudget")
+    assert_operator gen["maxOutputTokens"], :>, 0
+    assert_equal "application/json", gen["responseMimeType"]
+  end
+
   test "raises ConfigurationError when api key is blank" do
     provider = AiProviders::GeminiProvider.new(api_key: "", model: "gemini-2.5-flash")
     assert_raises(AiProviders::ConfigurationError) do

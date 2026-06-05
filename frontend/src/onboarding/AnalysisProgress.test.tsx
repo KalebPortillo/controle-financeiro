@@ -35,4 +35,12 @@ describe('<AnalysisProgress />', () => {
     expect(width).toBeGreaterThan(0)
     expect(width).toBeLessThanOrEqual(90)
   })
+
+  it('uses the real pct when provided and can reach 100%', () => {
+    const { rerender } = render(<AnalysisProgress steps={STEPS} pct={0.3} />)
+    expect(parseFloat(screen.getByTestId('analysis-progress-bar').style.width)).toBe(30)
+
+    rerender(<AnalysisProgress steps={STEPS} pct={1} />)
+    expect(parseFloat(screen.getByTestId('analysis-progress-bar').style.width)).toBe(100)
+  })
 })

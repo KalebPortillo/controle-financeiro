@@ -202,4 +202,40 @@ describe('<InboxPage />', () => {
       )
     })
   })
+
+  it('shows a real analysis progress bar while transactions are being analyzed', async () => {
+    setupFetch({
+      'GET /api/v1/transactions?status=pending': {
+        status: 200,
+        body: { transactions: [tx({ id: 't1' }), tx({ id: 't2' })], pending_count: 2 },
+      },
+      'GET /api/v1/transactions/analysis_progress': {
+        status: 200,
+        body: { total: 4, analyzed: 1, done: false },
+      },
+    })
+    renderInbox()
+
+    const progress = await screen.findByTestId('analysis-progress')
+    expect(progress).toHaveTextContent('1 de 4')
+    expect(progress).toHaveTextContent('25%')
+    expect(screen.getByTestId('reanalyze-btn')).toHaveTextContent('Analisando… 1/4')
+  })
+
+  it('hides the progress bar when analysis is done', async () => {
+    setupFetch({
+      'GET /api/v1/transactions?status=pending': {
+        status: 200,
+        body: { transactions: [tx({ id: 't1' })], pending_count: 1 },
+      },
+      'GET /api/v1/transactions/analysis_progress': {
+        status: 200,
+        body: { total: 1, analyzed: 1, done: true },
+      },
+    })
+    renderInbox()
+    await screen.findByTestId('inbox-row-t1')
+    expect(screen.queryByTestId('analysis-progress')).not.toBeInTheDocument()
+    expect(screen.getByTestId('reanalyze-btn')).toHaveTextContent('Reanalisar com IA')
+  })
 })

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { CreditCard, Check, CheckSquare, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Money } from '../components/Money'
@@ -11,6 +12,7 @@ import {
   type InboxTransaction,
   type AiConfidence,
 } from './useInbox'
+import { useAnalysisProgress } from './useAnalysisProgress'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
 import { SwipeableRow } from './SwipeableRow'
 
@@ -80,19 +82,27 @@ export function InboxPage() {
   }
 
   const reanalyze = useReanalyzeInbox()
-  // O job roda em background — mantém o estado "analisando" por até 90s
-  // ou até que o usuário recarregue, para dar feedback visual real.
-  const [analyzing, setAnalyzing] = useState(false)
-  const analyzeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const qc = useQueryClient()
+  // Progresso REAL da análise IA (P5): conta quantas pendentes já têm sugestão.
+  // Anda em degraus de batch e para sozinho quando done. Substitui o timer fake.
+  const progress = useAnalysisProgress(true)
+  const analyzing = progress.total > 0 && !progress.done
 
-  useEffect(() => () => { if (analyzeTimer.current) clearTimeout(analyzeTimer.current) }, [])
+  // Quando a análise termina (done passa a true), recarrega a inbox pra puxar
+  // os títulos/tags recém-sugeridos.
+  const wasAnalyzing = useRef(false)
+  useEffect(() => {
+    if (analyzing) wasAnalyzing.current = true
+    else if (wasAnalyzing.current) {
+      wasAnalyzing.current = false
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+    }
+  }, [analyzing, qc])
 
   const handleReanalyze = () => {
-    setAnalyzing(true)
     reanalyze.mutate(undefined, {
-      onSettled: () => {
-        analyzeTimer.current = setTimeout(() => setAnalyzing(false), 90_000)
-      },
+      // Refaz a leitura do progresso pra barra reagir ao novo lote enfileirado.
+      onSettled: () => qc.invalidateQueries({ queryKey: ['transactions', 'analysis_progress'] }),
     })
   }
 
@@ -112,16 +122,33 @@ export function InboxPage() {
             variant="outline"
             size="sm"
             onClick={handleReanalyze}
-            disabled={analyzing}
+            disabled={analyzing || reanalyze.isPending}
             data-testid="reanalyze-btn"
           >
             {analyzing
               ? <Loader2 size={14} className="animate-spin" />
               : <Sparkles size={14} />}
-            {analyzing ? 'Analisando…' : 'Reanalisar com IA'}
+            {analyzing
+              ? `Analisando… ${progress.analyzed}/${progress.total}`
+              : 'Reanalisar com IA'}
           </Button>
         )}
       </div>
+
+      {analyzing && (
+        <div className="mb-4 space-y-1" data-testid="analysis-progress">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-accent transition-all duration-500 ease-out"
+              style={{ width: `${Math.round(progress.pct * 100)}%` }}
+              data-testid="analysis-progress-bar"
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Analisando com IA · {progress.analyzed} de {progress.total} ({Math.round(progress.pct * 100)}%)
+          </p>
+        </div>
+      )}
 
       {isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
       {!isLoading && transactions.length === 0 && (

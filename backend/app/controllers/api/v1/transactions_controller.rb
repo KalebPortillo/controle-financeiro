@@ -1,6 +1,7 @@
 class Api::V1::TransactionsController < ApplicationController
   before_action :require_authentication!
-  before_action :set_transaction, only: [ :update, :destroy, :consolidate, :reject, :edits ]
+  before_action :set_transaction, only: [ :update, :destroy, :consolidate, :reject, :edits,
+                                          :refund_candidates, :link_refund ]
 
   # GET /api/v1/transactions — listagem por status (inbox = pending), com filtros.
   def index
@@ -85,6 +86,23 @@ class Api::V1::TransactionsController < ApplicationController
   # GET /api/v1/transactions/:id/edits — trilha de alterações (RF4.3).
   def edits
     render json: { edits: @transaction.edits.recent.map { |e| serialize_edit(e) } }
+  end
+
+  # GET /api/v1/transactions/:id/refund_candidates — gastos que :id (credit)
+  # pode estar estornando (RF10.1). Heurística por valor + recência.
+  def refund_candidates
+    candidates = Refunds::Candidates.call(credit: @transaction)
+    render json: { refund_candidates: candidates.map { |t| serialize(t) } }
+  end
+
+  # POST /api/v1/transactions/:id/link_refund { refunded_transaction_id } — vincula
+  # o estorno :id (credit) ao gasto informado (RF10.2). Confirmação humana (RF10.5).
+  def link_refund
+    debit = current_workspace.transactions.find(params.require(:refunded_transaction_id))
+    Refunds::Link.call(credit: @transaction, debit: debit, membership: current_membership)
+    render json: { transaction: serialize(@transaction.reload) }, status: :created
+  rescue ActiveRecord::RecordInvalid => e
+    render json: { error: { code: "invalid_refund", message: e.message } }, status: :unprocessable_entity
   end
 
   # POST /api/v1/transactions/reanalyze — RF3.5 botão "Reanalisar com IA".
@@ -206,7 +224,23 @@ class Api::V1::TransactionsController < ApplicationController
       installment_total:    t.installment_total,
       installment_group_id: t.installment_group_id,
       lock_version:         t.lock_version,
-      tags:                 t.tags.order(:name).map { |tag| { id: tag.id, name: tag.name, color: tag.color, icon: tag.icon } }
+      tags:                 t.tags.order(:name).map { |tag| { id: tag.id, name: tag.name, color: tag.color, icon: tag.icon } },
+      # RF10 — valor efetivo (desconta estornos) + resumo dos estornos recebidos.
+      effective_amount_cents: t.effective_amount_cents,
+      refund:                 serialize_refund(t)
+    }
+  end
+
+  # RF10 — para um gasto estornado, expõe quanto e quais estornos; nil se não há.
+  def serialize_refund(t)
+    return nil if t.refunds_received.empty?
+
+    {
+      refunded_amount_cents: t.refunded_amount_cents,
+      refunds: t.refunds_received.map do |r|
+        { id: r.id, refund_transaction_id: r.refund_transaction_id,
+          amount_cents: r.refund_transaction.amount_cents, confirmed_at: r.confirmed_at.iso8601 }
+      end
     }
   end
 end

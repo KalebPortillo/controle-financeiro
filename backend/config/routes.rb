@@ -57,11 +57,16 @@ Rails.application.routes.draw do
           post "consolidate"
           post "reject"
           get  "edits"
+          get  "refund_candidates" # RF10.1
+          post "link_refund"       # RF10.2
         end
         collection do
           post "reanalyze"
         end
       end
+
+      # Estornos (RF10) — desfazer um vínculo. Criação é via transactions#link_refund.
+      resources :transaction_refunds, only: [ :destroy ]
 
       # AI learned rules (RF3.2) — ver e apagar regras aprendidas.
       resources :ai_learned_rules, only: [ :index, :destroy ]

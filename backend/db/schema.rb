@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_04_214000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_05_014000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -33,6 +33,34 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_214000) do
     t.index ["workspace_id"], name: "index_accounts_on_workspace_id"
     t.check_constraint "institution::text = ANY (ARRAY['nubank'::character varying, 'inter'::character varying, 'itau'::character varying, 'santander'::character varying, 'bb'::character varying, 'sandbox'::character varying, 'manual'::character varying]::text[])", name: "accounts_institution_check"
     t.check_constraint "kind::text = ANY (ARRAY['checking'::character varying, 'credit_card'::character varying]::text[])", name: "accounts_kind_check"
+  end
+
+  create_table "active_storage_attachments", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.bigint "record_id", null: false
+    t.string "record_type", null: false
+    t.index ["blob_id"], name: "index_active_storage_attachments_on_blob_id"
+    t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
+  end
+
+  create_table "active_storage_blobs", force: :cascade do |t|
+    t.bigint "byte_size", null: false
+    t.string "checksum"
+    t.string "content_type"
+    t.datetime "created_at", null: false
+    t.string "filename", null: false
+    t.string "key", null: false
+    t.text "metadata"
+    t.string "service_name", null: false
+    t.index ["key"], name: "index_active_storage_blobs_on_key", unique: true
+  end
+
+  create_table "active_storage_variant_records", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.string "variation_digest", null: false
+    t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
   create_table "ai_learned_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -107,6 +135,30 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_214000) do
     t.index ["category_id", "tag_id"], name: "index_category_tags_on_category_id_and_tag_id", unique: true
     t.index ["category_id"], name: "index_category_tags_on_category_id"
     t.index ["tag_id"], name: "index_category_tags_on_tag_id"
+  end
+
+  create_table "imports", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.integer "created_count", default: 0, null: false
+    t.integer "duplicate_count", default: 0, null: false
+    t.integer "error_count", default: 0, null: false
+    t.jsonb "error_log"
+    t.integer "file_size_bytes", default: 0, null: false
+    t.string "filename", null: false
+    t.string "format", null: false
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "uploaded_by_membership_id", null: false
+    t.uuid "workspace_id", null: false
+    t.index ["account_id"], name: "index_imports_on_account_id"
+    t.index ["uploaded_by_membership_id"], name: "index_imports_on_uploaded_by_membership_id"
+    t.index ["workspace_id", "created_at"], name: "index_imports_on_workspace_id_and_created_at"
+    t.index ["workspace_id"], name: "index_imports_on_workspace_id"
+    t.check_constraint "format::text = ANY (ARRAY['csv'::character varying, 'ofx'::character varying]::text[])", name: "imports_format_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "imports_status_check"
   end
 
   create_table "internal_transfers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -296,6 +348,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_214000) do
   add_foreign_key "accounts", "bank_connections"
   add_foreign_key "accounts", "workspace_memberships", column: "owner_membership_id"
   add_foreign_key "accounts", "workspaces"
+  add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "ai_learned_rules", "workspaces"
   add_foreign_key "bank_connection_syncs", "bank_connections"
   add_foreign_key "bank_connections", "workspace_memberships", column: "owner_membership_id"
@@ -303,6 +357,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_214000) do
   add_foreign_key "categories", "workspaces"
   add_foreign_key "category_tags", "categories"
   add_foreign_key "category_tags", "tags"
+  add_foreign_key "imports", "accounts"
+  add_foreign_key "imports", "workspace_memberships", column: "uploaded_by_membership_id"
+  add_foreign_key "imports", "workspaces"
   add_foreign_key "internal_transfers", "transactions", column: "credit_transaction_id"
   add_foreign_key "internal_transfers", "transactions", column: "debit_transaction_id"
   add_foreign_key "internal_transfers", "workspace_memberships", column: "confirmed_by_membership_id"

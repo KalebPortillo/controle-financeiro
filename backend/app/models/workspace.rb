@@ -16,6 +16,7 @@ class Workspace < ApplicationRecord
   has_many :bank_connections, dependent: :destroy
   has_many :accounts, dependent: :destroy
   has_many :ai_learned_rules, dependent: :destroy
+  has_many :imports, dependent: :destroy
   has_many :memberships, class_name: "WorkspaceMembership", dependent: :destroy
   has_many :members, through: :memberships, source: :user
 

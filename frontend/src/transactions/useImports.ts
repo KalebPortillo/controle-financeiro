@@ -41,6 +41,8 @@ export function useImport(id: string | null) {
 export function useCreateImport() {
   const qc = useQueryClient()
   return useMutation({
+    // A própria ImportarPage já mostra o erro inline — sem toast duplicado.
+    meta: { silent: true },
     mutationFn: (input: { file: File; format?: 'csv'; accountId?: string }) => {
       const form = new FormData()
       form.append('file', input.file)

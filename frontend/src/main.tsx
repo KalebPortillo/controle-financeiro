@@ -1,23 +1,18 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { Toaster } from 'sonner'
 import * as Sentry from '@sentry/react'
 import './index.css'
 import App from './App.tsx'
 import { initSentry } from './sentry'
+import { createQueryClient } from './api/queryClient'
 
 initSentry()
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      // Sem usuários reais ainda — retry agressivo causaria ruído em dev.
-      retry: 1,
-      staleTime: 30_000,
-    },
-  },
-})
+// Feedback uniforme de erro: o QueryClient dispara toast por mutation falha.
+const queryClient = createQueryClient()
 
 const SentryErrorBoundary = Sentry.ErrorBoundary
 
@@ -39,6 +34,8 @@ createRoot(document.getElementById('root')!).render(
         <BrowserRouter>
           <App />
         </BrowserRouter>
+        {/* Toasts sóbrios (design system): feedback de erro de qualquer ação. */}
+        <Toaster position="bottom-right" theme="system" closeButton richColors={false} />
       </QueryClientProvider>
     </SentryErrorBoundary>
   </StrictMode>,

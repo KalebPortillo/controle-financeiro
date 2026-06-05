@@ -52,6 +52,23 @@ class ReportsTest < ActionDispatch::IntegrationTest
     assert body["period"]["to"].present?
   end
 
+  # RF10 — estorno desconta do gasto e o crédito-estorno não conta como receita.
+  test "overview discounts refunds from expense and excludes the refund credit from income" do
+    this_month = Date.current.beginning_of_month
+    refund_credit = create(:transaction, workspace: @workspace, account: @account,
+                           direction: "credit", amount_cents: 4_000,
+                           status: "consolidated", occurred_at: this_month + 5.days)
+    create(:transaction_refund, refund_transaction: refund_credit, refunded_transaction: @tx1,
+           confirmed_by_membership: @user.workspace_memberships.first)
+
+    get "/api/v1/reports/overview?period=current_month"
+    body = JSON.parse(response.body)
+    # gasto: 30_000 - 4_000 estornados = 26_000
+    assert_equal 26_000, body["expense_cents"]
+    # receita: só os 50_000 originais; o crédito de 4_000 é estorno, não receita
+    assert_equal 50_000, body["income_cents"]
+  end
+
   test "overview includes top_tags sorted by amount" do
     get "/api/v1/reports/overview?period=current_month"
     assert_response :ok

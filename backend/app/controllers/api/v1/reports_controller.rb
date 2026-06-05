@@ -153,16 +153,32 @@ module Api
           .where(status: "consolidated", direction: "debit", occurred_at: from..to)
       end
 
+      # RF10 — gasto efetivo: total bruto dos débitos menos os estornos recebidos
+      # por débitos do período (o estorno reduz o gasto, RF10.3).
       def debit_sum(from, to)
-        current_workspace.transactions
+        gross = current_workspace.transactions
           .where(status: "consolidated", direction: "debit", occurred_at: from..to)
           .sum(:amount_cents)
+        gross - refunds_in_period(from, to)
       end
 
+      # RF10 — receita real exclui créditos que são estornos (não é renda nova).
       def credit_sum(from, to)
         current_workspace.transactions
           .where(status: "consolidated", direction: "credit", occurred_at: from..to)
+          .where.missing(:refund_of)
           .sum(:amount_cents)
+      end
+
+      # Soma dos estornos cujos GASTOS estornados caem no período (centavos).
+      def refunds_in_period(from, to)
+        debit_ids = current_workspace.transactions
+          .where(status: "consolidated", direction: "debit", occurred_at: from..to)
+          .select(:id)
+        TransactionRefund
+          .where(refunded_transaction_id: debit_ids)
+          .joins(:refund_transaction)
+          .sum("transactions.amount_cents")
       end
 
       def top_tags(from, to, limit: 6)

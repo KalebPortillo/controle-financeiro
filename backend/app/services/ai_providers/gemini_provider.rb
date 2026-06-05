@@ -59,6 +59,16 @@ module AiProviders
       parse_batch_response(raw)
     end
 
+    # Inbox em lote (P2): classifica VÁRIAS transações numa só chamada, com as
+    # tags existentes do workspace. Mesma semântica do `suggest` de 1 tx, mas
+    # por lote. Retorna [{ transaction_id, improved_title, suggested_tag_ids,
+    # new_tag_suggestion, confidence }].
+    def suggest_inbox_batch(transactions_context:, existing_tags: [])
+      prompt = build_inbox_batch_prompt(transactions_context, existing_tags)
+      raw    = call_api(prompt)
+      parse_inbox_batch_response(raw)
+    end
+
     # Descoberta inicial de tags + categorias (RF22 onboarding).
     # transactions_context: array de hashes com :id, :description, :merchant_name etc.
     # existing_tags/categories: nomes em PT-BR a EXCLUIR (modo aditivo).
@@ -164,6 +174,39 @@ module AiProviders
         - Máximo 2 tags por transação.
 
         #{TAG_TAXONOMY_GUIDANCE}
+        Transações: #{list}
+      PROMPT
+    end
+
+    def build_inbox_batch_prompt(txs, existing_tags)
+      tags_json = existing_tags.map { |t| { id: t[:id], name: t[:name] } }.to_json
+      list = txs.map do |t|
+        { id: t[:id], description: t[:description], merchant: t[:merchant_name],
+          category: t[:pluggy_category], method: t[:payment_method],
+          receiver: t[:receiver_name], amount: t[:amount], direction: t[:direction] }
+      end.to_json
+
+      <<~PROMPT
+        Você é um assistente de finanças pessoais. Classifique as transações
+        abaixo e retorne um array JSON, uma entrada por transação, na mesma ordem:
+        [
+          {
+            "transaction_id": "...",
+            "improved_title": "Nome legível em PT-BR (máx 50 chars)",
+            "suggested_tag_ids": ["id de tag existente"],
+            "new_tag_suggestion": "nome de tag nova" | null,
+            "confidence": "high" | "medium" | "low"
+          }
+        ]
+        Regras:
+        - Priorize sempre tags existentes. Sugira tag nova só se nenhuma encaixar.
+        - improved_title conciso e em PT-BR. confidence: high = certeza,
+          medium = provável, low = chute.
+        - Seja consistente: o mesmo tipo de gasto deve receber as mesmas tags.
+
+        #{TAG_TAXONOMY_GUIDANCE}
+        Tags disponíveis: #{tags_json}
+
         Transações: #{list}
       PROMPT
     end
@@ -300,6 +343,21 @@ module AiProviders
         }
       end
     rescue JSON::ParseError
+      []
+    end
+
+    def parse_inbox_batch_response(raw)
+      data = JSON.parse(raw)
+      Array(data).map do |item|
+        {
+          transaction_id:     item["transaction_id"].to_s,
+          improved_title:     item["improved_title"].presence,
+          suggested_tag_ids:  Array(item["suggested_tag_ids"]).map(&:to_s),
+          new_tag_suggestion: item["new_tag_suggestion"].presence,
+          confidence:         item["confidence"].presence
+        }
+      end
+    rescue JSON::ParserError
       []
     end
 

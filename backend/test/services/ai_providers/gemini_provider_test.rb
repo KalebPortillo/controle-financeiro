@@ -19,6 +19,41 @@ class AiProviders::GeminiProviderTest < ActiveSupport::TestCase
     assert_equal "application/json", gen["responseMimeType"]
   end
 
+  # --- Inbox em lote (P2): 1 chamada classifica várias transações com as tags
+  #     existentes do workspace, devolvendo uma entrada por transaction_id. ---
+
+  test "suggest_inbox_batch returns one entry per transaction mapped by id" do
+    payload = { candidates: [ { content: { parts: [ { text: [
+      { transaction_id: "a", improved_title: "Mercado Extra",
+        suggested_tag_ids: [ "t1" ], new_tag_suggestion: nil, confidence: "high" },
+      { transaction_id: "b", improved_title: "Posto Shell",
+        suggested_tag_ids: [], new_tag_suggestion: "Transporte", confidence: "medium" }
+    ].to_json } ] } } ] }
+    stub_request(:post, @url).to_return(status: 200, body: payload.to_json)
+
+    result = @provider.suggest_inbox_batch(
+      transactions_context: [ { id: "a", description: "MERCADO" }, { id: "b", description: "POSTO" } ],
+      existing_tags: [ { id: "t1", name: "Alimentação" } ]
+    )
+
+    assert_equal 2, result.size
+    a = result.find { |r| r[:transaction_id] == "a" }
+    assert_equal "Mercado Extra", a[:improved_title]
+    assert_equal [ "t1" ], a[:suggested_tag_ids]
+    b = result.find { |r| r[:transaction_id] == "b" }
+    assert_equal "Transporte", b[:new_tag_suggestion]
+    assert_equal "medium", b[:confidence]
+  end
+
+  test "inbox batch prompt lists existing tags and carries taxonomy guidance" do
+    prompt = @provider.send(:build_inbox_batch_prompt,
+                            [ { id: "1", description: "UBER" } ],
+                            [ { id: "t1", name: "Transporte" } ])
+    assert_match(/Transporte/, prompt)
+    assert_match(/TEMAS AMPLOS/, prompt)
+    assert_match(/Priorize sempre tags existentes/, prompt)
+  end
+
   test "raises ConfigurationError when api key is blank" do
     provider = AiProviders::GeminiProvider.new(api_key: "", model: "gemini-2.5-flash")
     assert_raises(AiProviders::ConfigurationError) do

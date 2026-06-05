@@ -83,7 +83,7 @@ export function DashboardPage() {
         <SectionRow to="/tags" icon={<TagIcon size={16} />} title="Tags" sub="planas, múltiplas por gasto" testid="go-tags" />
         <SectionRow to="/categorias" icon={<Folder size={16} />} title="Categorias" sub="agrega tags" testid="go-categorias" />
         <SectionRow to="/transferencias" icon={<Repeat2 size={16} />} title="Movimentações internas" sub="transferências entre suas contas" testid="go-transferencias" />
-        <SectionRow icon={<Upload size={16} />} title="Importações CSV / OFX" sub="upload de extratos (em breve)" />
+        <SectionRow to="/importar" icon={<Upload size={16} />} title="Importar arquivo" sub="extratos CSV pra inbox" testid="go-importar" />
       </Card>
     </div>
   )

@@ -17,6 +17,7 @@ const ReportsPage   = lazy(() => import('./transactions/ReportsPage').then(m => 
 const OnboardingPage = lazy(() => import('./onboarding/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
 const RecorrentesPage = lazy(() => import('./recurrences/RecorrentesPage').then(m => ({ default: m.RecorrentesPage })))
 const TransferenciasPage = lazy(() => import('./transactions/TransferenciasPage').then(m => ({ default: m.TransferenciasPage })))
+const ImportarPage = lazy(() => import('./transactions/ImportarPage').then(m => ({ default: m.ImportarPage })))
 
 function LazyPage({ children }: { children: React.ReactNode }) {
   return (
@@ -66,6 +67,7 @@ export default function App() {
         <Route path="/categorias" element={<LazyPage><CategoriasPage /></LazyPage>} />
         <Route path="/recorrentes" element={<LazyPage><RecorrentesPage /></LazyPage>} />
         <Route path="/transferencias" element={<LazyPage><TransferenciasPage /></LazyPage>} />
+        <Route path="/importar" element={<LazyPage><ImportarPage /></LazyPage>} />
         <Route path="/relatorios" element={<LazyPage><ReportsPage /></LazyPage>} />
         <Route path="/mais" element={<LazyPage><DashboardPage /></LazyPage>} />
       </Route>

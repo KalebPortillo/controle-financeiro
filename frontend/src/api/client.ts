@@ -45,8 +45,11 @@ type RequestOptions = {
 export async function apiFetch<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const method = opts.method ?? 'GET'
   const headers: Record<string, string> = { Accept: 'application/json' }
-  let body: string | undefined
-  if (opts.body !== undefined) {
+  let body: string | FormData | undefined
+  if (opts.body instanceof FormData) {
+    // multipart (RF20 upload) — o browser seta o Content-Type com boundary.
+    body = opts.body
+  } else if (opts.body !== undefined) {
     headers['Content-Type'] = 'application/json'
     body = JSON.stringify(opts.body)
   }

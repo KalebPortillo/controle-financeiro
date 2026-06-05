@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router'
 import { OnboardingStep1Connect } from './OnboardingStep1Connect'
 import type { OnboardingState } from './useOnboarding'
 
@@ -55,7 +56,9 @@ function renderStep() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
-      <OnboardingStep1Connect state={state} />
+      <MemoryRouter>
+        <OnboardingStep1Connect state={state} />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 }

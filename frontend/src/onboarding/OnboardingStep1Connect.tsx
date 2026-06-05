@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import { Building2, Upload, CheckCircle2 } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
@@ -59,7 +60,7 @@ export function OnboardingStep1Connect({ state }: { state: OnboardingState }) {
 
       <div className="space-y-3">
         <ConnectBankCard historySince={historySince} connections={connected} />
-        <ImportCsvCardDisabled />
+        <ImportCsvCard />
       </div>
 
       <div className="flex items-center justify-end border-t border-border pt-4">
@@ -173,26 +174,25 @@ function ConnectBankCard({
   )
 }
 
-function ImportCsvCardDisabled() {
+function ImportCsvCard() {
   return (
-    <div className="border border-border rounded-md p-4 opacity-60">
+    <Link
+      to="/importar"
+      className="block border border-border rounded-md p-4 hover:bg-muted/50 transition-colors"
+      data-testid="onboarding-import-card"
+    >
       <div className="flex items-start gap-3">
-        <div className="h-9 w-9 rounded-md bg-muted text-muted-foreground flex items-center justify-center shrink-0">
+        <div className="h-9 w-9 rounded-md bg-accent/10 text-accent flex items-center justify-center shrink-0">
           <Upload size={18} />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium">Importar arquivo</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Em breve — CSV e OFX exportados do seu banco.
+            Suba um extrato CSV exportado do seu banco.
           </p>
-          <div className="mt-3">
-            <Button variant="outline" size="sm" disabled>
-              Em breve
-            </Button>
-          </div>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
 

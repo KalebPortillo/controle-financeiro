@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { CreditCard, Tag as TagIcon, Folder, Upload, ChevronRight } from 'lucide-react'
+import { CreditCard, Tag as TagIcon, Folder, Upload, Repeat2, ChevronRight } from 'lucide-react'
 import { useSession, useLogout, useSelectWorkspace } from '../auth/useSession'
 import { Button } from '../components/Button'
 import { Card, CardBody, CardHeader } from '../components/Card'
@@ -82,6 +82,7 @@ export function DashboardPage() {
         <SectionRow to="/contas" icon={<CreditCard size={16} />} title="Contas e sincronização" sub="Pluggy + status de sync" testid="go-contas" />
         <SectionRow to="/tags" icon={<TagIcon size={16} />} title="Tags" sub="planas, múltiplas por gasto" testid="go-tags" />
         <SectionRow to="/categorias" icon={<Folder size={16} />} title="Categorias" sub="agrega tags" testid="go-categorias" />
+        <SectionRow to="/transferencias" icon={<Repeat2 size={16} />} title="Movimentações internas" sub="transferências entre suas contas" testid="go-transferencias" />
         <SectionRow icon={<Upload size={16} />} title="Importações CSV / OFX" sub="upload de extratos (em breve)" />
       </Card>
     </div>

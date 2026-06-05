@@ -81,13 +81,15 @@ module BankConnections
       )
     end
 
-    # Fora do onboarding, dispara a detecção de recorrentes (RF9.1) sobre o
-    # histórico consolidado do workspace. Idempotente (ver Recurrences::Detect).
+    # Fora do onboarding, dispara as detecções sobre o histórico consolidado do
+    # workspace: recorrentes (RF9.1) e transferências internas (RF11.1). Ambas
+    # idempotentes (ver os respectivos services).
     def maybe_kickoff_recurrence_detection
       ws = @connection.workspace
       return if onboarding_in_progress?(ws)
 
       Recurrences::DetectJob.perform_later(ws.id)
+      InternalTransfers::DetectJob.perform_later(ws.id)
     end
 
     # :created | :duplicated | :errored. Unicidade é garantida no DB

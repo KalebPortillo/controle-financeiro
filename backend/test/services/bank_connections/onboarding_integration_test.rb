@@ -74,6 +74,16 @@ class BankConnections::OnboardingIntegrationTest < ActiveJob::TestCase
     end
   end
 
+  # RF11.1 — detecção de transferências internas também roda ao fim do sync.
+  test "sync enqueues InternalTransfers::DetectJob when onboarding is not active" do
+    @workspace.update!(onboarding_state: { "status" => "completed" })
+    provider = FakeProvider.new(transactions: [])
+
+    assert_enqueued_with(job: InternalTransfers::DetectJob, args: [ @workspace.id ]) do
+      BankConnections::Sync.call(connection: @connection, provider: provider)
+    end
+  end
+
   class FakeProvider
     def initialize(transactions: [])
       @transactions = transactions

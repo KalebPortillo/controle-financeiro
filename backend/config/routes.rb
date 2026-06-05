@@ -68,6 +68,9 @@ Rails.application.routes.draw do
       # Estornos (RF10) — desfazer um vínculo. Criação é via transactions#link_refund.
       resources :transaction_refunds, only: [ :destroy ]
 
+      # Transferências internas (RF11) — lista p/ reconciliação, marcar e desmarcar.
+      resources :internal_transfers, only: [ :index, :create, :destroy ]
+
       # AI learned rules (RF3.2) — ver e apagar regras aprendidas.
       resources :ai_learned_rules, only: [ :index, :destroy ]
 

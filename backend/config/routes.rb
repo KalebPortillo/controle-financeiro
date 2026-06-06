@@ -89,6 +89,7 @@ Rails.application.routes.draw do
       # categorias reais. accept cria a Category e associa as tags; destroy recusa.
       resources :suggested_categories, only: [ :index, :destroy ] do
         member { post "accept" }
+        collection { post "generate" } # gera sugestões on-demand via IA
       end
 
       # Recurrences (RF9) — recorrentes detectadas + cadastradas manualmente.

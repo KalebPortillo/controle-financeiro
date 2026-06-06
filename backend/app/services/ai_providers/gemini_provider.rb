@@ -17,6 +17,9 @@ module AiProviders
     MAX_OUTPUT_TOKENS = 2048
     TEMPERATURE       = 0.2
 
+    # Teto de categorias sugeridas por chamada (on-demand na tela de Categorias).
+    CATEGORIES_LIMIT = 10
+
     # Erros de rede crus do Net::HTTP. Convertidos em ApiError pra que o
     # retry_on dos jobs (AnalyzeJob/BatchSuggestJob) os capture e re-tente com backoff,
     # em vez de matar o job e prender o onboarding em "analyzing".
@@ -82,12 +85,14 @@ module AiProviders
     # 2ª análise do onboarding (RF22): a partir das tags JÁ aceitas pelo usuário,
     # sugere categorias amplas que as agrupem. Cada categoria vem com o subconjunto
     # de tag_names (só dentre as aceitas). Retorna [{name, tag_names}].
-    def suggest_categories_from_tags(tag_names:)
+    # `existing_categories`: nomes a EXCLUIR (modo aditivo) pra não duplicar
+    # categorias que já existem. Limita a CATEGORIES_LIMIT sugestões.
+    def suggest_categories_from_tags(tag_names:, existing_categories: [])
       return [] if Array(tag_names).empty?
 
-      prompt = build_categories_prompt(tag_names)
+      prompt = build_categories_prompt(tag_names, existing_categories)
       raw    = call_api(prompt)
-      parse_categories_response(raw)
+      parse_categories_response(raw).first(CATEGORIES_LIMIT)
     end
 
     private
@@ -284,7 +289,16 @@ module AiProviders
       PROMPT
     end
 
-    def build_categories_prompt(tag_names)
+    def build_categories_prompt(tag_names, existing_categories = [])
+      exclude_clause = ""
+      if Array(existing_categories).any?
+        exclude_clause = <<~EXC
+          IMPORTANTE — modo aditivo: NÃO sugira categorias que JÁ EXISTEM
+          (nem com nomes equivalentes): #{Array(existing_categories).to_json}.
+          Sugira só categorias NOVAS que faltam.
+        EXC
+      end
+
       <<~PROMPT
         Você é um assistente de finanças pessoais. O usuário já escolheu estas
         tags para o seu catálogo:
@@ -302,9 +316,10 @@ module AiProviders
         Regras:
         - Use SOMENTE tags da lista fornecida; não invente tags novas.
         - Uma tag pode estar em mais de uma categoria.
-        - Toda tag deve aparecer em ao menos uma categoria, se fizer sentido.
         - Nomes de categoria amplos e reutilizáveis (ex.: "Essenciais", "Moradia",
           "Lazer", "Transporte", "Saúde").
+        - Sugira no máximo 10 categorias, as mais relevantes primeiro.
+        #{exclude_clause}
       PROMPT
     end
 

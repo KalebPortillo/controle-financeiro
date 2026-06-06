@@ -168,8 +168,24 @@ class AiProviders::GeminiProviderTest < ActiveSupport::TestCase
   end
 
   test "categories prompt restricts to the provided tags" do
-    prompt = @provider.send(:build_categories_prompt, [ "Alimentação", "Transporte" ])
+    prompt = @provider.send(:build_categories_prompt, [ "Alimentação", "Transporte" ], [])
     assert_match(/SOMENTE tags da lista/, prompt)
     assert_match(/Alimentação/, prompt)
+  end
+
+  test "categories prompt excludes already-existing categories and caps at 10" do
+    prompt = @provider.send(:build_categories_prompt, [ "Alimentação" ], [ "Essenciais", "Lazer" ])
+    assert_match(/Essenciais/, prompt)
+    assert_match(/já existem/i, prompt)
+    assert_match(/10/, prompt)
+  end
+
+  test "suggest_categories_from_tags caps the result at 10" do
+    cats = (1..15).map { |i| { name: "Cat#{i}", tag_names: [ "Alimentação" ] } }
+    payload = { candidates: [ { content: { parts: [ { text: { categories: cats }.to_json } ] } } ] }
+    stub_request(:post, @url).to_return(status: 200, body: payload.to_json)
+
+    result = @provider.suggest_categories_from_tags(tag_names: [ "Alimentação" ])
+    assert_equal 10, result.size
   end
 end

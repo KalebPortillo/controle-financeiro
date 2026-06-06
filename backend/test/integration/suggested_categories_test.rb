@@ -26,6 +26,25 @@ class SuggestedCategoriesTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
+  test "GET /suggested_categories exposes the ai error (null when none)" do
+    get "/api/v1/suggested_categories"
+    assert_nil JSON.parse(response.body)["ai_error"]
+
+    @workspace.record_ai_error!(AiProviders::ApiError.new("HTTP 429 depleted", reason: :quota))
+    get "/api/v1/suggested_categories"
+    assert_equal "quota", JSON.parse(response.body).dig("ai_error", "reason")
+  end
+
+  test "POST /suggested_categories/generate enqueues the job and clears prior error" do
+    @workspace.record_ai_error!(AiProviders::ApiError.new("x", reason: :quota))
+
+    assert_enqueued_with(job: AiSuggestion::SuggestCategoriesJob, args: [ @workspace.id ]) do
+      post "/api/v1/suggested_categories/generate"
+    end
+    assert_response :accepted
+    assert_nil @workspace.reload.ai_last_error
+  end
+
   test "POST accept creates the category and links its tags by name" do
     create(:tag, workspace: @workspace, name: "Alimentação")
     create(:tag, workspace: @workspace, name: "Transporte")

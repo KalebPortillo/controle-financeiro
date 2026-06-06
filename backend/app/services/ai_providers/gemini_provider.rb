@@ -117,6 +117,9 @@ module AiProviders
     def call_api(prompt)
       raise AiProviders::ConfigurationError, "GEMINI_API_KEY not set" if @api_key.blank?
 
+      # Espaça as chamadas pra caber no RPM do free tier (no-op se desligado).
+      AiProviders::RateLimiter.throttle!
+
       uri = URI("#{BASE_URL}/#{@model}:generateContent?key=#{@api_key}")
       body = {
         contents: [ { parts: [ { text: prompt } ] } ],
@@ -153,17 +156,22 @@ module AiProviders
     end
 
     # Classifica o erro HTTP em uma categoria pra feedback ao usuário:
-    # - 429 com créditos esgotados/billing → :quota (permanente até recarga);
-    # - 429 de rate-limit → :rate_limit (transitório);
+    # - 429 com créditos pré-pagos esgotados → :quota (permanente até recarga);
+    # - 429 de limite DIÁRIO (free tier) → :daily (só volta no reset diário);
+    # - 429 de limite por minuto → :rate_limit (transitório, re-tentar resolve);
     # - 5xx → :unavailable (transitório);
     # - demais 4xx → :error.
+    #
+    # Atenção: NÃO usar "billing"/"credit" como pista de :quota — a mensagem de
+    # rate-limit do free tier traz links de ajuda com "billing", o que marcava
+    # erros transitórios como permanentes (eram descartados em vez de re-tentados).
     def http_error_reason(code, body)
-      if code == 429
-        body.match?(/RESOURCE_EXHAUSTED/i) && body.match?(/deplet|billing|credit/i) ? :quota : :rate_limit
-      elsif code >= 500
-        :unavailable
-      else
-        :error
+      return :unavailable if code >= 500
+      return :error unless code == 429
+
+      if body.match?(/deplet|prepayment/i)        then :quota
+      elsif body.match?(/per ?day|per[-_ ]?day|daily/i) then :daily
+      else                                              :rate_limit
       end
     end
 

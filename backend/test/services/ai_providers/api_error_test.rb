@@ -23,6 +23,13 @@ class AiProviders::ApiErrorTest < ActiveSupport::TestCase
     assert AiProviders::ApiError.new("x", reason: :unavailable).retryable?
   end
 
+  test "daily limit is not retryable (only resets next day) with its own message" do
+    err = AiProviders::ApiError.new("per day", reason: :daily)
+    assert_equal :daily, err.reason
+    refute err.retryable?
+    assert_match(/di[áa]ri/i, err.user_message)
+  end
+
   test "unknown reason falls back to :error" do
     assert_equal :error, AiProviders::ApiError.new("x", reason: :nonsense).reason
   end

@@ -9,7 +9,7 @@ module AiSuggestion
   class SuggestCategoriesJob < ApplicationJob
     queue_as :ai_suggestion
 
-    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 5
+    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 3
 
     def perform(workspace_id)
       workspace = Workspace.find_by(id: workspace_id)

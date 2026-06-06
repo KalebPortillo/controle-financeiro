@@ -6,7 +6,7 @@ module AiSuggestion
     queue_as :ai_suggestion
 
     # Gemini free tier: 15 RPM. 429 relança e o lote inteiro é re-tentado.
-    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 5
+    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 3
 
     def perform(transaction_ids)
       txs = Transaction.where(id: transaction_ids, status: "pending").to_a

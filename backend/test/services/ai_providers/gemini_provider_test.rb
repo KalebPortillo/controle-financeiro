@@ -95,13 +95,30 @@ class AiProviders::GeminiProviderTest < ActiveSupport::TestCase
     refute err.retryable?
   end
 
-  test "429 rate-limit classifies as :rate_limit (retryable)" do
+  test "429 per-minute rate-limit classifies as :rate_limit (retryable)" do
     body = { error: { code: 429, status: "RESOURCE_EXHAUSTED",
                       message: "Quota exceeded: requests per minute" } }.to_json
     stub_request(:post, @url).to_return(status: 429, body: body)
     err = assert_raises(AiProviders::ApiError) { @provider.suggest_onboarding_discovery(transactions_context: []) }
     assert_equal :rate_limit, err.reason
     assert err.retryable?
+  end
+
+  test "429 daily free-tier limit classifies as :daily (not retryable)" do
+    body = { error: { code: 429, status: "RESOURCE_EXHAUSTED",
+                      message: "Quota exceeded for generate_content_free_tier_requests, limit per day" } }.to_json
+    stub_request(:post, @url).to_return(status: 429, body: body)
+    err = assert_raises(AiProviders::ApiError) { @provider.suggest_onboarding_discovery(transactions_context: []) }
+    assert_equal :daily, err.reason
+    refute err.retryable?
+  end
+
+  test "429 rate-limit whose help text mentions billing stays :rate_limit (not :quota)" do
+    body = { error: { code: 429, status: "RESOURCE_EXHAUSTED",
+                      message: "Rate limit exceeded. Learn more about billing at https://ai.google.dev/billing" } }.to_json
+    stub_request(:post, @url).to_return(status: 429, body: body)
+    err = assert_raises(AiProviders::ApiError) { @provider.suggest_onboarding_discovery(transactions_context: []) }
+    assert_equal :rate_limit, err.reason
   end
 
   test "5xx classifies as :unavailable" do

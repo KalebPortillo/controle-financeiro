@@ -6,7 +6,7 @@ module Categories
   class SuggestTagsJob < ApplicationJob
     queue_as :ai_suggestion
 
-    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 5
+    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 3
 
     def perform(category_id)
       category  = Category.find_by(id: category_id)

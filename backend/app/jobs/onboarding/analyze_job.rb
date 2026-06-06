@@ -13,7 +13,7 @@ module Onboarding
     # permanente: não re-tenta — registra o erro no workspace pra UI mostrar e
     # mantém o passo em "analyzing" (o usuário decide continuar manualmente). Não
     # auto-avança em silêncio: erro de IA fica TRANSPARENTE pro usuário.
-    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 5
+    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 3
 
     MAX_TRANSACTIONS = 200
 

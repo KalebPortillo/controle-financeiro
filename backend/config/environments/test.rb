@@ -6,6 +6,9 @@
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 
+  # Sem throttle de IA nos testes (não dormir entre chamadas stubadas).
+  ENV["AI_MIN_REQUEST_INTERVAL"] ||= "0"
+
   # While tests run files are not watched, reloading is not necessary.
   config.enable_reloading = false
 

@@ -230,12 +230,57 @@ describe('<InboxPage />', () => {
       },
       'GET /api/v1/transactions/analysis_progress': {
         status: 200,
-        body: { total: 1, analyzed: 1, done: true },
+        body: { total: 1, analyzed: 1, done: true, error: null },
       },
     })
     renderInbox()
     await screen.findByTestId('inbox-row-t1')
     expect(screen.queryByTestId('analysis-progress')).not.toBeInTheDocument()
     expect(screen.getByTestId('reanalyze-btn')).toHaveTextContent('Reanalisar com IA')
+  })
+
+  it('shows a friendly banner (not the progress bar) when AI analysis errored', async () => {
+    setupFetch({
+      'GET /api/v1/transactions?status=pending': {
+        status: 200,
+        body: { transactions: [tx({ id: 't1' })], pending_count: 1 },
+      },
+      'GET /api/v1/transactions/analysis_progress': {
+        status: 200,
+        body: {
+          total: 4, analyzed: 1, done: false,
+          error: { reason: 'quota', message: 'O limite do serviço de IA foi atingido.', at: '2026-06-05T00:00:00Z' },
+        },
+      },
+    })
+    renderInbox()
+
+    const banner = await screen.findByTestId('ai-error-banner')
+    expect(banner).toHaveTextContent(/limite do serviço de IA/i)
+    expect(screen.queryByTestId('analysis-progress')).not.toBeInTheDocument()
+  })
+
+  it('retrying from the error banner posts to reanalyze', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/transactions?status=pending': {
+        status: 200,
+        body: { transactions: [tx({ id: 't1' })], pending_count: 1 },
+      },
+      'GET /api/v1/transactions/analysis_progress': {
+        status: 200,
+        body: { total: 4, analyzed: 1, done: false, error: { reason: 'quota', message: 'Limite.', at: 'x' } },
+      },
+      'POST /api/v1/transactions/reanalyze': { status: 202, body: { enqueued: true, pending_count: 4 } },
+    })
+    renderInbox()
+
+    const user = userEvent.setup()
+    await user.click(await screen.findByTestId('ai-error-retry'))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/transactions/reanalyze',
+        expect.objectContaining({ method: 'POST' })
+      )
+    )
   })
 })

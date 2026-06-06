@@ -15,6 +15,7 @@ import {
 import { useAnalysisProgress } from './useAnalysisProgress'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
 import { SwipeableRow } from './SwipeableRow'
+import { Alert } from '../components/Alert'
 
 function AiConfidenceBadge({ confidence }: { confidence: AiConfidence }) {
   if (!confidence) return null
@@ -86,7 +87,8 @@ export function InboxPage() {
   // Progresso REAL da análise IA (P5): conta quantas pendentes já têm sugestão.
   // Anda em degraus de batch e para sozinho quando done. Substitui o timer fake.
   const progress = useAnalysisProgress(true)
-  const analyzing = progress.total > 0 && !progress.done
+  const aiError = progress.error
+  const analyzing = progress.total > 0 && !progress.done && !aiError
 
   // Quando a análise termina (done passa a true), recarrega a inbox pra puxar
   // os títulos/tags recém-sugeridos.
@@ -148,6 +150,28 @@ export function InboxPage() {
             Analisando com IA · {progress.analyzed} de {progress.total} ({Math.round(progress.pct * 100)}%)
           </p>
         </div>
+      )}
+
+      {aiError && (
+        <Alert
+          variant="warning"
+          title="Sugestões por IA indisponíveis"
+          testid="ai-error-banner"
+          className="mb-4"
+          action={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReanalyze}
+              disabled={reanalyze.isPending}
+              data-testid="ai-error-retry"
+            >
+              Tentar de novo
+            </Button>
+          }
+        >
+          {aiError.message}
+        </Alert>
       )}
 
       {isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}

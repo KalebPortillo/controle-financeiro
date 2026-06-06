@@ -30,6 +30,7 @@ const state: OnboardingState = {
   current_step: 4,
   started_at: '2026-06-04T00:00:00Z',
   completed_at: null,
+  analysis_error: null,
 }
 
 function category(o = {}) {

@@ -50,6 +50,7 @@ const state: OnboardingState = {
   current_step: 1,
   started_at: '2026-06-03T00:00:00Z',
   completed_at: null,
+  analysis_error: null,
 }
 
 function renderStep() {

@@ -4,11 +4,15 @@ import { SESSION_KEY, type OnboardingStatus } from '../auth/useSession'
 
 // Estado de FLUXO do onboarding (RF22). As sugestões de tags/categorias NÃO
 // vivem aqui — vêm dos catálogos (useSuggestedTags / useSuggestedCategories).
+// Erro de IA exposto pela camada de feedback (mesmo formato no inbox).
+export type AiError = { reason: string; message: string; at: string }
+
 export type OnboardingState = {
   status: OnboardingStatus | null
   current_step: number | null
   started_at: string | null
   completed_at: string | null
+  analysis_error: AiError | null
 }
 
 export const ONBOARDING_KEY = ['onboarding'] as const

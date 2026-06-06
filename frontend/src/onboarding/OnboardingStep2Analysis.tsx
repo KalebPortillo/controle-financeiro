@@ -1,5 +1,7 @@
-import { useSkipAnalysis } from './useOnboarding'
+import { useSkipAnalysis, useOnboarding } from './useOnboarding'
 import { AnalysisProgress } from './AnalysisProgress'
+import { Alert } from '../components/Alert'
+import { Button } from '../components/Button'
 
 const ANALYSIS_STEPS = [
   'Lendo suas transações',
@@ -13,13 +15,18 @@ const ANALYSIS_STEPS = [
  * Status backend: "analyzing". Fica em polling até a análise terminar
  * (AnalyzeJob termina → status vira "tagging" → frontend avança sozinho).
  *
- * "Pular análise" chama advance(to: tagging) imediatamente. O AnalyzeJob
- * pode ainda estar rodando em background; quando terminar, grava no catálogo
- * suggested_tags (não-destrutivo) — as sugestões aparecem depois na página
- * de Tags e no inbox.
+ * Se a IA falha (ex.: limite/serviço indisponível), o backend registra o erro
+ * (camada de feedback) e a tela mostra um card amigável com "Continuar
+ * manualmente" — sem spinner infinito. Recuperando, o polling avança sozinho.
+ *
+ * "Pular análise" / "Continuar manualmente" chamam advance(to: tagging). O
+ * AnalyzeJob pode ainda estar rodando; quando terminar, grava no catálogo
+ * suggested_tags (não-destrutivo) — as sugestões aparecem depois.
  */
 export function OnboardingStep2Analysis() {
   const skip = useSkipAnalysis()
+  const { data } = useOnboarding()
+  const error = data?.analysis_error ?? null
 
   return (
     <div
@@ -27,24 +34,49 @@ export function OnboardingStep2Analysis() {
       data-testid="onboarding-step-2"
     >
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold tracking-tight">Analisando seus gastos</h1>
+        <h1 className="text-xl font-semibold tracking-tight">
+          {error ? 'Não consegui analisar agora' : 'Analisando seus gastos'}
+        </h1>
         <p className="text-xs text-muted-foreground max-w-xs">
-          Identificando padrões para sugerir tags e categorias. Pode deixar essa
-          tela aberta — a gente avança sozinho quando terminar.
+          {error
+            ? 'A análise por IA está indisponível no momento. Você pode continuar e organizar manualmente.'
+            : 'Identificando padrões para sugerir tags e categorias. Pode deixar essa tela aberta — a gente avança sozinho quando terminar.'}
         </p>
       </div>
 
-      <AnalysisProgress steps={ANALYSIS_STEPS} />
-
-      <button
-        type="button"
-        onClick={() => skip.mutate()}
-        disabled={skip.isPending}
-        className="text-xs text-muted-foreground hover:text-foreground underline"
-        data-testid="skip-analysis"
-      >
-        {skip.isPending ? 'Aguarde…' : 'Pular análise e continuar'}
-      </button>
+      {error ? (
+        <Alert
+          variant="warning"
+          title="Análise por IA indisponível"
+          testid="analysis-error"
+          className="max-w-sm text-left"
+          action={
+            <Button
+              size="sm"
+              onClick={() => skip.mutate()}
+              disabled={skip.isPending}
+              data-testid="continue-manually"
+            >
+              {skip.isPending ? 'Aguarde…' : 'Continuar e organizar manualmente'}
+            </Button>
+          }
+        >
+          {error.message} As sugestões aparecem depois, quando o serviço voltar.
+        </Alert>
+      ) : (
+        <>
+          <AnalysisProgress steps={ANALYSIS_STEPS} />
+          <button
+            type="button"
+            onClick={() => skip.mutate()}
+            disabled={skip.isPending}
+            className="text-xs text-muted-foreground hover:text-foreground underline"
+            data-testid="skip-analysis"
+          >
+            {skip.isPending ? 'Aguarde…' : 'Pular análise e continuar'}
+          </button>
+        </>
+      )}
     </div>
   )
 }

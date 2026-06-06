@@ -1,11 +1,15 @@
 import { useState, type FormEvent } from 'react'
+import { Sparkles } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { TagChip } from '../components/TagChip'
+import { Alert } from '../components/Alert'
 import { ApiError } from '../api/client'
 import { TagEditor } from './TagEditor'
 import { useTags } from './useTags'
 import type { InboxTag } from './useInbox'
+import { SuggestedCategoriesList } from './SuggestedCategoriesList'
+import { useSuggestedCategories, useGenerateSuggestedCategories } from './useSuggestedCategories'
 import {
   useCategories,
   useCreateCategory,
@@ -62,18 +66,84 @@ export function CategoriasPage() {
       </form>
       {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
 
-      <div className="border border-border rounded-lg overflow-hidden">
-        {isLoading && <p className="text-xs text-muted-foreground px-4 py-3">Carregando…</p>}
-        {!isLoading && (categories?.length ?? 0) === 0 && (
-          <p className="text-sm text-muted-foreground px-4 py-3" data-testid="categories-empty">
-            Nenhuma categoria ainda.
-          </p>
-        )}
-        {categories?.map((cat) => (
-          <CategoryRow key={cat.id} category={cat} allCategories={categories} />
-        ))}
-      </div>
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium">Suas categorias</h2>
+        <div className="border border-border rounded-lg overflow-hidden">
+          {isLoading && <p className="text-xs text-muted-foreground px-4 py-3">Carregando…</p>}
+          {!isLoading && (categories?.length ?? 0) === 0 && (
+            <p className="text-sm text-muted-foreground px-4 py-3" data-testid="categories-empty">
+              Nenhuma categoria ainda.
+            </p>
+          )}
+          {categories?.map((cat) => (
+            <CategoryRow key={cat.id} category={cat} allCategories={categories} />
+          ))}
+        </div>
+      </section>
+
+      <SuggestedCategoriesSection />
     </div>
+  )
+}
+
+/**
+ * Seção "Categorias sugeridas" — popula ao clicar "Sugerir categorias com IA".
+ * A IA agrupa as tags consolidadas em categorias novas (excluindo as que já
+ * existem). Aceitar move pra "Suas categorias"; recusar remove.
+ */
+function SuggestedCategoriesSection() {
+  const [generating, setGenerating] = useState(false)
+  const { suggestions, error } = useSuggestedCategories({ poll: generating })
+  const generate = useGenerateSuggestedCategories()
+
+  // Para o polling assim que as sugestões chegam ou um erro aparece. Reset
+  // durante render (padrão React), não em useEffect.
+  if (generating && (suggestions.length > 0 || error)) setGenerating(false)
+
+  const onGenerate = () => {
+    setGenerating(true)
+    generate.mutate()
+  }
+
+  return (
+    <section className="space-y-3" data-testid="suggested-categories">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-medium">Categorias sugeridas</h2>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onGenerate}
+          disabled={generating || generate.isPending}
+          data-testid="suggest-categories-btn"
+        >
+          <Sparkles size={14} />
+          {generating ? 'Sugerindo…' : 'Sugerir categorias com IA'}
+        </Button>
+      </div>
+
+      {error ? (
+        <Alert
+          variant="warning"
+          title="Sugestão de categorias indisponível"
+          testid="suggested-categories-error"
+          action={
+            <Button variant="outline" size="sm" onClick={onGenerate} disabled={generating} data-testid="suggest-categories-retry">
+              Tentar de novo
+            </Button>
+          }
+        >
+          {error.message}
+        </Alert>
+      ) : suggestions.length > 0 ? (
+        <SuggestedCategoriesList suggestions={suggestions} />
+      ) : (
+        <p className="text-xs text-muted-foreground" data-testid="suggested-categories-empty">
+          {generating
+            ? 'A IA está montando sugestões a partir das suas tags…'
+            : 'Clique em "Sugerir categorias com IA" para a IA agrupar suas tags em novas categorias.'}
+        </p>
+      )}
+    </section>
   )
 }
 

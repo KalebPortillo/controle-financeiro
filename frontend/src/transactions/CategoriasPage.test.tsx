@@ -99,4 +99,56 @@ describe('<CategoriasPage />', () => {
       expect(fetchMock).toHaveBeenCalledWith('/api/v1/categories/c1', expect.objectContaining({ method: 'DELETE' }))
     )
   })
+
+  // --- Categorias sugeridas (B-fe) ---
+
+  it('suggesting categories posts to generate', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/categories': { status: 200, body: { categories: [] } },
+      'GET /api/v1/suggested_categories': { status: 200, body: { suggested_categories: [], ai_error: null } },
+      'POST /api/v1/suggested_categories/generate': { status: 202, body: null },
+    })
+    renderCategorias()
+    const user = userEvent.setup()
+    await user.click(await screen.findByTestId('suggest-categories-btn'))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/suggested_categories/generate',
+        expect.objectContaining({ method: 'POST' })
+      )
+    )
+  })
+
+  it('renders suggested categories with their tags', async () => {
+    setupFetch({
+      'GET /api/v1/categories': { status: 200, body: { categories: [] } },
+      'GET /api/v1/suggested_categories': {
+        status: 200,
+        body: {
+          suggested_categories: [{ id: 's1', name: 'Essenciais', tag_names: ['Mercado', 'Contas'], status: 'pending' }],
+          ai_error: null,
+        },
+      },
+    })
+    renderCategorias()
+    expect(await screen.findByText('Essenciais')).toBeInTheDocument()
+    expect(screen.getByTestId('accept-suggested-category-s1')).toBeInTheDocument()
+  })
+
+  it('shows a friendly Alert when AI category suggestion failed', async () => {
+    setupFetch({
+      'GET /api/v1/categories': { status: 200, body: { categories: [] } },
+      'GET /api/v1/suggested_categories': {
+        status: 200,
+        body: {
+          suggested_categories: [],
+          ai_error: { reason: 'quota', message: 'O limite do serviço de IA foi atingido.', at: 'x' },
+        },
+      },
+    })
+    renderCategorias()
+    const banner = await screen.findByTestId('suggested-categories-error')
+    expect(banner).toHaveTextContent(/limite do serviço de IA/i)
+    expect(screen.getByTestId('suggest-categories-retry')).toBeInTheDocument()
+  })
 })

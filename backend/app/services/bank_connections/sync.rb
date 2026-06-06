@@ -145,7 +145,7 @@ module BankConnections
       :errored
     end
 
-    ONBOARDING_ACTIVE_STATUSES = %w[connecting analyzing tagging categorizing].freeze
+    ONBOARDING_ACTIVE_STATUSES = %w[connecting analyzing tagging].freeze
 
     def onboarding_in_progress?(workspace)
       ONBOARDING_ACTIVE_STATUSES.include?(workspace.onboarding_state&.dig("status"))

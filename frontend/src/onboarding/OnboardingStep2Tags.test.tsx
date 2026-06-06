@@ -86,10 +86,10 @@ describe('<OnboardingStep2Tags /> (rework: aceitas + sugeridas)', () => {
     )
   })
 
-  it('continue advances the onboarding (tagging→categorizing)', async () => {
+  it('concluding advances the onboarding (tagging→completed)', async () => {
     const { fetchMock } = setupFetch({
       '/api/v1/tags': { status: 200, body: { tags: [tag()] } },
-      'POST /api/v1/onboarding/advance': { status: 200, body: { status: 'categorizing', current_step: 4 } },
+      'POST /api/v1/onboarding/advance': { status: 200, body: { status: 'completed', current_step: null } },
     })
     renderStep()
     const user = userEvent.setup()

@@ -8,11 +8,11 @@ import { SuggestedTagsList } from '../transactions/SuggestedTagsList'
 import { useAdvanceOnboarding } from './useOnboarding'
 
 /**
- * Passo 3 do onboarding (RF22) — tags. Mesmo modelo da página Tags:
+ * Passo 3 (último) do onboarding (RF22) — tags. Mesmo modelo da página Tags:
  * - lista de tags ACEITAS (reais) no topo, com criar na hora + excluir;
  * - lista de tags SUGERIDAS pela IA abaixo (aceitar = vira real, recusar).
- * "Continuar" só avança (tagging→categorizing) — as tags já foram criadas
- * incrementalmente, então a transição dispara a 2ª análise (categorias).
+ * "Concluir" completa o onboarding (tagging→completed) — as categorias agora
+ * são sugeridas on-demand na tela de Categorias, não mais aqui.
  */
 export function OnboardingStep2Tags() {
   const { data: tags, isLoading } = useTags()
@@ -39,8 +39,8 @@ export function OnboardingStep2Tags() {
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Suas tags</h1>
         <p className="text-sm text-muted-foreground">
-          Aceite as sugestões da IA ou crie as suas. As tags aceitas viram a base
-          das suas categorias no próximo passo.
+          Aceite as sugestões da IA ou crie as suas. Depois você agrupa essas tags
+          em categorias na seção Categorias, quando quiser.
         </p>
       </div>
 
@@ -77,7 +77,7 @@ export function OnboardingStep2Tags() {
           disabled={advance.isPending}
           data-testid="continue-tags"
         >
-          {advance.isPending ? 'Continuando…' : 'Continuar'}
+          {advance.isPending ? 'Concluindo…' : 'Concluir'}
         </Button>
       </div>
     </div>

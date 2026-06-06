@@ -32,17 +32,15 @@ module Api
 
       # POST /api/v1/onboarding/advance { to?: "..." }
       # Dispara a IA conforme o passo em que entra:
-      # - "analyzing"    → 1ª análise (tags) via AnalyzeJob (F2, user-triggered)
-      # - "categorizing" → 2ª análise (categorias a partir das tags aceitas)
-      # - "completed"    → reanalisa a inbox c/ tags/categorias já criadas (RF22.6)
+      # - "analyzing" → 1ª análise (tags) via AnalyzeJob (F2, user-triggered)
+      # - "completed" → reanalisa a inbox c/ tags já criadas (RF22.6)
+      # (Categorias saíram do onboarding — sugestão é on-demand na tela de Categorias.)
       def advance
         Onboarding::Service.advance(current_workspace, to: params[:to])
         case current_workspace.onboarding_state["status"]
         when "analyzing"
           current_workspace.clear_ai_error! # nova análise → limpa erro anterior
           Onboarding::AnalyzeJob.perform_later(current_workspace.id)
-        when "categorizing"
-          Onboarding::SuggestCategoriesJob.perform_later(current_workspace.id)
         when "completed"
           AiSuggestion::ReanalyzeJob.perform_later(current_workspace.id)
         end
@@ -80,7 +78,6 @@ module Api
         when "connecting"       then 1
         when "analyzing"        then 2
         when "tagging"          then 3
-        when "categorizing"     then 4
         else                         nil
         end
       end

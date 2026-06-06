@@ -84,10 +84,10 @@ class OnboardingTest < ActionDispatch::IntegrationTest
   # ---- POST /onboarding/advance --------------------------------------------
 
   test "POST /onboarding/advance moves to next step" do
-    @workspace.update!(onboarding_state: { "status" => "tagging" })
+    @workspace.update!(onboarding_state: { "status" => "analyzing" })
     post "/api/v1/onboarding/advance"
     assert_response :ok
-    assert_equal "categorizing", @workspace.reload.onboarding_state["status"]
+    assert_equal "tagging", @workspace.reload.onboarding_state["status"]
   end
 
   test "POST /onboarding/advance accepts explicit to" do
@@ -117,16 +117,17 @@ class OnboardingTest < ActionDispatch::IntegrationTest
   test "POST /onboarding/advance to other steps does not enqueue the AnalyzeJob" do
     @workspace.update!(onboarding_state: { "status" => "tagging" })
     assert_no_enqueued_jobs only: Onboarding::AnalyzeJob do
-      post "/api/v1/onboarding/advance", params: { to: "categorizing" }, as: :json
+      post "/api/v1/onboarding/advance", params: { to: "completed" }, as: :json
     end
   end
 
-  # B-cat-2 — entrar em categorizing dispara a 2ª análise (categorias das tags).
-  test "POST /onboarding/advance to categorizing enqueues SuggestCategoriesJob" do
+  # Categorias saíram do onboarding: concluir as tags (tagging→completed) NÃO
+  # dispara mais sugestão de categorias — isso virou on-demand na tela Categorias.
+  test "POST /onboarding/advance from tagging completes without category suggestion" do
     @workspace.update!(onboarding_state: { "status" => "tagging" })
-    assert_enqueued_with(job: Onboarding::SuggestCategoriesJob, args: [ @workspace.id ]) do
-      post "/api/v1/onboarding/advance", params: { to: "categorizing" }, as: :json
-    end
+    post "/api/v1/onboarding/advance"
+    assert_response :ok
+    assert_equal "completed", @workspace.reload.onboarding_state["status"]
   end
 
   # ---- sessions/current includes onboarding ---------------------------------
@@ -139,10 +140,10 @@ class OnboardingTest < ActionDispatch::IntegrationTest
     assert_equal "tagging", body.dig("onboarding", "status")
   end
 
-  # R1 — concluir o onboarding (categorizing→completed) reanalisa a inbox com as
-  # tags/categorias já criadas (RF22.6).
+  # R1 — concluir o onboarding (tagging→completed) reanalisa a inbox com as
+  # tags já criadas (RF22.6).
   test "POST /onboarding/advance to completed enqueues the ReanalyzeJob" do
-    @workspace.update!(onboarding_state: { "status" => "categorizing" })
+    @workspace.update!(onboarding_state: { "status" => "tagging" })
     assert_enqueued_with(job: AiSuggestion::ReanalyzeJob, args: [ @workspace.id ]) do
       post "/api/v1/onboarding/advance", params: { to: "completed" }, as: :json
     end

@@ -5,12 +5,13 @@ module Onboarding
     InvalidTransition = Class.new(StandardError)
 
     # Ordem dos passos. nil = não aplicável (estados terminais ou iniciais).
+    # Categorias saíram do onboarding (vira on-demand na tela de Categorias):
+    # o passo de tags é o último e completa o fluxo.
     STEPS = {
       "not_started"   => "connecting",
       "connecting"    => "analyzing",
       "analyzing"     => "tagging",
-      "tagging"       => "categorizing",
-      "categorizing"  => "completed"
+      "tagging"       => "completed"
     }.freeze
 
     TERMINAL = %w[completed skipped].freeze

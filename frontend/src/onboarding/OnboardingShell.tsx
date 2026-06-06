@@ -6,10 +6,9 @@ import { StepIndicator, type Step } from './StepIndicator'
 import { useSkipOnboarding } from './useOnboarding'
 
 const STEPS: readonly Step[] = [
-  { id: 'connect',    label: 'Conectar'   },
-  { id: 'analysis',  label: 'Análise'    },
-  { id: 'tags',       label: 'Tags'       },
-  { id: 'categories', label: 'Categorias' },
+  { id: 'connect',  label: 'Conectar' },
+  { id: 'analysis', label: 'Análise'  },
+  { id: 'tags',     label: 'Tags'     },
 ]
 
 /**

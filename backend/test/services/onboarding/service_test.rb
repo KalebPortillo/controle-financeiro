@@ -41,7 +41,7 @@ class Onboarding::ServiceTest < ActiveSupport::TestCase
   # ---- skip -----------------------------------------------------------------
 
   test "skip moves any pre-terminal state to skipped" do
-    %w[not_started connecting analyzing tagging categorizing].each do |status|
+    %w[not_started connecting analyzing tagging].each do |status|
       ws = create(:workspace, onboarding_state: { "status" => status })
       Onboarding::Service.skip(ws)
       assert_equal "skipped", ws.reload.onboarding_state["status"]
@@ -75,14 +75,8 @@ class Onboarding::ServiceTest < ActiveSupport::TestCase
     assert_equal "tagging", @workspace.reload.onboarding_state["status"]
   end
 
-  test "advance from tagging goes to categorizing" do
+  test "advance from tagging goes to completed and records completed_at" do
     @workspace.update!(onboarding_state: { "status" => "tagging" })
-    Onboarding::Service.advance(@workspace)
-    assert_equal "categorizing", @workspace.reload.onboarding_state["status"]
-  end
-
-  test "advance from categorizing goes to completed and records completed_at" do
-    @workspace.update!(onboarding_state: { "status" => "categorizing" })
     Onboarding::Service.advance(@workspace)
     state = @workspace.reload.onboarding_state
     assert_equal "completed", state["status"]
@@ -112,12 +106,12 @@ class Onboarding::ServiceTest < ActiveSupport::TestCase
 
   test "transitions preserve previously stored suggestions" do
     @workspace.update!(onboarding_state: {
-      "status" => "tagging",
+      "status" => "analyzing",
       "suggested_tags" => [ { "name" => "Mercado" } ]
     })
     Onboarding::Service.advance(@workspace)
     state = @workspace.reload.onboarding_state
-    assert_equal "categorizing", state["status"]
+    assert_equal "tagging", state["status"]
     assert_equal [ { "name" => "Mercado" } ], state["suggested_tags"]
   end
 end

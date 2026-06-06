@@ -109,7 +109,6 @@ class Api::V1::SessionsController < ApplicationController
     when "connecting"       then 1
     when "analyzing"        then 2
     when "tagging"          then 3
-    when "categorizing"     then 4
     end
   end
 

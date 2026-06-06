@@ -13,8 +13,18 @@ module AiSuggestion
       workspace = Workspace.find_by(id: workspace_id)
       return unless workspace
 
-      eligible_transactions(workspace).in_batches(of: BATCH_SIZE) do |batch|
-        AiSuggestion::BatchSuggestJob.perform_later(batch.ids)
+      ids = eligible_transactions(workspace).pluck(:id)
+      return if ids.empty?
+
+      # Zera o snapshot das elegíveis ANTES de reenfileirar: assim a barra de
+      # progresso (que conta pending com ai_suggestion) reflete a reanálise —
+      # senão, tx já "analisadas" deixam done=true e o loading nunca aparece. De
+      # quebra, limpa snapshots vazios deixados por respostas truncadas. As
+      # sugestões reais são regravadas pelo BatchSuggestJob.
+      workspace.transactions.where(id: ids).update_all(ai_suggestion: nil)
+
+      ids.each_slice(BATCH_SIZE) do |batch_ids|
+        AiSuggestion::BatchSuggestJob.perform_later(batch_ids)
       end
     end
 

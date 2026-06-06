@@ -48,7 +48,12 @@ Rails.application.routes.draw do
 
       # Categorias (RF6) — agregam tags pra relatórios/orçamentos.
       resources :categories, only: [ :index, :create, :update, :destroy ] do
-        member { post "merge" }
+        member do
+          post "merge"
+          post "suggest_tags" # gera sugestões de tag faltante (IA, on-demand)
+          post "tag_suggestions/:tag_id/accept", action: :accept_tag_suggestion
+          delete "tag_suggestions/:tag_id",      action: :dismiss_tag_suggestion
+        end
       end
 
       # Transactions (RF2 inbox + RF4) — listagem/leitura + workflow da inbox.

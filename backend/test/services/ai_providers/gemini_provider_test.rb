@@ -180,6 +180,34 @@ class AiProviders::GeminiProviderTest < ActiveSupport::TestCase
     assert_match(/10/, prompt)
   end
 
+  # --- Sugerir tags faltantes para uma categoria (só das candidatas) ---
+
+  test "suggest_tags_for_category returns [] for empty candidates without calling the API" do
+    assert_equal [], @provider.suggest_tags_for_category(
+      category_name: "Casa", member_tag_names: [ "Aluguel" ], candidate_tag_names: []
+    )
+  end
+
+  test "suggest_tags_for_category only returns names from the candidate list" do
+    payload = { candidates: [ { content: { parts: [ { text: {
+      tag_names: [ "Luz", "Água", "Inventada" ]
+    }.to_json } ] } } ] }
+    stub_request(:post, @url).to_return(status: 200, body: payload.to_json)
+
+    result = @provider.suggest_tags_for_category(
+      category_name: "Contas da casa", member_tag_names: [ "Aluguel" ],
+      candidate_tag_names: [ "Luz", "Água", "Transporte" ]
+    )
+    assert_equal [ "Luz", "Água" ], result # "Inventada" descartada por não ser candidata
+  end
+
+  test "category tags prompt restricts to candidate tags" do
+    prompt = @provider.send(:build_category_tags_prompt, "Casa", [ "Aluguel" ], [ "Luz", "Água" ])
+    assert_match(/Casa/, prompt)
+    assert_match(/SOMENTE/, prompt)
+    assert_match(/Luz/, prompt)
+  end
+
   test "suggest_categories_from_tags caps the result at 10" do
     cats = (1..15).map { |i| { name: "Cat#{i}", tag_names: [ "Alimentação" ] } }
     payload = { candidates: [ { content: { parts: [ { text: { categories: cats }.to_json } ] } } ] }

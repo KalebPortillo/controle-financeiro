@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_05_220000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_06_010000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -125,6 +125,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_05_220000) do
     t.uuid "workspace_id", null: false
     t.index ["workspace_id", "name"], name: "index_categories_on_workspace_id_and_name", unique: true
     t.index ["workspace_id"], name: "index_categories_on_workspace_id"
+  end
+
+  create_table "category_tag_suggestions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "category_id", null: false
+    t.datetime "created_at", null: false
+    t.string "status", default: "pending", null: false
+    t.uuid "tag_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["category_id", "tag_id"], name: "index_category_tag_suggestions_on_category_id_and_tag_id", unique: true
+    t.index ["category_id"], name: "index_category_tag_suggestions_on_category_id"
+    t.index ["tag_id"], name: "index_category_tag_suggestions_on_tag_id"
   end
 
   create_table "category_tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -356,6 +367,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_05_220000) do
   add_foreign_key "bank_connections", "workspace_memberships", column: "owner_membership_id"
   add_foreign_key "bank_connections", "workspaces"
   add_foreign_key "categories", "workspaces"
+  add_foreign_key "category_tag_suggestions", "categories"
+  add_foreign_key "category_tag_suggestions", "tags"
   add_foreign_key "category_tags", "categories"
   add_foreign_key "category_tags", "tags"
   add_foreign_key "imports", "accounts"

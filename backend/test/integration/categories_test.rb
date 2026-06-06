@@ -98,4 +98,58 @@ class CategoriesTest < ActionDispatch::IntegrationTest
     assert_not Category.exists?(src.id)
     assert_equal [ t1.id, t2.id ].sort, dest.reload.tags.pluck(:id).sort
   end
+
+  # --- Sugestão de tags por categoria (RF6, C-be) ---
+
+  test "GET /categories includes pending tag_suggestions and ai_error" do
+    cat = create(:category, workspace: @workspace, name: "Contas")
+    luz = create(:tag, workspace: @workspace, name: "Luz")
+    cat.category_tag_suggestions.create!(tag: luz, status: "pending")
+    @workspace.record_ai_error!(AiProviders::ApiError.new("HTTP 429 depleted", reason: :quota))
+
+    get "/api/v1/categories"
+    body = JSON.parse(response.body)
+    serialized = body["categories"].find { |c| c["id"] == cat.id }
+    assert_equal [ "Luz" ], serialized["tag_suggestions"].map { |t| t["name"] }
+    assert_equal "quota", body.dig("ai_error", "reason")
+  end
+
+  test "POST /categories/:id/suggest_tags enqueues the job and clears prior error" do
+    cat = create(:category, workspace: @workspace, name: "Contas")
+    @workspace.record_ai_error!(AiProviders::ApiError.new("x", reason: :quota))
+
+    assert_enqueued_with(job: Categories::SuggestTagsJob, args: [ cat.id ]) do
+      post "/api/v1/categories/#{cat.id}/suggest_tags"
+    end
+    assert_response :accepted
+    assert_nil @workspace.reload.ai_last_error
+  end
+
+  test "POST accept_tag_suggestion adds the tag to the category and marks accepted" do
+    cat = create(:category, workspace: @workspace, name: "Contas")
+    luz = create(:tag, workspace: @workspace, name: "Luz")
+    sug = cat.category_tag_suggestions.create!(tag: luz, status: "pending")
+
+    post "/api/v1/categories/#{cat.id}/tag_suggestions/#{luz.id}/accept"
+    assert_response :ok
+    assert_includes cat.reload.tags.pluck(:id), luz.id
+    assert_equal "accepted", sug.reload.status
+  end
+
+  test "DELETE tag_suggestion marks it dismissed without adding the tag" do
+    cat = create(:category, workspace: @workspace, name: "Contas")
+    luz = create(:tag, workspace: @workspace, name: "Luz")
+    sug = cat.category_tag_suggestions.create!(tag: luz, status: "pending")
+
+    delete "/api/v1/categories/#{cat.id}/tag_suggestions/#{luz.id}"
+    assert_response :no_content
+    assert_equal "dismissed", sug.reload.status
+    assert_not cat.reload.tags.exists?(luz.id)
+  end
+
+  test "tag suggestion endpoints are scoped to the workspace" do
+    foreign = create(:category, workspace: create(:workspace), name: "Alheia")
+    post "/api/v1/categories/#{foreign.id}/suggest_tags"
+    assert_response :not_found
+  end
 end

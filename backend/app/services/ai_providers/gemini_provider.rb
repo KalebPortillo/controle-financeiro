@@ -95,6 +95,18 @@ module AiProviders
       parse_categories_response(raw).first(CATEGORIES_LIMIT)
     end
 
+    # Sugere, dentre as tags CANDIDATAS (já existentes, fora da categoria), quais
+    # também pertencem a uma categoria. Nunca inventa tag — devolve só nomes da
+    # lista candidata. Retorna [nomes].
+    def suggest_tags_for_category(category_name:, member_tag_names:, candidate_tag_names:)
+      candidates = Array(candidate_tag_names)
+      return [] if candidates.empty?
+
+      prompt = build_category_tags_prompt(category_name, member_tag_names, candidates)
+      raw    = call_api(prompt)
+      parse_tag_names_response(raw) & candidates
+    end
+
     private
 
     def call_api(prompt)
@@ -321,6 +333,30 @@ module AiProviders
         - Sugira no máximo 10 categorias, as mais relevantes primeiro.
         #{exclude_clause}
       PROMPT
+    end
+
+    def build_category_tags_prompt(category_name, member_tag_names, candidate_tag_names)
+      <<~PROMPT
+        Você é um assistente de finanças pessoais. A categoria "#{category_name}"
+        já agrupa estas tags: #{Array(member_tag_names).to_json}.
+
+        Das tags CANDIDATAS abaixo, quais TAMBÉM pertencem a essa categoria?
+        Candidatas: #{candidate_tag_names.to_json}
+
+        Retorne JSON:
+        { "tag_names": ["apenas nomes que estão na lista de candidatas"] }
+        Regras:
+        - Use SOMENTE nomes da lista de candidatas; não invente tags.
+        - Inclua só as que de fato combinam com a categoria. Se nenhuma encaixar,
+          retorne uma lista vazia.
+      PROMPT
+    end
+
+    def parse_tag_names_response(raw)
+      data = JSON.parse(raw)
+      Array(data["tag_names"]).map { |n| n.to_s.strip }.reject(&:empty?)
+    rescue JSON::ParserError
+      []
     end
 
     def parse_categories_response(raw)

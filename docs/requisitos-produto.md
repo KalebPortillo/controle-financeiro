@@ -113,6 +113,8 @@ O prompt enviado à IA é **compacto** (só os campos acima extraídos do JSONB 
 - **RF6.3** Categorias são usadas como **dimensão de agregação** em relatórios, dashboards e orçamentos. Não substituem tags.
 - **RF6.4** Gestão: criar, renomear, mesclar, excluir.
 - **RF6.5** Categorias são acessadas e mantidas na área de gastos **consolidados** (não na inbox).
+- **RF6.7** **Sugestão de categorias por IA (on-demand).** Na tela de Categorias, um botão "Sugerir categorias com IA" gera categorias **novas** a partir das tags consolidadas, **excluindo** as categorias já existentes (sem duplicar), no máximo **10**. Cada sugestão vem com as tags relacionadas; o usuário **aceita** (vira categoria real + associa as tags, sai das sugeridas e entra nas consolidadas) ou **recusa**. Catálogo `suggested_categories`.
+- **RF6.8** **Sugestão de tags faltantes por categoria (on-demand, persistida).** Cada categoria consolidada tem um botão "Sugerir tags": a IA propõe, dentre as tags **já consolidadas** que ainda **não** estão na categoria, quais encaixam. As sugestões ficam **salvas** (catálogo `category_tag_suggestions`); o usuário **aceita** (adiciona a tag à categoria) ou **recusa**. Nunca cria tag nova.
 - **RF6.6** **Não-duplicação em totalizações.** Quando uma tag pertence a múltiplas categorias, o valor do gasto **nunca é somado mais de uma vez** no total real do período. Regras:
   - **Total geral do período** (ex.: "você gastou R$ X este mês"): cada gasto entra exatamente uma vez, independente de quantas categorias suas tags integrem. É a soma direta dos gastos consolidados.
   - **Visão por categoria** (ex.: gráfico de pizza, lista de categorias com valor): o mesmo gasto pode aparecer em mais de uma categoria. A soma das categorias **pode ser maior** que o total real do período — isso é esperado e o sistema deve sinalizar visualmente quando há overlap (ex.: nota no rodapé do gráfico, ou contagem "X gastos contam em mais de uma categoria").
@@ -247,8 +249,9 @@ deixa tudo pronto para revisar.
 - **RF22.4** **Skippable em todo passo.** Cada etapa tem botão "Pular agora"
   e botão "Pular onboarding" que vai direto para a inbox. Não trava o usuário
   em nenhum momento.
-- **RF22.5** **Quatro passos** sequenciais, com indicador de progresso visível
-  (Conectar · Análise · Tags · Categorias):
+- **RF22.5** **Três passos** sequenciais, com indicador de progresso visível
+  (Conectar · Análise · Tags). Categorias **não** fazem parte do onboarding —
+  a sugestão de categorias virou on-demand na tela de Categorias (RF6.7/RF6.8):
 
   **Passo 1 — Conectar fonte de dados**
   - **RF22.5.1** Oferecer **conectar banco via Pluggy** (RF1). Botão "Conectar
@@ -261,7 +264,7 @@ deixa tudo pronto para revisar.
     ≥1 conexão) avança para o passo 2 e **dispara a análise IA**. A análise é
     iniciada pelo usuário, não automaticamente pelo fim do sync — desacopla a
     análise do sync e evita o passo de análise preso quando a IA falha/demora.
-  - **RF22.5.4** "Pular onboarding" leva direto à inbox (sem passos 2–4).
+  - **RF22.5.4** "Pular onboarding" leva direto à inbox (sem passos 2–3).
 
   **Passo 2 — Análise IA**
   - **RF22.5.4a** Tela de espera enquanto o `Onboarding::AnalyzeJob` roda
@@ -283,25 +286,16 @@ deixa tudo pronto para revisar.
     - **Recusar** (não cria a tag).
   - **RF22.5.8** Também há campo livre **"Adicionar tag manual"** para tags
     que o usuário sabe que vai querer e a IA não sugeriu.
-  - **RF22.5.9** Botão "Continuar" cria todas as tags aceitas/editadas no
-    workspace e avança ao passo 3.
-  - **RF22.5.10** "Pular agora" avança para o passo 3 sem criar tags;
+  - **RF22.5.9** Botão "Concluir" cria todas as tags aceitas/editadas no
+    workspace e **finaliza o onboarding** (tags é o último passo). Redireciona
+    para `/inbox`.
+  - **RF22.5.10** "Pular agora" conclui o onboarding sem criar tags;
     o usuário pode criá-las depois manualmente.
 
-  **Passo 3 — Sugerir categorias**
-  - **RF22.5.11** A IA propõe categorias baseadas nas tags **efetivamente
-    criadas** no passo 2 (não nas sugeridas e recusadas). Cada categoria
-    sugerida já vem com a **lista de tags membros** pré-selecionadas (ex.:
-    categoria "Alimentação" → tags "Mercado", "Comida fora", "Padaria").
-  - **RF22.5.12** Mesmo padrão: **10 categorias primeiro**, botão "Mostrar mais".
-  - **RF22.5.13** Para cada categoria sugerida, o usuário pode:
-    - **Aceitar como está.**
-    - **Editar o nome** (ex.: "Alimentação" → "Comida").
-    - **Editar as tags membros** (adicionar/remover dentro do conjunto criado).
-    - **Recusar.**
-  - **RF22.5.14** Campo "Adicionar categoria manual" também disponível.
-  - **RF22.5.15** Botão "Concluir" cria as categorias aceitas e finaliza o
-    onboarding. Redireciona para `/inbox`.
+  > **Categorias (antigo passo 3) — removido do onboarding.** A sugestão de
+  > categorias por IA agora é **on-demand** na tela de Categorias (RF6.7), e a
+  > sugestão de tags faltantes por categoria também (RF6.8). O onboarding não
+  > sugere mais categorias.
 
 #### Resultado pós-onboarding
 

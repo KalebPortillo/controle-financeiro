@@ -302,6 +302,21 @@ M:N entre categoria e tag (RF6.2: uma tag em N categorias).
 **Constraints**: UNIQUE (category_id, tag_id).
 **RFs**: RF6.2, RF6.6 (não-duplicação é regra de **query**, não de schema).
 
+### `category_tag_suggestions` ✅ implementado (RF6.8)
+Sugestões da IA de tags JÁ existentes que faltam numa categoria (on-demand,
+persistidas). Referencia tags reais — nunca cria tag nova. Aceitar adiciona a tag
+à categoria; recusar marca `dismissed`.
+
+| coluna | tipo | constraints |
+|---|---|---|
+| id | uuid | PK |
+| category_id | uuid | FK NOT NULL |
+| tag_id | uuid | FK NOT NULL |
+| status | string | NOT NULL default `pending` (pending/accepted/dismissed) |
+
+**Constraints**: UNIQUE (category_id, tag_id).
+**RFs**: RF6.8. Catálogo análogo a `suggested_categories`, mas por (categoria, tag) real.
+
 ### `budgets`
 Teto mensal por tag, categoria ou composto.
 

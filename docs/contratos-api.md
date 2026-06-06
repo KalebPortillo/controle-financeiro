@@ -235,19 +235,24 @@ de verdade no aceite. Ver tabela `suggested_tags` no modelo de dados.
 - `DELETE /api/v1/suggested_tags/:id` — recusa a sugestão (status `dismissed`). 204.
 
 ### Categorias sugeridas pela IA (RF22, 2ª análise)
-Catálogo separado das categorias reais. No onboarding, ao entrar em `categorizing`,
-o `Onboarding::SuggestCategoriesJob` pede à IA categorias amplas a partir das tags
-**aceitas** e grava aqui (`pending`). Ver tabela `suggested_categories` no modelo.
-- `GET    /api/v1/suggested_categories` — pendentes do workspace. Retorna `{ suggested_categories: [{ id, name, tag_names, status }] }`.
+Catálogo separado das categorias reais. Gerado **on-demand** na tela de Categorias
+(RF6.7): o `AiSuggestion::SuggestCategoriesJob` pede à IA categorias novas a partir
+das tags consolidadas, excluindo as já existentes (máx 10). Ver tabela
+`suggested_categories` no modelo.
+- `POST   /api/v1/suggested_categories/generate` — limpa o `ai_last_error` e enfileira o job (assíncrono). `202`.
+- `GET    /api/v1/suggested_categories` — pendentes do workspace. Retorna `{ suggested_categories: [{ id, name, tag_names, status }], ai_error: {reason, message, at}|null }`. A UI pollar até as sugestões chegarem.
 - `POST   /api/v1/suggested_categories/:id/accept` — cria a `Category` real (reaproveita uma de mesmo nome) e associa as tags por nome (escopadas ao workspace); marca `accepted`. Retorna `{ category: { id, name, color, tags: [...] } }`. 404 cross-workspace.
 - `DELETE /api/v1/suggested_categories/:id` — recusa (status `dismissed`). 204.
 
-### Categories (RF6) — implementado (gestão)
-- `GET    /api/v1/categories` — list, cada uma com `tags: [{ id, name, color }]`.
+### Categories (RF6) — implementado (gestão + sugestão de tags)
+- `GET    /api/v1/categories` — list. Resposta `{ categories: [{ id, name, color, icon, tags: [...], tag_suggestions: [{ id, name, color }] }], ai_error: {...}|null }`. `tag_suggestions` são as tags pendentes sugeridas (o `id` é o da TAG).
 - `POST   /api/v1/categories` — body: `{ name, color, icon, tag_ids }`. Nome duplicado → 422.
 - `PATCH  /api/v1/categories/:id` — renomeia/cor + `tag_ids` (substitui o conjunto; ids de outro workspace ignorados).
 - `DELETE /api/v1/categories/:id` — 204.
 - `POST   /api/v1/categories/:id/merge` — `{ into_category_id }`. Move as tags pro destino (sem duplicar) e apaga a origem.
+- `POST   /api/v1/categories/:id/suggest_tags` — RF6.8: limpa `ai_last_error` e enfileira `Categories::SuggestTagsJob` (sugere tags consolidadas faltantes via IA). `202`.
+- `POST   /api/v1/categories/:id/tag_suggestions/:tag_id/accept` — adiciona a tag à categoria e marca a sugestão `accepted`. Retorna `{ category: {...} }`. 404 se a sugestão/categoria não existir no workspace.
+- `DELETE /api/v1/categories/:id/tag_suggestions/:tag_id` — recusa (dismissed). 204.
 - ⏳ `PUT /api/v1/categories/:id/tags` — coberto por PATCH com `tag_ids`; endpoint dedicado não implementado.
 
 ### Budgets (RF8)

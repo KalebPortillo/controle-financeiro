@@ -11,10 +11,15 @@ module AiProviders
 
     # Performance (RF22): pra tarefa estruturada de classificação não precisamos do
     # raciocínio interno do 2.5-flash (thinking) — desligá-lo (thinkingBudget: 0) é
-    # o maior ganho de latência/tokens. maxOutputTokens limita a saída ao JSON
-    # esperado (~25 itens em lote cabem folgado), e temperature baixa torna a
-    # classificação determinística. Vale pros 2 fluxos (inbox + onboarding).
-    MAX_OUTPUT_TOKENS = 2048
+    # o maior ganho de latência/tokens. temperature baixa torna a classificação
+    # determinística. Vale pros 2 fluxos (inbox + onboarding).
+    #
+    # maxOutputTokens precisa caber a SAÍDA inteira em JSON. Um lote de 25
+    # transações (cada item: id UUID + título + tag_ids + confidence) passa de
+    # 2048 tokens — com 2048 a resposta era TRUNCADA, o JSON.parse falhava e o
+    # lote inteiro voltava vazio (tx marcadas "analisadas" sem sugestão). 8192 dá
+    # folga larga pro lote de 25 e pra descoberta do onboarding (~200 tx → tags).
+    MAX_OUTPUT_TOKENS = 8192
     TEMPERATURE       = 0.2
 
     # Teto de categorias sugeridas por chamada (on-demand na tela de Categorias).

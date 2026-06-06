@@ -15,7 +15,9 @@ class AiProviders::GeminiProviderTest < ActiveSupport::TestCase
 
     gen = captured["generationConfig"]
     assert_equal 0, gen.dig("thinkingConfig", "thinkingBudget")
-    assert_operator gen["maxOutputTokens"], :>, 0
+    # Grande o bastante pra um lote de 25 itens não truncar (regressão: com 2048
+    # a saída era cortada, JSON.parse falhava e o lote voltava vazio).
+    assert_operator gen["maxOutputTokens"], :>=, 8192
     assert_equal "application/json", gen["responseMimeType"]
   end
 

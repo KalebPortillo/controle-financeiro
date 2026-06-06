@@ -524,6 +524,38 @@ modo normal — com as tags criadas — e aplica sugestões em todas as pending.
 | Frontend component | OnboardingShell, cada step, skip flow |
 | E2E | golden path: login → conectar → analisar → aceitar tags → aceitar categorias → inbox |
 
+## Feedback de erro ao usuário (camada uniforme)
+
+Erro de API nunca deve virar spinner infinito ou silêncio. Princípio: **amigável +
+motivo** — mostra a categoria legível, nunca o corpo cru da API (o detalhe técnico
+vai pro log/Sentry).
+
+**Frontend — toasts globais (ações do usuário).** O `QueryClient`
+(`src/api/queryClient.ts`) tem um `MutationCache.onError` que dispara um toast
+(Sonner) por mutation falha, mapeando o erro via `errorFeedback()`
+(`src/api/errorMessage.ts`): rede caída → "Sem conexão"; 429 → "Limite atingido";
+5xx → "Erro no servidor"; 422 → mensagem do backend; 403 → "Sem permissão". 401 é
+ignorado (o fluxo de auth redireciona). Opt-out por mutation via
+`meta: { silent: true }` quando a tela já mostra erro inline (ex.: `ImportarPage`).
+Queries **não** geram toast (evita ruído de polling). O `<Toaster>` é montado uma
+vez em `main.tsx`. Toast é pra evento efêmero; estado de erro persistente usa o
+componente `Alert` (`src/components/Alert.tsx`, bordas não sombras).
+
+**Backend — erro de IA classificado + canal assíncrono.** Jobs de IA respondem 202
+e falham depois, então o erro não cabe num toast — vai por um canal de estado.
+`AiProviders::ApiError` carrega `reason` (`:quota` | `:rate_limit` | `:unavailable`
+| `:error`), `user_message` (PT-BR) e `retryable?` (quota é permanente até recarga
+de crédito). `GeminiProvider#call_api` classifica o HTTP/rede. O último erro
+não-recuperável fica em `workspaces.ai_last_error` (jsonb `{reason, message, at}`),
+gravado pelos jobs (`Onboarding::AnalyzeJob`, `AiSuggestion::BatchSuggestJob`) e
+**limpo no próximo sucesso** de IA. Em `:quota` os jobs **não** re-tentam (evita o
+hang de ~6 min de backoff); transitórios seguem o `retry_on`. A UI lê o canal via
+`onboarding#show` (`analysis_error`) e `analysis_progress` (`error`): card no
+onboarding ("Continuar manualmente") e banner na inbox ("Tentar de novo", que
+limpa o erro e reanalisa).
+
+**Libs:** toast = **Sonner** (sancionado no design system, §Feedback).
+
 ## Monitoramento de erros
 
 ### Decisão: **Sentry** (SaaS) para backend + frontend

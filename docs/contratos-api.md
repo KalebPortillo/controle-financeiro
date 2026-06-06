@@ -342,10 +342,14 @@ o `Onboarding::SuggestCategoriesJob` pede à IA categorias amplas a partir das t
   em lote. Uma transação `pending` conta como analisada quando já tem
   `ai_suggestion` (gravado por tx pelo `BatchSuggestJob`). `done` é `true` quando
   todas as pending estão analisadas (ou não há pending). Usado pela barra de
-  progresso da inbox, que pollar (~1,5s) até `done`. `200 OK`:
+  progresso da inbox, que pollar (~1,5s) até `done`. `error` traz o último erro de
+  IA não-recuperável do workspace (camada de feedback) ou `null`. `200 OK`:
   ```json
-  { "total": 120, "analyzed": 75, "done": false }
+  { "total": 120, "analyzed": 75, "done": false,
+    "error": { "reason": "quota", "message": "O limite do serviço de IA foi atingido.", "at": "2026-06-05T20:00:00Z" } }
   ```
+  `reason`: `quota` (permanente até recarga) | `rate_limit` | `unavailable` |
+  `error`. A inbox mostra um banner com "Tentar de novo" (reanalyze limpa o erro).
 
 ### Reports (RF13)
 - `GET /api/v1/reports/overview?period=current_month` — totals + comparativo:
@@ -389,6 +393,7 @@ Apenas o `created_by_user` do workspace tem acesso — convidados recebem `403`.
     "current_step": 1,
     "started_at": "2026-05-29T20:00:00Z",
     "completed_at": null,
+    "analysis_error": { "reason": "quota", "message": "O limite do serviço de IA foi atingido.", "at": "2026-06-05T20:00:00Z" },
     "has_sync_finished": true,
     "suggested_tags":       [{ "name": "Mercado",  "rationale": "8 transações em mercados", "coverage": 8 }],
     "suggested_categories": [{ "name": "Alimentação", "tag_names": ["Mercado","Padaria"] }],
@@ -396,6 +401,9 @@ Apenas o `created_by_user` do workspace tem acesso — convidados recebem `403`.
     "accepted_category_ids":["uuid"]
   }
   ```
+  `analysis_error` é `null` quando não há erro de IA pendente; quando preenchido,
+  o passo de análise mostra um card amigável com "Continuar manualmente" (avança
+  `analyzing → tagging`). Entrar em `analyzing` e `reanalyze` limpam o erro.
 - `POST   /api/v1/onboarding/start` — entra em `connecting`. Idempotente (estado atual avança naturalmente). `400` se já completou ou pulou.
 - `POST   /api/v1/onboarding/skip` — marca como `skipped`. Pode ser chamado em qualquer estado anterior a `completed`. Sem body.
 - `POST   /api/v1/onboarding/advance` — transição idempotente para o próximo passo válido baseado no estado atual. Útil quando a UI quer forçar avançar (ex: pular passo 2 sem aceitar tags). Body opcional `{ to: "categorizing" | "completed" }` para forçar destino.

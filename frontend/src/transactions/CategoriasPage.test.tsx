@@ -24,7 +24,7 @@ function setupFetch(
 }
 
 function cat(o: Partial<Category> = {}): Category {
-  return { id: 'c1', name: 'Alimentação', color: null, icon: null, tags: [], ...o }
+  return { id: 'c1', name: 'Alimentação', color: null, icon: null, tags: [], tag_suggestions: [], ...o }
 }
 
 function renderCategorias() {
@@ -150,5 +150,42 @@ describe('<CategoriasPage />', () => {
     const banner = await screen.findByTestId('suggested-categories-error')
     expect(banner).toHaveTextContent(/limite do serviço de IA/i)
     expect(screen.getByTestId('suggest-categories-retry')).toBeInTheDocument()
+  })
+
+  // --- Tags sugeridas por categoria (C-fe) ---
+
+  it('suggesting tags for a category posts to suggest_tags', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/categories': { status: 200, body: { categories: [cat()], ai_error: null } },
+      'POST /api/v1/categories/c1/suggest_tags': { status: 202, body: null },
+    })
+    renderCategorias()
+    const user = userEvent.setup()
+    const row = await screen.findByTestId('category-row-c1')
+    await user.click(within(row).getByTestId('category-suggest-tags-c1'))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/categories/c1/suggest_tags',
+        expect.objectContaining({ method: 'POST' })
+      )
+    )
+  })
+
+  it('renders suggested tags and accepting one posts the accept', async () => {
+    const withSug = cat({ tag_suggestions: [{ id: 't9', name: 'Luz', color: null, icon: null }] })
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/categories': { status: 200, body: { categories: [withSug], ai_error: null } },
+      'POST /api/v1/categories/c1/tag_suggestions/t9/accept': { status: 200, body: { category: cat() } },
+    })
+    renderCategorias()
+    const user = userEvent.setup()
+    expect(await screen.findByTestId('tag-suggestion-c1-t9')).toHaveTextContent('Luz')
+    await user.click(screen.getByTestId('accept-tag-suggestion-c1-t9'))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/categories/c1/tag_suggestions/t9/accept',
+        expect.objectContaining({ method: 'POST' })
+      )
+    )
   })
 })

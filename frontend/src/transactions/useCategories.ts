@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import type { InboxTag } from './useInbox'
+import type { AiError } from './useSuggestedCategories'
 
 export type Category = {
   id: string
@@ -8,14 +9,21 @@ export type Category = {
   color: string | null
   icon: string | null
   tags: InboxTag[]
+  // Tags JÁ existentes sugeridas pela IA pra entrar na categoria (RF6). O `id`
+  // de cada uma é o id da TAG (chave do accept/dismiss).
+  tag_suggestions: InboxTag[]
 }
+
+type CategoriesPayload = { categories: Category[]; ai_error: AiError | null }
 
 export const categoriesKey = ['categories'] as const
 
-export function useCategories() {
+// `poll` repete a cada 2s enquanto uma geração de tag-sugestões está em curso.
+export function useCategories({ poll = false } = {}) {
   return useQuery({
     queryKey: categoriesKey,
-    queryFn: () => apiFetch<{ categories: Category[] }>('/api/v1/categories').then((r) => r.categories),
+    queryFn: () => apiFetch<CategoriesPayload>('/api/v1/categories'),
+    refetchInterval: () => (poll ? 2000 : false),
   })
 }
 
@@ -54,5 +62,28 @@ export function useMergeCategory() {
 export function useDeleteCategory() {
   return useCategoryMutation((id: string) =>
     apiFetch(`/api/v1/categories/${id}`, { method: 'DELETE' })
+  )
+}
+
+// --- Tags sugeridas por categoria (RF6) ---
+
+// Dispara a geração on-demand (202, assíncrono) das tags faltantes da categoria.
+export function useSuggestCategoryTags() {
+  return useCategoryMutation((categoryId: string) =>
+    apiFetch(`/api/v1/categories/${categoryId}/suggest_tags`, { method: 'POST' })
+  )
+}
+
+// Aceita uma tag sugerida → adiciona à categoria.
+export function useAcceptCategoryTagSuggestion() {
+  return useCategoryMutation((input: { categoryId: string; tagId: string }) =>
+    apiFetch(`/api/v1/categories/${input.categoryId}/tag_suggestions/${input.tagId}/accept`, { method: 'POST' })
+  )
+}
+
+// Recusa uma tag sugerida (dismissed).
+export function useDismissCategoryTagSuggestion() {
+  return useCategoryMutation((input: { categoryId: string; tagId: string }) =>
+    apiFetch(`/api/v1/categories/${input.categoryId}/tag_suggestions/${input.tagId}`, { method: 'DELETE' })
   )
 }

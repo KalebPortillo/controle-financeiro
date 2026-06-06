@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, Check, X } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { TagChip } from '../components/TagChip'
@@ -16,6 +16,9 @@ import {
   useUpdateCategory,
   useMergeCategory,
   useDeleteCategory,
+  useSuggestCategoryTags,
+  useAcceptCategoryTagSuggestion,
+  useDismissCategoryTagSuggestion,
   type Category,
 } from './useCategories'
 
@@ -26,10 +29,24 @@ const SWATCHES = ['#7C3AED', '#15803D', '#B45309', '#B91C1C', '#2563EB', '#0891B
  * depois). Listar, criar, editar nome+cor, associar tags, mesclar, excluir.
  */
 export function CategoriasPage() {
-  const { data: categories, isLoading } = useCategories()
+  const [suggestingId, setSuggestingId] = useState<string | null>(null)
+  const { data, isLoading } = useCategories({ poll: suggestingId != null })
+  const categories = data?.categories
+  const suggestTags = useSuggestCategoryTags()
   const createCategory = useCreateCategory()
   const [newName, setNewName] = useState('')
   const [error, setError] = useState<string | null>(null)
+
+  // Para o polling de tag-sugestões quando elas chegam pra categoria alvo, ou se
+  // a IA falhou (ai_error). Reset durante render (padrão React), sem useEffect.
+  const target = categories?.find((c) => c.id === suggestingId)
+  if (suggestingId && (data?.ai_error || (target && target.tag_suggestions.length > 0))) {
+    setSuggestingId(null)
+  }
+  const onSuggestTags = (id: string) => {
+    setSuggestingId(id)
+    suggestTags.mutate(id)
+  }
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault()
@@ -76,7 +93,13 @@ export function CategoriasPage() {
             </p>
           )}
           {categories?.map((cat) => (
-            <CategoryRow key={cat.id} category={cat} allCategories={categories} />
+            <CategoryRow
+              key={cat.id}
+              category={cat}
+              allCategories={categories}
+              suggesting={suggestingId === cat.id}
+              onSuggestTags={() => onSuggestTags(cat.id)}
+            />
           ))}
         </div>
       </section>
@@ -147,11 +170,20 @@ function SuggestedCategoriesSection() {
   )
 }
 
-function CategoryRow({ category, allCategories }: { category: Category; allCategories: Category[] }) {
+function CategoryRow({
+  category, allCategories, suggesting, onSuggestTags,
+}: {
+  category: Category
+  allCategories: Category[]
+  suggesting: boolean
+  onSuggestTags: () => void
+}) {
   const { data: allTags } = useTags()
   const update = useUpdateCategory()
   const merge = useMergeCategory()
   const del = useDeleteCategory()
+  const acceptTag = useAcceptCategoryTagSuggestion()
+  const dismissTag = useDismissCategoryTagSuggestion()
 
   const [mode, setMode] = useState<'view' | 'edit' | 'merge'>('view')
   const [name, setName] = useState(category.name)
@@ -195,6 +227,10 @@ function CategoryRow({ category, allCategories }: { category: Category; allCateg
         </div>
         {mode === 'view' && (
           <div className="flex gap-1 shrink-0">
+            <Button variant="ghost" size="sm" onClick={onSuggestTags} disabled={busy || suggesting} data-testid={`category-suggest-tags-${category.id}`}>
+              <Sparkles size={13} />
+              {suggesting ? 'Sugerindo…' : 'Sugerir tags'}
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => setMode('edit')} disabled={busy} data-testid={`category-edit-${category.id}`}>
               Editar
             </Button>
@@ -209,6 +245,44 @@ function CategoryRow({ category, allCategories }: { category: Category; allCateg
           </div>
         )}
       </div>
+
+      {/* Tags sugeridas pela IA (RF6) — aceitar adiciona à categoria, recusar some */}
+      {category.tag_suggestions.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 pl-5" data-testid={`tag-suggestions-${category.id}`}>
+          <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
+            <Sparkles size={11} className="text-accent" /> Sugeridas:
+          </span>
+          {category.tag_suggestions.map((t) => (
+            <span
+              key={t.id}
+              className="inline-flex items-center gap-1 rounded-sm border border-dashed border-border pl-2 pr-1 py-0.5 text-[11px]"
+              data-testid={`tag-suggestion-${category.id}-${t.id}`}
+            >
+              {t.name}
+              <button
+                type="button"
+                onClick={() => acceptTag.mutate({ categoryId: category.id, tagId: t.id })}
+                disabled={acceptTag.isPending || dismissTag.isPending}
+                aria-label={`Aceitar ${t.name}`}
+                className="text-success hover:opacity-70"
+                data-testid={`accept-tag-suggestion-${category.id}-${t.id}`}
+              >
+                <Check size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={() => dismissTag.mutate({ categoryId: category.id, tagId: t.id })}
+                disabled={acceptTag.isPending || dismissTag.isPending}
+                aria-label={`Recusar ${t.name}`}
+                className="text-muted-foreground hover:text-foreground"
+                data-testid={`dismiss-tag-suggestion-${category.id}-${t.id}`}
+              >
+                <X size={12} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
 
       {mode === 'edit' && (
         <div className="space-y-2 pl-5">

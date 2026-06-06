@@ -23,6 +23,29 @@ class AiSuggestion::ReanalyzeJobTest < ActiveJob::TestCase
     assert_includes ids, tx.id
   end
 
+  test "clears the ai_suggestion snapshot of eligible transactions so progress reflects the rerun" do
+    # tx "analisada" mas sem título/tags (snapshot vazio do bug de truncamento):
+    # é elegível (improved_title nil) e o snapshot deve ser zerado na reanálise.
+    tx = create(:transaction, workspace: @workspace, account: @account,
+                status: "pending", improved_title: nil,
+                ai_suggestion: { "title" => nil, "tag_ids" => [] })
+
+    AiSuggestion::ReanalyzeJob.perform_now(@workspace.id)
+
+    assert_nil tx.reload.ai_suggestion
+  end
+
+  test "does not touch transactions that are not eligible" do
+    tagged = create(:transaction, workspace: @workspace, account: @account,
+                    status: "pending", improved_title: "Mercado", ai_confidence: 0.9,
+                    ai_suggestion: { "title" => "Mercado" })
+    tagged.tags << create(:tag, workspace: @workspace)
+
+    AiSuggestion::ReanalyzeJob.perform_now(@workspace.id)
+
+    assert_equal "Mercado", tagged.reload.ai_suggestion["title"] # snapshot preservado
+  end
+
   test "enqueues a batch for low-confidence transactions" do
     tx = create(:transaction, workspace: @workspace, account: @account,
                 status: "pending", improved_title: "ok", ai_confidence: 0.3)

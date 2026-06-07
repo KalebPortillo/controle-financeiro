@@ -3,7 +3,7 @@ import { CreditCard, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Money } from '../components/Money'
 import { Button } from '../components/Button'
 import { TagChip } from '../components/TagChip'
-import { useConsolidated, type InboxTransaction } from './useInbox'
+import { useConsolidated, originalToShow, type InboxTransaction } from './useInbox'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
 import { ManualEntrySheet } from './ManualEntrySheet'
 
@@ -129,6 +129,11 @@ export function GastosPage() {
                   <span className="text-border">·</span>
                   <span>{formatDate(t.occurred_at)}</span>
                 </div>
+                {originalToShow(t) && (
+                  <div className="text-[11px] text-muted-foreground/70 font-mono truncate mt-0.5" data-testid={`original-${t.id}`}>
+                    orig.: {originalToShow(t)}
+                  </div>
+                )}
                 {/* tags inline no mobile (no desktop vão na coluna ao lado) */}
                 {t.tags.length > 0 && (
                   <div className="flex md:hidden items-center gap-1.5 mt-1.5 overflow-hidden">

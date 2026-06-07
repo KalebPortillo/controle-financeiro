@@ -12,6 +12,7 @@ import {
   useRemoveTransaction,
   useUpdateTransaction,
   useTransactionEdits,
+  originalToShow,
   type InboxTransaction,
   type TransactionEdit,
   type AiSuggestion,
@@ -105,6 +106,13 @@ function SheetInner({
   const saveDate = () => {
     if (date && date !== t.occurred_at) onUpdate({ id: t.id, lock_version: t.lock_version, occurred_at: date })
   }
+  // Reverte o título pro texto bruto do banco (sticky — grava em improved_title,
+  // não re-dispara IA). Só faz sentido quando o título atual difere do original.
+  const canRevert = originalToShow(t) !== null
+  const revertToOriginal = () => {
+    setTitle(t.original_description)
+    onUpdate({ id: t.id, lock_version: t.lock_version, improved_title: t.original_description })
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -134,7 +142,20 @@ function SheetInner({
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-3.5">
-        <FieldLabel>Título</FieldLabel>
+        <div className="flex items-center justify-between gap-2">
+          <FieldLabel>Título</FieldLabel>
+          {canRevert && (
+            <button
+              type="button"
+              onClick={revertToOriginal}
+              disabled={busy}
+              className="text-[11px] text-muted-foreground hover:text-foreground underline"
+              data-testid={`sheet-use-original-${t.id}`}
+            >
+              usar título original
+            </button>
+          )}
+        </div>
         <Input value={title} onChange={setTitle} onBlur={saveTitle} testid={`sheet-title-${t.id}`} />
 
         <div className="grid grid-cols-2 gap-3">

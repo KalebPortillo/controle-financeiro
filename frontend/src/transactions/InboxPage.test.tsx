@@ -75,6 +75,59 @@ describe('<InboxPage />', () => {
     expect(screen.getByTestId('inbox-row-t1')).toBeInTheDocument()
   })
 
+  it('shows the original bank description when the AI changed the title', async () => {
+    setupFetch({
+      '/api/v1/transactions?status=pending': {
+        status: 200,
+        body: {
+          transactions: [tx({ improved_title: 'Padaria', original_description: 'PADARIA CENTRAL-2378' })],
+          pending_count: 1,
+        },
+      },
+    })
+    renderInbox()
+    const orig = await screen.findByTestId('original-t1')
+    expect(orig).toHaveTextContent('PADARIA CENTRAL-2378')
+  })
+
+  it('does not show the original line when the title equals the original', async () => {
+    setupFetch({
+      '/api/v1/transactions?status=pending': {
+        status: 200,
+        body: {
+          transactions: [tx({ improved_title: 'PADARIA CENTRAL', original_description: 'PADARIA CENTRAL' })],
+          pending_count: 1,
+        },
+      },
+    })
+    renderInbox()
+    await screen.findByTestId('inbox-row-t1')
+    expect(screen.queryByTestId('original-t1')).not.toBeInTheDocument()
+  })
+
+  it('reverts the title to the original via the detail sheet', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/transactions?status=pending': {
+        status: 200,
+        body: {
+          transactions: [tx({ improved_title: 'Padaria', original_description: 'PADARIA CENTRAL-2378' })],
+          pending_count: 1,
+        },
+      },
+      'GET /api/v1/tags': { status: 200, body: { tags: [] } },
+      'PATCH /api/v1/transactions/t1': { status: 200, body: { transaction: tx() } },
+    })
+    renderInbox()
+    const user = userEvent.setup()
+    await user.click(await screen.findByTestId('inbox-row-t1'))
+    await user.click(await screen.findByTestId('sheet-use-original-t1'))
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find((c) => c[0] === '/api/v1/transactions/t1' && c[1]?.method === 'PATCH')
+      expect(call).toBeTruthy()
+      expect(JSON.parse(call![1]!.body as string).improved_title).toBe('PADARIA CENTRAL-2378')
+    })
+  })
+
   it('shows an empty state when nothing is pending', async () => {
     setupFetch({
       '/api/v1/transactions?status=pending': {

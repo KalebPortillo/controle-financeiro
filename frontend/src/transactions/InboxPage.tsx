@@ -9,6 +9,7 @@ import {
   useConsolidate,
   useReject,
   useReanalyzeInbox,
+  originalToShow,
   type InboxTransaction,
   type AiConfidence,
 } from './useInbox'
@@ -307,6 +308,11 @@ function RowContent({
           <span className="text-border">·</span>
           <span>{formatDate(t.occurred_at)}</span>
         </div>
+        {originalToShow(t) && (
+          <div className="text-[11px] text-muted-foreground/70 font-mono truncate mt-0.5" data-testid={`original-${t.id}`}>
+            orig.: {originalToShow(t)}
+          </div>
+        )}
         {t.tags.length > 0 && (
           <div className="flex md:hidden items-center gap-1.5 mt-1.5 overflow-hidden">
             {t.tags.slice(0, 2).map((tag) => (

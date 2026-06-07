@@ -59,6 +59,16 @@ export type InboxPayload = {
   pending_count: number
 }
 
+// Descrição bruta do banco que vale a pena mostrar abaixo do título: só quando o
+// título melhorado existe e difere do original, e o original não é o placeholder.
+// (O original nunca se perde — fica sempre em original_description.)
+export function originalToShow(t: Pick<InboxTransaction, 'improved_title' | 'original_description'>): string | null {
+  const orig = t.original_description?.trim()
+  if (!orig || orig === '(sem descrição)') return null
+  if (!t.improved_title || t.improved_title.trim() === orig) return null
+  return orig
+}
+
 // Prefixo comum: invalidar ['transactions'] recarrega inbox E consolidados,
 // já que uma ação (aceitar/editar/remover) pode mover a transação entre eles.
 const transactionsKey = ['transactions'] as const

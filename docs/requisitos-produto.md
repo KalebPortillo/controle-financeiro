@@ -83,6 +83,17 @@ Esta v1.0 fecha todos os pontos de produto após duas iterações com o usuário
   - A reanálise processa apenas transações `pending` (inbox). Transações já consolidadas nunca são reanalisadas.
   - A reanálise respeita o mesmo pipeline: regras manuais → regras aprendidas → API. Portanto, transações que já têm regra aprendida correspondente serão atualizadas sem custo de tokens.
   - Feedback visual de progresso durante o processamento (a reanálise pode levar alguns segundos para lotes grandes).
+- **RF3.6** **Estado explícito de análise por gasto** (`ai_status`): cada transação
+  da inbox está em um de três estados, e a interface deixa claro qual:
+  - **aguardando** (`queued`) — na fila / sendo analisada. A inbox mostra a barra
+    "Analisando… N/total" enquanto houver gastos aguardando.
+  - **analisado** (`analyzed`) — a IA processou (com ou sem sugestão útil).
+  - **não analisado** (`failed`) — a IA não conseguiu (serviço indisponível, limite
+    atingido) e **não está mais aguardando**. O gasto mostra um chip **"não
+    analisado"**, e a inbox mostra um aviso "N gastos não foram analisados" com
+    **"Tentar de novo"**. O progresso **nunca trava**: `done` depende só de não haver
+    gastos aguardando — falhados não impedem a conclusão. "Tentar de novo"/"Reanalisar"
+    re-enfileira os falhados (voltam a `queued`).
 
 **Dados de entrada para a IA** (lidos do `source_metadata` JSONB, já armazenado — sem coluna extra no DB):
 - `description` / `descriptionRaw` — descrição da transação

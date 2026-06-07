@@ -7,14 +7,16 @@ module AiSuggestion
     module_function
 
     # tx: Transaction pending; result: hash no formato de AiSuggestion::Service.call.
-    # No-op se o result for fallback. Retorna true se persistiu algo.
+    # Sucesso → ai_status "analyzed" (a IA rodou, com ou sem sugestão útil).
+    # Fallback (bug inesperado) → ai_status "failed" (não fica preso em "queued").
+    # Retorna true se persistiu sugestão.
     def call(tx, result)
-      return false if result[:source] == "fallback"
+      return mark_failed([ tx.id ]) && false if result[:source] == "fallback"
 
       ActiveRecord::Base.transaction do
         applied_tags = resolve_tags(tx, result)
 
-        updates = {}
+        updates = { ai_status: "analyzed" }
         updates[:improved_title] = result[:improved_title] if result[:improved_title].present?
         updates[:ai_confidence]  = confidence_to_decimal(result[:confidence]) if result[:confidence]
 
@@ -30,9 +32,18 @@ module AiSuggestion
           "suggested_at" => Time.current.iso8601
         }
 
-        tx.update_columns(updates) if updates.any?
+        tx.update_columns(updates)
         tx.tags = applied_tags if applied_tags.any?
       end
+      true
+    end
+
+    # Marca como "failed" (IA não conseguiu) só as que ainda estão aguardando —
+    # nunca rebaixa uma já analyzed. Usado quando um lote desiste (give-up) ou
+    # bate erro permanente (quota/daily). Retorna true (pra encadear no call).
+    def mark_failed(transaction_ids)
+      Transaction.where(id: transaction_ids, status: "pending", ai_status: "queued")
+                 .update_all(ai_status: "failed")
       true
     end
 

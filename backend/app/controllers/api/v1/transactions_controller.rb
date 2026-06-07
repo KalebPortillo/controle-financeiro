@@ -33,6 +33,7 @@ class Api::V1::TransactionsController < ApplicationController
       original_description:  params[:improved_title].presence || "Lançamento manual",
       status:                "consolidated",
       source:                "manual_entry",
+      ai_status:             "analyzed", # entrada manual não passa por IA
       consolidated_at:       Time.current,
       created_by_membership: current_membership
     )
@@ -113,15 +114,20 @@ class Api::V1::TransactionsController < ApplicationController
     render json: { enqueued: true, pending_count: pending_count }, status: :accepted
   end
 
-  # GET /api/v1/transactions/analysis_progress — progresso real da análise IA (P4).
-  # Uma pending está "analisada" quando já tem ai_suggestion (o BatchSuggestJob
-  # grava por tx). Dois counts indexados, barato; a barra anda em degraus de batch.
+  # GET /api/v1/transactions/analysis_progress — progresso real da análise IA.
+  # Estado explícito por tx (ai_status): queued (aguardando), analyzed (a IA rodou),
+  # failed (não conseguiu). `done` quando NÃO há ninguém aguardando — failed não
+  # trava o progresso. Counts indexados (ws,status,ai_status).
   def analysis_progress
     pending  = current_workspace.transactions.where(status: "pending")
-    total    = pending.count
-    analyzed = pending.where.not(ai_suggestion: nil).count
+    counts   = pending.group(:ai_status).count
+    queued   = counts["queued"]   || 0
+    analyzed = counts["analyzed"] || 0
+    failed   = counts["failed"]   || 0
     render json: {
-      total: total, analyzed: analyzed, done: analyzed >= total,
+      total: queued + analyzed + failed,
+      analyzed: analyzed, failed: failed, awaiting: queued,
+      done: queued.zero?,
       error: current_workspace.ai_error_payload # {reason, message, at} | null
     }
   end
@@ -232,6 +238,7 @@ class Api::V1::TransactionsController < ApplicationController
       improved_title:       t.improved_title,
       ai_confidence:        confidence_label(t.ai_confidence),
       ai_suggestion:        t.ai_suggestion,
+      ai_status:            t.ai_status,
       status:               t.status,
       source:               t.source,
       installment_number:   t.installment_number,

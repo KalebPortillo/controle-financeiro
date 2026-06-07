@@ -25,6 +25,17 @@ class AiSuggestion::BatchSuggestJobTest < ActiveJob::TestCase
     assert @tx1.ai_suggestion.present?
     assert_includes @tx1.tags.pluck(:name), "Mercado"
     assert_equal "Posto Shell", @tx2.reload.improved_title
+    assert_equal "analyzed", @tx1.ai_status # a IA rodou
+    assert_equal "analyzed", @tx2.ai_status
+  end
+
+  test "an empty/omitted suggestion still counts as analyzed (AI ran)" do
+    # tx que a IA não retornou item: result vazio (source api) → analyzed, não failed.
+    stub_batch(@tx1.id => result(source: "api"))
+    AiSuggestion::BatchSuggestJob.perform_now([ @tx1.id ])
+
+    assert_equal "analyzed", @tx1.reload.ai_status
+    assert_nil @tx1.improved_title
   end
 
   test "skips consolidated transactions" do
@@ -49,6 +60,7 @@ class AiSuggestion::BatchSuggestJobTest < ActiveJob::TestCase
       AiSuggestion::BatchSuggestJob.perform_now([ @tx1.id ])
     end
     assert_equal "quota", @workspace.reload.ai_error_payload[:reason]
+    assert_equal "failed", @tx1.reload.ai_status # permanente → não analisado, sai de "aguardando"
   end
 
   test "retries a transient error WITHOUT showing the banner mid-flight" do
@@ -70,6 +82,7 @@ class AiSuggestion::BatchSuggestJobTest < ActiveJob::TestCase
     end
 
     assert_equal "unavailable", @workspace.reload.ai_error_payload[:reason]
+    assert_equal "failed", @tx1.reload.ai_status # give-up → marcada como não analisada
   end
 
   test "clears a previously recorded ai error on success" do

@@ -2,6 +2,9 @@ class Transaction < ApplicationRecord
   DIRECTIONS = %w[debit credit].freeze
   STATUSES   = %w[pending consolidated rejected split].freeze
   SOURCES    = %w[automatic_sync manual_import manual_entry installment_generated].freeze
+  # Estado da análise IA (RF3/RF22): queued (aguardando), analyzed (a IA rodou),
+  # failed (a IA não conseguiu — NÃO está aguardando). Ver migração ai_status.
+  AI_STATUSES = %w[queued analyzed failed].freeze
 
   belongs_to :workspace
   belongs_to :account
@@ -37,13 +40,20 @@ class Transaction < ApplicationRecord
   validates :status,              presence: true, inclusion: { in: STATUSES }
   validates :source,              presence: true, inclusion: { in: SOURCES }
   validates :currency,            presence: true
+  validates :ai_status,           presence: true, inclusion: { in: AI_STATUSES }
 
-  attribute :status,   default: "pending"
-  attribute :currency, default: "BRL"
+  attribute :status,    default: "pending"
+  attribute :currency,  default: "BRL"
+  attribute :ai_status, default: "queued"
 
   # external_transaction_id é coluna GERADA (source_metadata->>'id') — readonly.
   scope :inbox,        -> { where(status: "pending") }
   scope :consolidated, -> { where(status: "consolidated") }
+
+  # Estado de análise IA (ver AI_STATUSES).
+  scope :ai_queued,   -> { where(ai_status: "queued") }
+  scope :ai_analyzed, -> { where(ai_status: "analyzed") }
+  scope :ai_failed,   -> { where(ai_status: "failed") }
 
   # RF11 — exclui transações que participam de uma transferência interna (em
   # qualquer ponta). Usado nos relatórios pra não contar transferência como

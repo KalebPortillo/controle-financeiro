@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_06_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_07_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -285,6 +285,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_010000) do
   create_table "transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.decimal "ai_confidence", precision: 3, scale: 2
+    t.string "ai_status", default: "queued", null: false
     t.jsonb "ai_suggestion"
     t.integer "amount_cents", null: false
     t.datetime "consolidated_at"
@@ -313,6 +314,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_010000) do
     t.index ["created_by_membership_id"], name: "index_transactions_on_created_by_membership_id"
     t.index ["installment_group_id"], name: "index_transactions_on_installment_group_id"
     t.index ["parent_transaction_id"], name: "index_transactions_on_parent_transaction_id"
+    t.index ["workspace_id", "status", "ai_status"], name: "index_transactions_on_ws_status_ai_status"
     t.index ["workspace_id", "status", "occurred_at"], name: "index_transactions_on_workspace_status_occurred", order: { occurred_at: :desc }
     t.index ["workspace_id"], name: "index_transactions_on_workspace_id"
     t.check_constraint "(installment_number IS NULL) = (installment_total IS NULL)", name: "transactions_installment_pair_check"

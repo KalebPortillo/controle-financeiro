@@ -17,11 +17,15 @@ module AiResilient
   RETRY_WAIT = ->(executions) { [ executions * 8, 30 ].min }
 
   class_methods do
-    def retry_ai_errors(workspace_from:)
+    # workspace_from: lambda(job) -> Workspace|nil (pra registrar o erro).
+    # on_give_up: lambda(job, error) opcional — trabalho extra no give-up (ex.:
+    # marcar as transações do lote como "failed" pra saírem de "aguardando").
+    def retry_ai_errors(workspace_from:, on_give_up: nil)
       retry_on AiProviders::ApiError, wait: RETRY_WAIT, attempts: RETRY_ATTEMPTS do |job, error|
         # Esgotou os retries de um erro transitório → agora sim é um problema
         # real: registra pra UI mostrar o banner.
         workspace_from.call(job)&.record_ai_error!(error)
+        on_give_up&.call(job, error)
       end
     end
   end

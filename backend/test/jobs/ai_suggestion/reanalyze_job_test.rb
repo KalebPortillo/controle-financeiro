@@ -35,6 +35,16 @@ class AiSuggestion::ReanalyzeJobTest < ActiveJob::TestCase
     assert_nil tx.reload.ai_suggestion
   end
 
+  test "re-queues failed transactions (ai_status failed → queued) and batches them" do
+    failed = create(:transaction, workspace: @workspace, account: @account,
+                    status: "pending", improved_title: "Posto", ai_confidence: 0.9, ai_status: "failed")
+    failed.tags << create(:tag, workspace: @workspace) # tem título+conf+tags, só falhou
+
+    ids = batched_ids { AiSuggestion::ReanalyzeJob.perform_now(@workspace.id) }
+    assert_includes ids, failed.id
+    assert_equal "queued", failed.reload.ai_status
+  end
+
   test "does not touch transactions that are not eligible" do
     tagged = create(:transaction, workspace: @workspace, account: @account,
                     status: "pending", improved_title: "Mercado", ai_confidence: 0.9,

@@ -16,12 +16,10 @@ module AiSuggestion
       ids = eligible_transactions(workspace).pluck(:id)
       return if ids.empty?
 
-      # Zera o snapshot das elegíveis ANTES de reenfileirar: assim a barra de
-      # progresso (que conta pending com ai_suggestion) reflete a reanálise —
-      # senão, tx já "analisadas" deixam done=true e o loading nunca aparece. De
-      # quebra, limpa snapshots vazios deixados por respostas truncadas. As
-      # sugestões reais são regravadas pelo BatchSuggestJob.
-      workspace.transactions.where(id: ids).update_all(ai_suggestion: nil)
+      # Re-enfileira: volta pra "queued" e zera o snapshot ANTES de despachar.
+      # Assim a barra de progresso reflete a reanálise e os "failed" voltam a
+      # aguardar. As sugestões reais são regravadas pelo BatchSuggestJob.
+      workspace.transactions.where(id: ids).update_all(ai_suggestion: nil, ai_status: "queued")
 
       ids.each_slice(BATCH_SIZE) do |batch_ids|
         AiSuggestion::BatchSuggestJob.perform_later(batch_ids)
@@ -34,7 +32,7 @@ module AiSuggestion
       workspace.transactions
                .where(status: "pending")
                .where(
-                 "improved_title IS NULL OR ai_confidence <= ? OR " \
+                 "ai_status = 'failed' OR improved_title IS NULL OR ai_confidence <= ? OR " \
                  "NOT EXISTS (SELECT 1 FROM transaction_tags tt WHERE tt.transaction_id = transactions.id)",
                  0.4
                )

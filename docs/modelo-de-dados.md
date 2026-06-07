@@ -190,6 +190,7 @@ Coração do sistema: gasto, receita ou estorno. Vive no inbox ou consolidado.
 | created_by_membership_id | uuid | FK NULL — null se veio de sync automática |
 | parent_transaction_id | uuid | FK → transactions.id NULL — para splits |
 | ai_confidence | numeric(3,2) | NULL — 0.00 a 1.00 |
+| ai_status | string | NOT NULL default 'queued' — estado da análise IA: queued (aguardando) / analyzed (a IA rodou) / failed (não conseguiu, não aguardando). Índice (workspace_id, status, ai_status) |
 | installment_number | smallint | NULL — RF9.4, ex.: 3 |
 | installment_total | smallint | NULL — RF9.4, ex.: 12 |
 | installment_group_id | uuid | NULL — agrupa todas as parcelas de uma mesma compra |

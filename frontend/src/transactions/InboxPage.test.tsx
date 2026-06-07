@@ -36,6 +36,7 @@ function tx(overrides: Partial<InboxTransaction> = {}): InboxTransaction {
     improved_title: null,
     ai_confidence: null,
     ai_suggestion: null,
+    ai_status: 'analyzed',
     status: 'pending',
     source: 'automatic_sync',
     lock_version: 0,
@@ -211,7 +212,7 @@ describe('<InboxPage />', () => {
       },
       'GET /api/v1/transactions/analysis_progress': {
         status: 200,
-        body: { total: 4, analyzed: 1, done: false },
+        body: { total: 4, analyzed: 1, failed: 0, awaiting: 3, done: false, error: null },
       },
     })
     renderInbox()
@@ -230,7 +231,7 @@ describe('<InboxPage />', () => {
       },
       'GET /api/v1/transactions/analysis_progress': {
         status: 200,
-        body: { total: 1, analyzed: 1, done: true, error: null },
+        body: { total: 1, analyzed: 1, failed: 0, awaiting: 0, done: true, error: null },
       },
     })
     renderInbox()
@@ -239,7 +240,7 @@ describe('<InboxPage />', () => {
     expect(screen.getByTestId('reanalyze-btn')).toHaveTextContent('Reanalisar com IA')
   })
 
-  it('shows a friendly banner (not the progress bar) when AI analysis errored', async () => {
+  it('shows a "não analisados" banner (not the progress bar) when some failed and none await', async () => {
     setupFetch({
       'GET /api/v1/transactions?status=pending': {
         status: 200,
@@ -248,19 +249,35 @@ describe('<InboxPage />', () => {
       'GET /api/v1/transactions/analysis_progress': {
         status: 200,
         body: {
-          total: 4, analyzed: 1, done: false,
+          total: 4, analyzed: 1, failed: 3, awaiting: 0, done: true,
           error: { reason: 'quota', message: 'O limite do serviço de IA foi atingido.', at: '2026-06-05T00:00:00Z' },
         },
       },
     })
     renderInbox()
 
-    const banner = await screen.findByTestId('ai-error-banner')
+    const banner = await screen.findByTestId('ai-failed-banner')
+    expect(banner).toHaveTextContent(/3 gastos não foram analisados/i)
     expect(banner).toHaveTextContent(/limite do serviço de IA/i)
     expect(screen.queryByTestId('analysis-progress')).not.toBeInTheDocument()
   })
 
-  it('retrying from the error banner posts to reanalyze', async () => {
+  it('a failed transaction shows a "não analisado" badge in its row', async () => {
+    setupFetch({
+      'GET /api/v1/transactions?status=pending': {
+        status: 200,
+        body: { transactions: [tx({ id: 't1', ai_status: 'failed' })], pending_count: 1 },
+      },
+      'GET /api/v1/transactions/analysis_progress': {
+        status: 200,
+        body: { total: 1, analyzed: 0, failed: 1, awaiting: 0, done: true, error: null },
+      },
+    })
+    renderInbox()
+    expect(await screen.findByTestId('not-analyzed-t1')).toHaveTextContent(/não analisado/i)
+  })
+
+  it('retrying from the failed banner posts to reanalyze', async () => {
     const { fetchMock } = setupFetch({
       'GET /api/v1/transactions?status=pending': {
         status: 200,
@@ -268,7 +285,7 @@ describe('<InboxPage />', () => {
       },
       'GET /api/v1/transactions/analysis_progress': {
         status: 200,
-        body: { total: 4, analyzed: 1, done: false, error: { reason: 'quota', message: 'Limite.', at: 'x' } },
+        body: { total: 4, analyzed: 1, failed: 3, awaiting: 0, done: true, error: { reason: 'quota', message: 'Limite.', at: 'x' } },
       },
       'POST /api/v1/transactions/reanalyze': { status: 202, body: { enqueued: true, pending_count: 4 } },
     })

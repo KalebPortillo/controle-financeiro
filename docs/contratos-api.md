@@ -343,18 +343,23 @@ das tags consolidadas, excluindo as já existentes (máx 10). Ver tabela
   Rate-limited a 5 req/min/IP.
 
 ### Progresso da análise IA
-- `GET /api/v1/transactions/analysis_progress` — progresso **real** da análise
-  em lote. Uma transação `pending` conta como analisada quando já tem
-  `ai_suggestion` (gravado por tx pelo `BatchSuggestJob`). `done` é `true` quando
-  todas as pending estão analisadas (ou não há pending). Usado pela barra de
-  progresso da inbox, que pollar (~1,5s) até `done`. `error` traz o último erro de
-  IA não-recuperável do workspace (camada de feedback) ou `null`. `200 OK`:
+- `GET /api/v1/transactions/analysis_progress` — progresso **real** da análise em
+  lote, por **estado explícito** de cada transação (`ai_status`): `queued`
+  (aguardando), `analyzed` (a IA rodou — com ou sem sugestão), `failed` (a IA não
+  conseguiu; NÃO está aguardando). `done` = não há mais ninguém **aguardando**
+  (`awaiting == 0`) — gastos `failed` **não travam** o progresso. Usado pela barra
+  da inbox (poll ~1,5s até `done`). `error` traz o último erro de IA não-recuperável
+  do workspace (camada de feedback) ou `null`. `200 OK`:
   ```json
-  { "total": 120, "analyzed": 75, "done": false,
-    "error": { "reason": "quota", "message": "O limite do serviço de IA foi atingido.", "at": "2026-06-05T20:00:00Z" } }
+  { "total": 120, "analyzed": 110, "failed": 7, "awaiting": 3, "done": false,
+    "error": { "reason": "unavailable", "message": "Serviço de IA indisponível no momento.", "at": "2026-06-07T12:00:00Z" } }
   ```
-  `reason`: `quota` (permanente até recarga) | `rate_limit` | `unavailable` |
-  `error`. A inbox mostra um banner com "Tentar de novo" (reanalyze limpa o erro).
+  `reason`: `quota` (créditos esgotados, permanente) | `daily` (limite diário do
+  free tier) | `rate_limit` (por minuto) | `unavailable` (5xx/rede) | `error`. A
+  inbox mostra a barra enquanto `awaiting>0`; quando `awaiting==0 && failed>0`,
+  um aviso "N gastos não foram analisados" + "Tentar de novo" (reanalyze re-enfileira
+  os `failed`). Cada transação `failed` aparece com um chip "não analisado"
+  (serializer expõe `ai_status`).
 
 ### Reports (RF13)
 - `GET /api/v1/reports/overview?period=current_month` — totals + comparativo:

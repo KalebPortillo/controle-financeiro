@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { CreditCard, Check, CheckSquare, Sparkles, Loader2 } from 'lucide-react'
+import { CreditCard, Check, CheckSquare, Sparkles, CircleSlash, Loader2 } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Money } from '../components/Money'
 import { TagChip } from '../components/TagChip'
@@ -84,11 +84,10 @@ export function InboxPage() {
 
   const reanalyze = useReanalyzeInbox()
   const qc = useQueryClient()
-  // Progresso REAL da análise IA (P5): conta quantas pendentes já têm sugestão.
-  // Anda em degraus de batch e para sozinho quando done. Substitui o timer fake.
+  // Progresso REAL da análise IA por estado (ai_status). `analyzing` = há gastos
+  // aguardando; `failed` = a IA não conseguiu (não trava o progresso).
   const progress = useAnalysisProgress(true)
-  const aiError = progress.error
-  const analyzing = progress.total > 0 && !progress.done && !aiError
+  const analyzing = progress.analyzing
 
   // Quando a análise termina (done passa a true), recarrega a inbox pra puxar
   // os títulos/tags recém-sugeridos.
@@ -152,11 +151,13 @@ export function InboxPage() {
         </div>
       )}
 
-      {aiError && (
+      {/* Concluído mas com gastos que a IA não conseguiu analisar (não estão mais
+          aguardando). Some quando voltam a ser analisados. */}
+      {!analyzing && progress.failed > 0 && (
         <Alert
           variant="warning"
-          title="Sugestões por IA indisponíveis"
-          testid="ai-error-banner"
+          title={`${progress.failed} ${progress.failed === 1 ? 'gasto não foi analisado' : 'gastos não foram analisados'} pela IA`}
+          testid="ai-failed-banner"
           className="mb-4"
           action={
             <Button
@@ -170,7 +171,7 @@ export function InboxPage() {
             </Button>
           }
         >
-          {aiError.message}
+          {progress.error?.message ?? 'Você pode tentar de novo ou organizá-los manualmente.'}
         </Alert>
       )}
 
@@ -290,6 +291,15 @@ function RowContent({
             )}
           </span>
           {t.ai_confidence && <AiConfidenceBadge confidence={t.ai_confidence} />}
+          {t.ai_status === 'failed' && (
+            <span
+              className="inline-flex items-center gap-1 rounded-sm border border-warning/40 bg-warning/10 px-1 py-0 text-[10px] font-medium text-warning"
+              data-testid={`not-analyzed-${t.id}`}
+              title="A IA não conseguiu analisar este gasto"
+            >
+              <CircleSlash size={10} /> não analisado
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
           <CreditCard size={12} />

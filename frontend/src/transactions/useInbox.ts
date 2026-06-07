@@ -43,6 +43,8 @@ export type InboxTransaction = {
   improved_title: string | null
   ai_confidence: AiConfidence
   ai_suggestion: AiSuggestion
+  // Estado da análise IA: queued (aguardando), analyzed (rodou), failed (não analisado)
+  ai_status: 'queued' | 'analyzed' | 'failed'
   status: string
   source: string
   lock_version: number

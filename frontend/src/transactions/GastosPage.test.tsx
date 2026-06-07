@@ -30,6 +30,7 @@ function tx(o: Partial<InboxTransaction> = {}): InboxTransaction {
     improved_title: 'Mercado da semana',
     ai_confidence: null,
     ai_suggestion: null,
+    ai_status: 'analyzed',
     status: 'consolidated',
     source: 'automatic_sync',
     lock_version: 1,

@@ -4,9 +4,10 @@ module Categories
   # sugestões pendentes em category_tag_suggestions (não ressuscita
   # accepted/dismissed). Disparado pelo botão "Sugerir tags" de cada categoria.
   class SuggestTagsJob < ApplicationJob
+    include AiResilient
     queue_as :ai_suggestion
 
-    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 3
+    retry_ai_errors(workspace_from: ->(job) { Category.find_by(id: job.arguments.first)&.workspace })
 
     def perform(category_id)
       category  = Category.find_by(id: category_id)
@@ -30,8 +31,7 @@ module Categories
       end
       workspace.clear_ai_error!
     rescue AiProviders::ApiError => e
-      workspace.record_ai_error!(e)
-      raise if e.retryable?
+      handle_ai_error(e, workspace)
     end
 
     private

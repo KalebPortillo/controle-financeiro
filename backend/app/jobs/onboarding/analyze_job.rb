@@ -7,13 +7,13 @@ module Onboarding
   # Quando termina, persiste suggested_tags e suggested_categories no
   # workspace.onboarding_state e transiciona pra "tagging".
   class AnalyzeJob < ApplicationJob
+    include AiResilient
     queue_as :ai_suggestion
 
-    # Re-tenta erros transitórios de IA com backoff. Quota (créditos esgotados) é
-    # permanente: não re-tenta — registra o erro no workspace pra UI mostrar e
-    # mantém o passo em "analyzing" (o usuário decide continuar manualmente). Não
-    # auto-avança em silêncio: erro de IA fica TRANSPARENTE pro usuário.
-    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 3
+    # Transitório (503/rate-limit) → re-tenta com backoff (banner só no give-up);
+    # quota/daily → registra já e mantém "analyzing" (o usuário segue manual). Não
+    # auto-avança em silêncio: erro de IA fica TRANSPARENTE pro usuário. Ver AiResilient.
+    retry_ai_errors(workspace_from: ->(job) { Workspace.find_by(id: job.arguments.first) })
 
     MAX_TRANSACTIONS = 200
 
@@ -44,10 +44,7 @@ module Onboarding
 
       apply_result!(workspace, result, mode)
     rescue AiProviders::ApiError => e
-      workspace.record_ai_error!(e)
-      raise if e.retryable? # transitório → retry_on cuida do backoff
-
-      # quota: registrado; sem retry. Fica em "analyzing" com o card de erro.
+      handle_ai_error(e, workspace)
     end
 
     private

@@ -51,13 +51,24 @@ class AiSuggestion::BatchSuggestJobTest < ActiveJob::TestCase
     assert_equal "quota", @workspace.reload.ai_error_payload[:reason]
   end
 
-  test "records the ai error and retries on a transient error" do
-    stub_batch_raises(AiProviders::ApiError.new("down", reason: :unavailable))
+  test "retries a transient error WITHOUT showing the banner mid-flight" do
+    stub_batch_raises(AiProviders::ApiError.new("overloaded", reason: :unavailable))
 
-    # retry_on engole o relançamento e reagenda — um novo job é enfileirado.
+    # retry_on reagenda — um novo job é enfileirado — mas o erro NÃO é registrado
+    # durante os retries (sem banner por blip transitório de 503).
     assert_enqueued_jobs 1, only: AiSuggestion::BatchSuggestJob do
       AiSuggestion::BatchSuggestJob.perform_now([ @tx1.id ])
     end
+    assert_nil @workspace.reload.ai_last_error
+  end
+
+  test "records the ai error only after exhausting the transient retries" do
+    stub_batch_raises(AiProviders::ApiError.new("overloaded", reason: :unavailable))
+
+    perform_enqueued_jobs do
+      AiSuggestion::BatchSuggestJob.perform_later([ @tx1.id ])
+    end
+
     assert_equal "unavailable", @workspace.reload.ai_error_payload[:reason]
   end
 

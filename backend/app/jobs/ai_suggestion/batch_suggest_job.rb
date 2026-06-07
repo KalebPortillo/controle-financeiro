@@ -3,10 +3,12 @@ module AiSuggestion
   # de transações, roda o BatchService (1 chamada ao provider pro lote) e
   # persiste o resultado por tx via Persist. Substitui o SuggestJob de 1 tx.
   class BatchSuggestJob < ApplicationJob
+    include AiResilient
     queue_as :ai_suggestion
 
-    # Gemini free tier: 15 RPM. 429 relança e o lote inteiro é re-tentado.
-    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 3
+    # Erro transitório (503/rate-limit) → re-tenta com backoff (banner só no
+    # give-up); quota/daily → registra já, sem re-tentar. Ver AiResilient.
+    retry_ai_errors(workspace_from: ->(job) { Transaction.find_by(id: job.arguments.first.first)&.workspace })
 
     def perform(transaction_ids)
       txs = Transaction.where(id: transaction_ids, status: "pending").to_a
@@ -16,9 +18,7 @@ module AiSuggestion
       txs.each { |tx| AiSuggestion::Persist.call(tx, results[tx.id]) if results[tx.id] }
       txs.first.workspace.clear_ai_error! # sucesso → some o banner de IA indisponível
     rescue AiProviders::ApiError => e
-      # Feedback transparente: registra no workspace pra inbox mostrar o banner.
-      Transaction.find_by(id: transaction_ids.first)&.workspace&.record_ai_error!(e)
-      raise if e.retryable? # transitório → retry_on; quota → engole (sem retry inútil)
+      handle_ai_error(e, txs.first&.workspace)
     end
   end
 end

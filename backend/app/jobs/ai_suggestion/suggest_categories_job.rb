@@ -7,9 +7,10 @@ module AiSuggestion
   # Disparado pelo botão "Sugerir categorias com IA" (substitui o antigo
   # Onboarding::SuggestCategoriesJob, que rodava na 2ª análise do onboarding).
   class SuggestCategoriesJob < ApplicationJob
+    include AiResilient
     queue_as :ai_suggestion
 
-    retry_on AiProviders::ApiError, wait: :polynomially_longer, attempts: 3
+    retry_ai_errors(workspace_from: ->(job) { Workspace.find_by(id: job.arguments.first) })
 
     def perform(workspace_id)
       workspace = Workspace.find_by(id: workspace_id)
@@ -30,8 +31,7 @@ module AiSuggestion
       end
       workspace.clear_ai_error! # sucesso → some o erro de IA
     rescue AiProviders::ApiError => e
-      workspace.record_ai_error!(e)
-      raise if e.retryable? # transitório → retry_on; quota → engole
+      handle_ai_error(e, workspace)
     end
 
     private

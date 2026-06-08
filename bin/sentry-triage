@@ -1,0 +1,81 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Triagem de erros do Sentry — lê as issues não-resolvidas dos projetos e imprime
+# um digest priorizado (frequência/impacto/onde), pra triagem sob demanda e
+# pós-deploy. NÃO altera nada no Sentry (só leitura). Ver docs/deploy-runbook.md.
+#
+# Uso:
+#   bin/sentry-triage [--since 2026-06-07T12:00:00Z] [--period 14d] [--env production] [--limit 25]
+#
+# Config (ENV ou ~/.config/controle-financeiro/secrets.env):
+#   SENTRY_AUTH_TOKEN  — Auth Token do Sentry (escopos: org:read, project:read, event:read)
+#   SENTRY_ORG         — slug da org
+#   SENTRY_PROJECTS    — slugs dos projetos, separados por vírgula (backend,frontend)
+
+require "net/http"
+require "json"
+require "uri"
+require "optparse"
+require_relative "../backend/lib/sentry_triage"
+
+SECRETS = File.expand_path("~/.config/controle-financeiro/secrets.env")
+
+# Carrega chaves do secrets.env só se ainda não estiverem no ENV (não sobrescreve).
+def load_secrets!
+  return unless File.exist?(SECRETS)
+
+  File.foreach(SECRETS) do |line|
+    next if line.strip.empty? || line.strip.start_with?("#")
+
+    key, _, val = line.strip.partition("=")
+    ENV[key] ||= val.gsub(/\A["']|["']\z/, "") if key && !val.empty?
+  end
+end
+
+def die(msg)
+  warn "sentry-triage: #{msg}"
+  exit 1
+end
+
+options = { period: "14d", limit: 25, env: nil, since: nil }
+OptionParser.new do |o|
+  o.on("--since ISO") { |v| options[:since] = v }
+  o.on("--period P")  { |v| options[:period] = v }
+  o.on("--env E")     { |v| options[:env] = v }
+  o.on("--limit N")   { |v| options[:limit] = v.to_i }
+end.parse!(ARGV)
+
+load_secrets!
+token    = ENV["SENTRY_AUTH_TOKEN"].to_s
+org      = ENV["SENTRY_ORG"].to_s
+projects = ENV["SENTRY_PROJECTS"].to_s.split(",").map(&:strip).reject(&:empty?)
+
+die "SENTRY_AUTH_TOKEN ausente (crie um Auth Token de leitura e coloque em #{SECRETS})" if token.empty?
+die "SENTRY_ORG ausente" if org.empty?
+die "SENTRY_PROJECTS ausente" if projects.empty?
+
+def fetch_issues(org:, project:, token:, options:)
+  query = "is:unresolved"
+  query += " environment:#{options[:env]}" if options[:env]
+  params = {
+    query: query, sort: "freq", statsPeriod: options[:period], limit: options[:limit]
+  }
+  uri = URI("https://sentry.io/api/0/projects/#{org}/#{project}/issues/")
+  uri.query = URI.encode_www_form(params)
+
+  req = Net::HTTP::Get.new(uri)
+  req["Authorization"] = "Bearer #{token}"
+  res = Net::HTTP.start(uri.host, uri.port, use_ssl: true, read_timeout: 30) { |http| http.request(req) }
+  unless res.is_a?(Net::HTTPSuccess)
+    die "Sentry HTTP #{res.code} pra projeto '#{project}': #{res.body.to_s[0, 200]}"
+  end
+
+  JSON.parse(res.body)
+end
+
+rows = projects.flat_map do |project|
+  SentryTriage.normalize_all(fetch_issues(org: org, project: project, token: token, options: options), project: project)
+end
+
+puts SentryTriage.format(rows, since: options[:since])

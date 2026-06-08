@@ -412,6 +412,34 @@ curl -sS https://wallet.portilho.cc/api/v1/app_config
 #   → {"environment":"production","pluggy":{"include_sandbox":false,"connector_ids":null}}
 ```
 
+## Triagem de erros (Sentry)
+
+O Sentry só manda email passivo. Pra triagem ativa há `bin/sentry-triage`: lê as
+issues **não-resolvidas** dos projetos (backend + frontend) via API REST e imprime
+um digest priorizado por frequência (eventos · usuários · nível · culprit · link).
+Só leitura — não altera nada no Sentry.
+
+**Quando rodar:** sob demanda ("olha o Sentry") e **depois de cada deploy** (com
+`--since <hora do deploy>` pra destacar erros NOVOS desde o deploy). O agente lê o
+digest, mapeia o `culprit` pro arquivo:linha do repo e entrega a triagem. (Por ora
+só triagem — não propõe/abre correção.)
+
+**Config** (ENV ou `~/.config/controle-financeiro/secrets.env`):
+```
+SENTRY_AUTH_TOKEN=...   # Auth Token do Sentry, escopos: org:read, project:read, event:read
+SENTRY_ORG=<org-slug>
+SENTRY_PROJECTS=<backend-slug>,<frontend-slug>
+```
+DSN (`SENTRY_DSN`/`VITE_SENTRY_DSN`) só ENVIA eventos; LER issues exige o Auth Token.
+
+```bash
+bin/sentry-triage                                  # últimas 2 semanas, por frequência
+bin/sentry-triage --since 2026-06-07T17:50:00Z     # novos desde o deploy
+bin/sentry-triage --env production --period 24h --limit 30
+```
+Lógica pura (parse/prioriza/formata) em `backend/lib/sentry_triage.rb` (testada em
+`backend/test/lib/sentry_triage_test.rb`); o HTTP fica no script.
+
 ---
 
 **Status:** v1.2 — RF1/RF21 (Pluggy connect + webhook + painel de sync via Action

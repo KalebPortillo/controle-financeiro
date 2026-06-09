@@ -28,7 +28,8 @@ def load_secrets!
   File.foreach(SECRETS) do |line|
     next if line.strip.empty? || line.strip.start_with?("#")
 
-    key, _, val = line.strip.partition("=")
+    # Aceita tanto `KEY=val` quanto `export KEY=val`.
+    key, _, val = line.strip.sub(/\Aexport\s+/, "").partition("=")
     ENV[key] ||= val.gsub(/\A["']|["']\z/, "") if key && !val.empty?
   end
 end
@@ -49,11 +50,13 @@ end.parse!(ARGV)
 load_secrets!
 token    = ENV["SENTRY_AUTH_TOKEN"].to_s
 org      = ENV["SENTRY_ORG"].to_s
+# Slugs dos projetos: SENTRY_PROJECTS (csv) ou o par já usado no secrets.env.
 projects = ENV["SENTRY_PROJECTS"].to_s.split(",").map(&:strip).reject(&:empty?)
+projects = [ ENV["SENTRY_BACKEND_PROJECT"], ENV["SENTRY_FRONTEND_PROJECT"] ].compact.map(&:strip).reject(&:empty?) if projects.empty?
 
 die "SENTRY_AUTH_TOKEN ausente (crie um Auth Token de leitura e coloque em #{SECRETS})" if token.empty?
 die "SENTRY_ORG ausente" if org.empty?
-die "SENTRY_PROJECTS ausente" if projects.empty?
+die "SENTRY_PROJECTS / SENTRY_BACKEND_PROJECT+SENTRY_FRONTEND_PROJECT ausentes" if projects.empty?
 
 def fetch_issues(org:, project:, token:, options:)
   query = "is:unresolved"

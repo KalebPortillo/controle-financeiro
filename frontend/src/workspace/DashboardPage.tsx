@@ -4,6 +4,7 @@ import { useSession, useLogout, useSelectWorkspace } from '../auth/useSession'
 import { Button } from '../components/Button'
 import { Card, CardBody, CardHeader } from '../components/Card'
 import { MembersCard } from './MembersCard'
+import { TelegramCard } from '../notifications/TelegramCard'
 import { ConnectBankButton } from '../bank/ConnectBankButton'
 
 /**
@@ -65,6 +66,8 @@ export function DashboardPage() {
       )}
 
       {active && <MembersCard workspaceId={active.id} />}
+
+      <TelegramCard />
 
       <Card>
         <CardHeader>

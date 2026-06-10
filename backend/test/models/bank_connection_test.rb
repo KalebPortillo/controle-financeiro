@@ -5,13 +5,18 @@ class BankConnectionTest < ActiveSupport::TestCase
     assert build(:bank_connection).valid?
   end
 
-  test "requires workspace, owner_membership, provider, external_connection_id, sync_history_since" do
+  test "requires workspace, provider, external_connection_id, sync_history_since" do
     conn = BankConnection.new
     assert_not conn.valid?
     assert_includes conn.errors[:workspace],              "must exist"
-    assert_includes conn.errors[:owner_membership],       "must exist"
     assert_includes conn.errors[:external_connection_id], "can't be blank"
     assert_includes conn.errors[:sync_history_since],     "can't be blank"
+  end
+
+  test "owner_membership is optional (nullified when member is removed)" do
+    conn = build(:bank_connection, owner_membership: nil)
+    conn.valid?
+    assert_empty conn.errors[:owner_membership]
   end
 
   test "provider must be pluggy or manual" do

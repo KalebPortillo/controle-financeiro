@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_07_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_10_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -24,7 +24,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_07_120000) do
     t.string "institution", null: false
     t.string "kind", null: false
     t.string "name", null: false
-    t.uuid "owner_membership_id", null: false
+    t.uuid "owner_membership_id"
     t.datetime "updated_at", null: false
     t.uuid "workspace_id", null: false
     t.index ["bank_connection_id", "external_id"], name: "index_accounts_on_connection_and_external_id", unique: true, where: "(external_id IS NOT NULL)"
@@ -103,7 +103,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_07_120000) do
     t.integer "last_sync_duration_seconds"
     t.integer "last_sync_error_count", default: 0, null: false
     t.datetime "next_sync_at"
-    t.uuid "owner_membership_id", null: false
+    t.uuid "owner_membership_id"
     t.string "provider", default: "pluggy", null: false
     t.string "status", default: "connected", null: false
     t.date "sync_history_since", null: false
@@ -360,13 +360,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_07_120000) do
   end
 
   add_foreign_key "accounts", "bank_connections"
-  add_foreign_key "accounts", "workspace_memberships", column: "owner_membership_id"
+  add_foreign_key "accounts", "workspace_memberships", column: "owner_membership_id", on_delete: :nullify
   add_foreign_key "accounts", "workspaces"
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "ai_learned_rules", "workspaces"
   add_foreign_key "bank_connection_syncs", "bank_connections"
-  add_foreign_key "bank_connections", "workspace_memberships", column: "owner_membership_id"
+  add_foreign_key "bank_connections", "workspace_memberships", column: "owner_membership_id", on_delete: :nullify
   add_foreign_key "bank_connections", "workspaces"
   add_foreign_key "categories", "workspaces"
   add_foreign_key "category_tag_suggestions", "categories"

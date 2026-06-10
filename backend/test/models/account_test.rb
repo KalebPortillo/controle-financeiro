@@ -5,12 +5,17 @@ class AccountTest < ActiveSupport::TestCase
     assert build(:account).valid?
   end
 
-  test "requires workspace, owner_membership, name, kind, institution" do
+  test "requires workspace, name, kind, institution" do
     account = Account.new
     assert_not account.valid?
-    assert_includes account.errors[:workspace],        "must exist"
-    assert_includes account.errors[:owner_membership], "must exist"
-    assert_includes account.errors[:name],             "can't be blank"
+    assert_includes account.errors[:workspace], "must exist"
+    assert_includes account.errors[:name],      "can't be blank"
+  end
+
+  test "owner_membership is optional (nullified when member is removed)" do
+    account = build(:account, owner_membership: nil)
+    account.valid?
+    assert_empty account.errors[:owner_membership]
   end
 
   test "kind must be checking or credit_card" do

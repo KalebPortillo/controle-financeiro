@@ -3,7 +3,7 @@ class Account < ApplicationRecord
   INSTITUTIONS = %w[nubank inter itau santander bb sandbox manual].freeze
 
   belongs_to :workspace
-  belongs_to :owner_membership, class_name: "WorkspaceMembership"
+  belongs_to :owner_membership, class_name: "WorkspaceMembership", optional: true
   belongs_to :bank_connection, optional: true
 
   has_many :transactions, dependent: :destroy

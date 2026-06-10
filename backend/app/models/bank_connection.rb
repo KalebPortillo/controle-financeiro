@@ -3,7 +3,7 @@ class BankConnection < ApplicationRecord
   STATUSES  = %w[connected syncing expired error disconnected].freeze
 
   belongs_to :workspace
-  belongs_to :owner_membership, class_name: "WorkspaceMembership"
+  belongs_to :owner_membership, class_name: "WorkspaceMembership", optional: true
 
   has_many :accounts, dependent: :nullify
   has_many :syncs, class_name: "BankConnectionSync", dependent: :delete_all

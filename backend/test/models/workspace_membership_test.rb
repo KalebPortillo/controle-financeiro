@@ -24,6 +24,17 @@ class WorkspaceMembershipTest < ActiveSupport::TestCase
     assert_includes membership.errors[:role], "is not included in the list"
   end
 
+  test "destroying membership nullifies owned bank_connections and accounts" do
+    membership = create(:workspace_membership)
+    connection = create(:bank_connection, workspace: membership.workspace, owner_membership: membership)
+    account    = create(:account, workspace: membership.workspace, owner_membership: membership)
+
+    membership.destroy!
+
+    assert_nil connection.reload.owner_membership_id
+    assert_nil account.reload.owner_membership_id
+  end
+
   test "(user_id, workspace_id) is unique" do
     user      = create(:user)
     workspace = create(:workspace)

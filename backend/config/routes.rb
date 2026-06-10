@@ -83,6 +83,12 @@ Rails.application.routes.draw do
       # AI learned rules (RF3.2) — ver e apagar regras aprendidas.
       resources :ai_learned_rules, only: [ :index, :destroy ]
 
+      # Notificações in-app (RF17) — broadcast pro workspace + dirigidas.
+      resources :notifications, only: [ :index ] do
+        member     { post "mark_read" }
+        collection { post "mark_all_read" }
+      end
+
       # Tags sugeridas pela IA (RF3/RF22) — catálogo separado das tags reais.
       # accept promove a sugestão a Tag real (e opcionalmente aplica a uma
       # transação); destroy recusa (status dismissed).

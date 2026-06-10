@@ -91,4 +91,33 @@ class TransactionsInboxTest < ActionDispatch::IntegrationTest
     ids = JSON.parse(response.body)["transactions"].map { |t| t["id"] }
     assert_equal [ newer.id, older.id ], ids
   end
+
+  test "listagem não faz query por transação (N+1)" do
+    tags = [ create(:tag, workspace: @workspace), create(:tag, workspace: @workspace) ]
+    5.times do |i|
+      t = txn(status: "pending", original_description: "Gasto #{i}")
+      t.tags = tags
+      refund = txn(status: "consolidated", direction: "credit")
+      create(:transaction_refund, refunded_transaction: t, refund_transaction: refund,
+                                  confirmed_by_membership: @membership)
+    end
+
+    queries = []
+    counter = ->(*, payload) do
+      queries << payload[:sql] unless payload[:name].in?([ "SCHEMA", "TRANSACTION" ])
+    end
+    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") do
+      get "/api/v1/transactions"
+    end
+
+    assert_response :ok
+    body = JSON.parse(response.body)
+    assert_equal 5, body["transactions"].size
+    assert_equal 2, body["transactions"].first["tags"].size
+    assert body["transactions"].first["refund"].present?
+    # workspace + user/membership/session + transações + 3 preloads + count.
+    # Sem preload eram ~3 queries POR transação (tags, refunds, refund_transaction).
+    assert_operator queries.size, :<=, 12,
+                    "esperava listagem com queries constantes, rodou #{queries.size}:\n#{queries.join("\n")}"
+  end
 end

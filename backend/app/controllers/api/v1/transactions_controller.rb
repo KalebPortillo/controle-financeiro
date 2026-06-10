@@ -13,7 +13,10 @@ class Api::V1::TransactionsController < ApplicationController
     scope = scope.where("occurred_at <= ?", params[:to]) if params[:to].present?
     scope = apply_search(scope, params[:q])
 
-    transactions = scope.order(occurred_at: :desc, created_at: :desc)
+    # Preload do que o serialize toca por transação (conta, tags, estornos) —
+    # sem isso a listagem faz ~3 queries por item.
+    transactions = scope.includes(:account, :tags, refunds_received: :refund_transaction)
+                        .order(occurred_at: :desc, created_at: :desc)
 
     render json: {
       transactions:  transactions.map { |t| serialize(t) },
@@ -245,7 +248,9 @@ class Api::V1::TransactionsController < ApplicationController
       installment_total:    t.installment_total,
       installment_group_id: t.installment_group_id,
       lock_version:         t.lock_version,
-      tags:                 t.tags.order(:name).map { |tag| { id: tag.id, name: tag.name, color: tag.color, icon: tag.icon } },
+      # sort_by (não .order) pra aproveitar o preload da listagem — .order
+      # dispararia uma query nova por transação mesmo com includes.
+      tags:                 t.tags.sort_by(&:name).map { |tag| { id: tag.id, name: tag.name, color: tag.color, icon: tag.icon } },
       # RF10 — valor efetivo (desconta estornos) + resumo dos estornos recebidos.
       effective_amount_cents: t.effective_amount_cents,
       refund:                 serialize_refund(t)

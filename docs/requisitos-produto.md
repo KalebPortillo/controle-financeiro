@@ -196,10 +196,20 @@ O prompt enviado à IA é **compacto** (só os campos acima extraídos do JSONB 
 - **RF16.4** Membros do workspace são **editores plenos**: ambos podem aceitar, editar e remover qualquer gasto, criar/editar tags, categorias e orçamentos. Sem distinção de papéis no MVP.
 - **RF16.5** Um usuário pode pertencer a múltiplos workspaces no futuro (arquitetura preparada).
 
-### RF17. Notificações (preparado, escopo enxuto no MVP)
-- **RF17.1** Apenas **notificações internas (in-app)** no MVP. Sem push, sem email.
-- **RF17.2** Tipos previstos: novos gastos aguardando na inbox, estouro de orçamento, recorrente que não chegou, falha de sincronização.
-- **RF17.3** Arquitetura preparada para canais externos (push, email) no futuro.
+### RF17. Notificações — implementado (in-app + Telegram, 2026-06-10)
+- **RF17.1** Notificações **in-app**: sininho no header com badge de não lidas,
+  painel lateral com lista, marcar lida (clique navega pro contexto) e marcar
+  todas. Tempo real via Action Cable (`NotificationsChannel`).
+- **RF17.2** Tipos implementados: **novos gastos na inbox** (`inbox_new`, pós-sync
+  com contagem), **recorrente que não chegou** (`recurrent_missed`, varredura
+  diária ~08:00 BRT com dedup por vencimento) e **falha de sincronização**
+  (`sync_failed`, RF21.6 — só na primeira falha, sem spam de retry). Estouro de
+  orçamento (`budget_warning`/`budget_exceeded`) aguarda RF8.
+- **RF17.3** Canal externo **Telegram** implementado atrás de abstração
+  (`NotificationChannels::`): bot envia pro **grupo do casal** (1 chat por
+  workspace), vinculação por deep-link `startgroup` + webhook, config em /mais.
+  Entrega é best-effort (in-app nunca depende do canal externo). Push/email
+  seguem preparados para o futuro pelo mesmo contrato.
 
 ### RF18. Exportação (preparado, fora do MVP)
 - **RF18.1** Exportação CSV/Excel não entra no MVP.

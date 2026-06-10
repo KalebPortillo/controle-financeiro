@@ -339,9 +339,26 @@ Lista canônica (mantida em sync com `.github/workflows/deploy.yml`):
 | `SENTRY_DSN_BACKEND` | Sentry project settings | `gh secret set SENTRY_DSN_BACKEND --body "$DSN"` |
 | `GOOGLE_OAUTH_CLIENT_ID` | Google Cloud Console OAuth client JSON | `jq -j .web.client_id file.json \| gh secret set GOOGLE_OAUTH_CLIENT_ID` |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | Idem | `jq -j .web.client_secret file.json \| gh secret set GOOGLE_OAUTH_CLIENT_SECRET` |
+| `TELEGRAM_BOT_TOKEN` | BotFather (`/newbot`) — **bot separado por ambiente** | `gh secret set TELEGRAM_BOT_TOKEN --env staging --body "$TOKEN"` (idem production) |
+| `TELEGRAM_WEBHOOK_SECRET` | gerado (`openssl rand -hex 32`) | `gh secret set TELEGRAM_WEBHOOK_SECRET --env staging --body "$SECRET"` |
+| `TELEGRAM_BOT_USERNAME` | username do bot (sem @) — não é segredo, mas varia por ambiente | `gh secret set TELEGRAM_BOT_USERNAME --env staging --body "meubot_staging_bot"` |
 
 > **NUNCA** use `--body -` esperando que ele leia stdin: ele armazena o caractere
 > literal `-`. Use `--body "$valor"` ou omita `--body` para ler stdin.
+
+### Telegram: registro do webhook (uma vez por ambiente)
+
+Depois do primeiro deploy com os secrets do Telegram no ar:
+
+```bash
+ssh oracle-app-box  # ou via kamal app exec
+kamal app exec -d staging 'bin/rails telegram:set_webhook'
+# produção: kamal app exec -d production 'bin/rails telegram:set_webhook'
+```
+
+O task usa `APP_HOST` do destination + `TELEGRAM_WEBHOOK_SECRET`. Cada bot
+(staging/prod) aponta pro webhook do seu ambiente. Vinculação do grupo é feita
+pelo app (/mais → Conectar Telegram).
 
 ## E2E (Playwright) como gate de deploy
 

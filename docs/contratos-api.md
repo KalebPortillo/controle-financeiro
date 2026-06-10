@@ -433,11 +433,18 @@ Apenas o `created_by_user` do workspace tem acesso — convidados recebem `403`.
 
 `GET /api/v1/sessions/current` passa a incluir `onboarding_state` (resumido — só `status` e `current_step`) do workspace ativo, para o frontend decidir se redireciona para `/onboarding` no boot.
 
-### Notifications (RF17)
-- `GET    /api/v1/notifications?unread=true`
-- `POST   /api/v1/notifications/:id/mark_read`
-- `POST   /api/v1/notifications/mark_all_read`
-- **WebSocket via Action Cable**: canal `NotificationsChannel`, identificado por workspace_id + membership_id. Eventos broadcast: `notification_created`.
+### Notifications (RF17) — implementado
+- `GET    /api/v1/notifications?unread=true` → `{ notifications: [{ id, kind, payload, read_at, created_at }], unread_count }` (desc por created_at, limit 50; broadcast + dirigidas à membership atual)
+- `POST   /api/v1/notifications/:id/mark_read` → `{ notification }` (404 cross-workspace)
+- `POST   /api/v1/notifications/mark_all_read` → 200
+- **WebSocket via Action Cable**: canal `NotificationsChannel` (param `workspace_id`; só membros assinam). Evento broadcast: `notification_created` com `{ event, notification }` no mesmo schema do REST.
+
+### Telegram (RF17, canal externo) — implementado
+- `GET    /api/v1/telegram_link` → `{ linked, chat_title, linked_at }`
+- `POST   /api/v1/telegram_link` → `{ deep_link, expires_at }` — gera código de uso único (TTL 15 min); deep_link = `https://t.me/<bot>?startgroup=<code>`
+- `DELETE /api/v1/telegram_link` → 204 (desvincula; eventos novos ficam só in-app)
+- `POST   /api/v1/webhooks/telegram` — updates do bot (sem sessão; valida header `X-Telegram-Bot-Api-Secret-Token` via secure_compare). Trata `/start <code>` (e `/start@bot <code>`) vinculando o chat ao workspace dono do código. Sempre responde 200 (Telegram re-envia em não-2xx).
+- Registro do webhook: `bin/rails telegram:set_webhook` (usa `APP_HOST` + `TELEGRAM_WEBHOOK_SECRET`), uma vez por ambiente.
 
 ### Faturas do cartão (RF9.5, derivado)
 - `GET /api/v1/accounts/:id/invoices?status=open|future` — lista de faturas do cartão como objetos derivados:

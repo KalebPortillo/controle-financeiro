@@ -486,11 +486,27 @@ Notificação in-app (RF17).
 | recipient_membership_id | uuid | FK NULL — null = broadcast pro workspace |
 | kind | enum | NOT NULL |
 | payload | jsonb | NOT NULL |
+| dedup_key | string | NULL — unique parcial (workspace_id, dedup_key); idempotência de re-notificação |
 | read_at | timestamp | NULL |
 | created_at | timestamp | |
 
 **Enum kind**: `inbox_new`, `budget_warning`, `budget_exceeded`, `recurrent_missed`, `sync_failed`, `import_completed`.
-**RFs**: RF17.
+**Dedup** (implementado): `recurrent_missed:<recurrence_id>:<next_expected_at>` (mesma pendência
+não re-notifica nos dias seguintes), `sync_failed:<connection_id>:<date>` (cinto extra além do
+guard de transição de status no SyncJob). `read_at` é compartilhado: lida por um membro,
+lida pros dois. Criação única via `Notifications::Create` (broadcast cable + fan-out Telegram).
+**RFs**: RF17, RF21.6, RF9.6.
+
+### Vínculo Telegram (colunas em `workspaces`)
+1 grupo do casal por workspace (RF17 canal externo):
+
+| coluna | tipo | notas |
+|---|---|---|
+| telegram_chat_id | bigint | IDs de grupo são negativos; NULL = desvinculado |
+| telegram_chat_title | string | exibição no card de config |
+| telegram_linked_at | timestamp | |
+| telegram_link_code | string | unique parcial; código de uso único do deep-link `t.me/<bot>?startgroup=<code>` |
+| telegram_link_code_expires_at | timestamp | TTL 15 min |
 
 ## Regras de invariante (lógicas, não DDL)
 

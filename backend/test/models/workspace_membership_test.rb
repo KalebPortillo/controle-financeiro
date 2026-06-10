@@ -35,6 +35,17 @@ class WorkspaceMembershipTest < ActiveSupport::TestCase
     assert_nil account.reload.owner_membership_id
   end
 
+  test "destroying membership deletes notifications addressed to it" do
+    membership = create(:workspace_membership)
+    targeted   = create(:notification, workspace: membership.workspace, recipient_membership: membership)
+    broadcast  = create(:notification, workspace: membership.workspace)
+
+    membership.destroy!
+
+    assert_not Notification.exists?(targeted.id)
+    assert Notification.exists?(broadcast.id)
+  end
+
   test "(user_id, workspace_id) is unique" do
     user      = create(:user)
     workspace = create(:workspace)

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_10_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_10_200000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -184,6 +184,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_10_120000) do
     t.index ["credit_transaction_id"], name: "index_internal_transfers_on_credit_transaction_id", unique: true
     t.index ["debit_transaction_id"], name: "index_internal_transfers_on_debit_transaction_id", unique: true
     t.index ["workspace_id"], name: "index_internal_transfers_on_workspace_id"
+  end
+
+  create_table "notifications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "dedup_key"
+    t.string "kind", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.datetime "read_at"
+    t.uuid "recipient_membership_id"
+    t.datetime "updated_at", null: false
+    t.uuid "workspace_id", null: false
+    t.index ["recipient_membership_id", "read_at"], name: "index_notifications_on_recipient_membership_id_and_read_at"
+    t.index ["recipient_membership_id"], name: "index_notifications_on_recipient_membership_id"
+    t.index ["workspace_id", "created_at"], name: "index_notifications_on_workspace_id_and_created_at"
+    t.index ["workspace_id", "dedup_key"], name: "index_notifications_dedup", unique: true, where: "(dedup_key IS NOT NULL)"
+    t.index ["workspace_id"], name: "index_notifications_on_workspace_id"
+    t.check_constraint "kind::text = ANY (ARRAY['inbox_new'::character varying, 'budget_warning'::character varying, 'budget_exceeded'::character varying, 'recurrent_missed'::character varying, 'sync_failed'::character varying, 'import_completed'::character varying]::text[])", name: "notifications_kind_check"
   end
 
   create_table "recurrences", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -380,6 +397,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_10_120000) do
   add_foreign_key "internal_transfers", "transactions", column: "debit_transaction_id"
   add_foreign_key "internal_transfers", "workspace_memberships", column: "confirmed_by_membership_id"
   add_foreign_key "internal_transfers", "workspaces"
+  add_foreign_key "notifications", "workspace_memberships", column: "recipient_membership_id"
+  add_foreign_key "notifications", "workspaces"
   add_foreign_key "recurrences", "accounts"
   add_foreign_key "recurrences", "workspaces"
   add_foreign_key "suggested_categories", "workspaces"

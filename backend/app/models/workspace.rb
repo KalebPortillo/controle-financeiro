@@ -6,6 +6,8 @@ class Workspace < ApplicationRecord
   # accounts referenciam workspace_memberships via owner_membership_id, então vão
   # ANTES das memberships, senão a FK estoura ao apagar o workspace.
   # internal_transfers referencia transactions (FK) → destrói ANTES delas.
+  # notifications referenciam memberships via recipient_membership_id → ANTES delas.
+  has_many :notifications, dependent: :destroy
   has_many :internal_transfers, dependent: :destroy
   has_many :transactions, dependent: :destroy
   has_many :recurrences, dependent: :destroy

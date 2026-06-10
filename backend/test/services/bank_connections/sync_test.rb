@@ -169,4 +169,41 @@ class BankConnections::SyncTest < ActiveSupport::TestCase
     assert_nil t.installment_total
     assert_nil t.installment_group_id
   end
+
+  test "sync com transações novas emite inbox_new com a contagem (RF17)" do
+    connection, _account = setup_connection_with_account
+    provider = FakeProvider.new(by_account: {
+      "acc-1" => [ txn("tx-1", -50.0, "Padaria"), txn("tx-2", -30.0, "Uber") ]
+    })
+
+    scope = -> { connection.workspace.notifications.where(kind: "inbox_new") }
+    assert_difference -> { scope.call.count }, 1 do
+      BankConnections::Sync.call(connection: connection, provider: provider)
+    end
+
+    n = scope.call.last
+    assert_equal 2, n.payload["count"]
+    assert_equal connection.id, n.payload["bank_connection_id"]
+  end
+
+  test "sync sem transações novas não emite inbox_new" do
+    connection, _account = setup_connection_with_account
+    provider = FakeProvider.new(by_account: { "acc-1" => [ txn("tx-1", -50.0, "Padaria") ] })
+    BankConnections::Sync.call(connection: connection, provider: provider)
+
+    # Re-sync: tudo duplicado, created = 0.
+    assert_no_difference -> { Notification.where(kind: "inbox_new").count } do
+      BankConnections::Sync.call(connection: connection, provider: provider)
+    end
+  end
+
+  test "durante o onboarding não emite inbox_new" do
+    connection, _account = setup_connection_with_account
+    connection.workspace.update!(onboarding_state: { "status" => "connecting" })
+    provider = FakeProvider.new(by_account: { "acc-1" => [ txn("tx-1", -50.0, "Padaria") ] })
+
+    assert_no_difference -> { Notification.where(kind: "inbox_new").count } do
+      BankConnections::Sync.call(connection: connection, provider: provider)
+    end
+  end
 end

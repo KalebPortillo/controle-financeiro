@@ -66,6 +66,9 @@ module BankConnections
       # RF9.1: detecção de recorrentes ao fim do sync (fora do onboarding).
       maybe_kickoff_recurrence_detection
 
+      # RF17: avisa que chegaram gastos novos na inbox (fora do onboarding).
+      notify_new_inbox_items(created)
+
       { created: created, duplicated: duplicated, errored: errored }
     rescue StandardError => e
       # Registra o run falho no histórico (RF21.7) e propaga — o SyncJob trata
@@ -110,6 +113,24 @@ module BankConnections
 
       Recurrences::DetectJob.perform_later(ws.id)
       InternalTransfers::DetectJob.perform_later(ws.id)
+    end
+
+    # Cada sync com novidades é um evento legítimo — sem dedup. Durante o
+    # onboarding o usuário já está olhando o fluxo, notificar seria ruído.
+    def notify_new_inbox_items(created)
+      return if created.zero?
+      return if onboarding_in_progress?(@connection.workspace)
+
+      institution = @connection.accounts.first&.institution
+      Notifications::Create.call(
+        workspace: @connection.workspace,
+        kind:      "inbox_new",
+        payload:   {
+          "count"              => created,
+          "bank_connection_id" => @connection.id,
+          "institution_label"  => BankConnections::Serializer::INSTITUTION_LABELS[institution] || "banco"
+        }
+      )
     end
 
     # :created | :duplicated | :errored. Unicidade é garantida no DB

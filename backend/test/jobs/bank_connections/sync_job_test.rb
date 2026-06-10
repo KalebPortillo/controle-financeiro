@@ -40,4 +40,46 @@ class BankConnections::SyncJobTest < ActiveJob::TestCase
     end
     assert_equal "expired", conn.reload.status
   end
+
+  test "falha de sync emite notificação sync_failed (RF21.6)" do
+    conn = connection_with_account
+    stub_auth
+    stub_request(:get, %r{https://api\.pluggy\.ai/transactions})
+      .to_return(status: 403, body: '{"message":"item login error"}',
+                 headers: { "Content-Type" => "application/json" })
+
+    scope = -> { conn.workspace.notifications.where(kind: "sync_failed") }
+    assert_difference -> { scope.call.count }, 1 do
+      assert_raises(BankAggregators::ItemError) { BankConnections::SyncJob.perform_now(conn.id) }
+    end
+
+    n = scope.call.last
+    assert_equal conn.id, n.payload["bank_connection_id"]
+    assert n.payload["institution_label"].present?
+  end
+
+  test "conexão JÁ em erro não re-notifica (retry/webhook repetido)" do
+    conn = connection_with_account
+    conn.update!(status: "expired")
+    stub_auth
+    stub_request(:get, %r{https://api\.pluggy\.ai/transactions})
+      .to_return(status: 403, body: '{"message":"item login error"}',
+                 headers: { "Content-Type" => "application/json" })
+
+    assert_no_difference -> { Notification.count } do
+      assert_raises(BankAggregators::ItemError) { BankConnections::SyncJob.perform_now(conn.id) }
+    end
+  end
+
+  test "sync com sucesso não emite sync_failed" do
+    conn = connection_with_account
+    stub_auth
+    stub_request(:get, %r{https://api\.pluggy\.ai/transactions})
+      .to_return(status: 200, headers: { "Content-Type" => "application/json" },
+                 body: { results: [] }.to_json)
+
+    assert_no_difference -> { Notification.where(kind: "sync_failed").count } do
+      BankConnections::SyncJob.perform_now(conn.id)
+    end
+  end
 end

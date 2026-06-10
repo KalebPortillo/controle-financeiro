@@ -9,7 +9,6 @@ import {
   Search,
   Sun,
   Moon,
-  Bell,
   type LucideIcon,
 } from 'lucide-react'
 import { WalletLogo } from '../components/WalletLogo'
@@ -17,6 +16,8 @@ import { useTheme } from '../components/useTheme'
 import { useSession } from '../auth/useSession'
 import { InboxBadge } from '../transactions/InboxBadge'
 import { GlobalSyncIndicator } from '../bank/GlobalSyncIndicator'
+import { NotificationsBell } from '../notifications/NotificationsBell'
+import { useNotificationsChannel } from '../notifications/useNotificationsChannel'
 
 type NavItem = {
   id: string
@@ -43,6 +44,8 @@ export function AppLayout() {
   const { theme, toggle } = useTheme()
   const { data } = useSession()
   const active = data?.workspaces.find((w) => w.id === data.active_workspace_id) ?? data?.workspaces[0]
+  // Notificações em tempo real (RF17) — escopadas no workspace ativo.
+  useNotificationsChannel(active?.id)
 
   return (
     <div className="min-h-screen bg-background text-foreground md:grid md:grid-cols-[256px_1fr]">
@@ -148,12 +151,7 @@ function TopBar({ theme, onToggleTheme }: { theme: string; onToggleTheme: () => 
         >
           {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </button>
-        <button
-          aria-label="Notificações"
-          className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground relative"
-        >
-          <Bell size={16} />
-        </button>
+        <NotificationsBell />
       </div>
     </header>
   )

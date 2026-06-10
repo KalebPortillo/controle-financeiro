@@ -87,5 +87,25 @@ module Notifications
                                    payload: { "count" => 2 })
       end
     end
+
+    test "workspace vinculado ao Telegram → enfileira delivery job" do
+      @workspace.update!(telegram_chat_id: -100123, telegram_linked_at: Time.current)
+
+      assert_enqueued_with(job: Notifications::TelegramDeliveryJob) do
+        Notifications::Create.call(workspace: @workspace, kind: "inbox_new",
+                                   payload: { "count" => 2 })
+      end
+    end
+
+    test "dedup hit não enfileira Telegram" do
+      @workspace.update!(telegram_chat_id: -100123, telegram_linked_at: Time.current)
+      Notifications::Create.call(workspace: @workspace, kind: "recurrent_missed",
+                                 payload: {}, dedup_key: "y")
+
+      assert_no_enqueued_jobs(only: Notifications::TelegramDeliveryJob) do
+        Notifications::Create.call(workspace: @workspace, kind: "recurrent_missed",
+                                   payload: {}, dedup_key: "y")
+      end
+    end
   end
 end

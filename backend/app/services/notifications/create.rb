@@ -18,6 +18,8 @@ module Notifications
         event:        "notification_created",
         notification: Notifications::Serializer.call(notification))
 
+      TelegramDeliveryJob.perform_later(notification.id) if workspace.telegram_chat_id.present?
+
       notification
     rescue ActiveRecord::RecordNotUnique
       nil

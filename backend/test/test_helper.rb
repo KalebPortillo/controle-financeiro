@@ -4,9 +4,12 @@ ENV["RAILS_ENV"] ||= "test"
 # então os valores não importam, só precisam existir pros constructors
 # (BankAggregators::Pluggy faz ENV.fetch). Se as reais estiverem no env
 # (ex.: ao re-gravar cassettes com VCR_RECORD), elas têm precedência.
-ENV["PLUGGY_CLIENT_ID"]      ||= "test-pluggy-client-id"
-ENV["PLUGGY_CLIENT_SECRET"]  ||= "test-pluggy-client-secret"
-ENV["PLUGGY_WEBHOOK_SECRET"] ||= "test-webhook-secret"
+ENV["PLUGGY_CLIENT_ID"]        ||= "test-pluggy-client-id"
+ENV["PLUGGY_CLIENT_SECRET"]    ||= "test-pluggy-client-secret"
+ENV["PLUGGY_WEBHOOK_SECRET"]   ||= "test-webhook-secret"
+ENV["TELEGRAM_BOT_TOKEN"]      ||= "test-telegram-bot-token"
+ENV["TELEGRAM_WEBHOOK_SECRET"] ||= "test-telegram-webhook-secret"
+ENV["TELEGRAM_BOT_USERNAME"]   ||= "controle_financeiro_test_bot"
 
 require_relative "../config/environment"
 require "rails/test_help"
@@ -34,6 +37,9 @@ VCR.configure do |c|
   # Filtra segredos do request/response antes de serializar pro disco.
   c.filter_sensitive_data("<PLUGGY_CLIENT_ID>")     { ENV["PLUGGY_CLIENT_ID"] }
   c.filter_sensitive_data("<PLUGGY_CLIENT_SECRET>") { ENV["PLUGGY_CLIENT_SECRET"] }
+  # Telegram: o bot token fica no PATH da URL (/bot<token>/...) — sem este
+  # filtro ele iria parar em qualquer cassette gravada.
+  c.filter_sensitive_data("<TELEGRAM_BOT_TOKEN>")   { ENV["TELEGRAM_BOT_TOKEN"] }
 
   # Mascara o apiKey JWT em todo lugar que ele aparece:
   #   - response body do /auth ({ "apiKey": "jwt..." })

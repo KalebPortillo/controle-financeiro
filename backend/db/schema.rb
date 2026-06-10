@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_10_200000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_10_210000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -371,9 +371,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_10_200000) do
     t.uuid "created_by_user_id", null: false
     t.string "name", null: false
     t.jsonb "onboarding_state", default: {"status"=>"not_started"}, null: false
+    t.bigint "telegram_chat_id"
+    t.string "telegram_chat_title"
+    t.string "telegram_link_code"
+    t.datetime "telegram_link_code_expires_at"
+    t.datetime "telegram_linked_at"
     t.datetime "updated_at", null: false
     t.index "((onboarding_state ->> 'status'::text))", name: "index_workspaces_on_onboarding_status"
     t.index ["created_by_user_id"], name: "index_workspaces_on_created_by_user_id"
+    t.index ["telegram_link_code"], name: "index_workspaces_on_telegram_link_code", unique: true, where: "(telegram_link_code IS NOT NULL)"
   end
 
   add_foreign_key "accounts", "bank_connections"

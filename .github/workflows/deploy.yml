@@ -121,6 +121,9 @@ jobs:
           PLUGGY_CLIENT_SECRET:       ${{ secrets.PLUGGY_CLIENT_SECRET }}
           PLUGGY_WEBHOOK_SECRET:      ${{ secrets.PLUGGY_WEBHOOK_SECRET }}
           GEMINI_API_KEY:             ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN:         ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_WEBHOOK_SECRET:    ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+          TELEGRAM_BOT_USERNAME:      ${{ secrets.TELEGRAM_BOT_USERNAME }}
         run: |
           mkdir -p ~/.config/controle-financeiro
           umask 077
@@ -133,6 +136,9 @@ jobs:
           export PLUGGY_CLIENT_SECRET='${PLUGGY_CLIENT_SECRET}'
           export PLUGGY_WEBHOOK_SECRET='${PLUGGY_WEBHOOK_SECRET}'
           export GEMINI_API_KEY='${GEMINI_API_KEY}'
+          export TELEGRAM_BOT_TOKEN='${TELEGRAM_BOT_TOKEN}'
+          export TELEGRAM_WEBHOOK_SECRET='${TELEGRAM_WEBHOOK_SECRET}'
+          export TELEGRAM_BOT_USERNAME='${TELEGRAM_BOT_USERNAME}'
           EOF
           chmod 600 ~/.config/controle-financeiro/secrets.env
           # Smoke: confirma que as vars saem do source com tamanho > 0
@@ -220,6 +226,9 @@ jobs:
           PLUGGY_CLIENT_SECRET:       ${{ secrets.PLUGGY_CLIENT_SECRET }}
           PLUGGY_WEBHOOK_SECRET:      ${{ secrets.PLUGGY_WEBHOOK_SECRET }}
           GEMINI_API_KEY:             ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN:         ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_WEBHOOK_SECRET:    ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+          TELEGRAM_BOT_USERNAME:      ${{ secrets.TELEGRAM_BOT_USERNAME }}
         run: |
           mkdir -p ~/.config/controle-financeiro
           umask 077
@@ -232,6 +241,9 @@ jobs:
           export PLUGGY_CLIENT_SECRET='${PLUGGY_CLIENT_SECRET}'
           export PLUGGY_WEBHOOK_SECRET='${PLUGGY_WEBHOOK_SECRET}'
           export GEMINI_API_KEY='${GEMINI_API_KEY}'
+          export TELEGRAM_BOT_TOKEN='${TELEGRAM_BOT_TOKEN}'
+          export TELEGRAM_WEBHOOK_SECRET='${TELEGRAM_WEBHOOK_SECRET}'
+          export TELEGRAM_BOT_USERNAME='${TELEGRAM_BOT_USERNAME}'
           EOF
           chmod 600 ~/.config/controle-financeiro/secrets.env
           # Smoke: confirma que as vars saem do source com tamanho > 0

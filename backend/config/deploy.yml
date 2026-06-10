@@ -53,6 +53,11 @@ env:
     - PLUGGY_CLIENT_SECRET
     - PLUGGY_WEBHOOK_SECRET
     - GEMINI_API_KEY
+    - TELEGRAM_BOT_TOKEN
+    - TELEGRAM_WEBHOOK_SECRET
+    # Não é segredo, mas varia por ambiente (bot de staging ≠ bot de prod) —
+    # entra no mecanismo de secrets pra herdar o valor do GH environment.
+    - TELEGRAM_BOT_USERNAME
   clear:
     SOLID_QUEUE_IN_PUMA: true
     DB_PORT: 5432

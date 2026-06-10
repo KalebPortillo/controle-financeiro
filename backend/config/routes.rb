@@ -39,7 +39,11 @@ Rails.application.routes.draw do
       end
 
       # Webhook do Pluggy (máquina→máquina; valida header secreto, sem sessão).
-      post "webhooks/pluggy", to: "webhooks#pluggy"
+      post "webhooks/pluggy",   to: "webhooks#pluggy"
+      post "webhooks/telegram", to: "webhooks#telegram"
+
+      # Vínculo do grupo do Telegram (RF17) — singular: 1 por workspace.
+      resource :telegram_link, only: [ :show, :create, :destroy ]
 
       # Tags (RF5) — etiquetas livres aplicáveis a transações.
       resources :tags, only: [ :index, :create, :update, :destroy ] do

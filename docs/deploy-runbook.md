@@ -348,17 +348,29 @@ Lista canônica (mantida em sync com `.github/workflows/deploy.yml`):
 
 ### Telegram: registro do webhook (uma vez por ambiente)
 
-Depois do primeiro deploy com os secrets do Telegram no ar:
+Depois do primeiro deploy com os secrets do Telegram no ar. **`kamal` roda da
+máquina de deploy, não do host** — no host use `docker exec` direto:
 
 ```bash
-ssh oracle-app-box  # ou via kamal app exec
+# Via kamal (da máquina de deploy / runner):
 kamal app exec -d staging 'bin/rails telegram:set_webhook'
-# produção: kamal app exec -d production 'bin/rails telegram:set_webhook'
+
+# OU direto no oracle-app-box (kamal não está instalado lá):
+ssh oracle-app-box
+CID=$(docker ps --filter label=destination=staging --filter label=role=web --format '{{.Names}}')
+docker exec "$CID" bin/rails telegram:set_webhook
 ```
 
-O task usa `APP_HOST` do destination + `TELEGRAM_WEBHOOK_SECRET`. Cada bot
-(staging/prod) aponta pro webhook do seu ambiente. Vinculação do grupo é feita
-pelo app (/mais → Conectar Telegram).
+O task usa `APP_HOST` do destination + `TELEGRAM_WEBHOOK_SECRET`, e registra
+`allowed_updates: [message, callback_query]`. Cada bot (staging/prod) aponta pro
+webhook do seu ambiente. Confirme com `getWebhookInfo` (deve listar
+`callback_query`). Vinculação do grupo é pelo app (/mais → Conectar Telegram).
+
+> **Importante**: o webhook precisa estar registrado **antes** de clicar em
+> Conectar — senão o `/start` cai na fila do Telegram sem chegar ao backend e o
+> vínculo não completa. **Re-rode `set_webhook` sempre que `allowed_updates`
+> mudar** (ex.: a release que adicionou os botões inline / `callback_query`),
+> senão os toques nos botões não chegam.
 
 ## E2E (Playwright) como gate de deploy
 

@@ -443,8 +443,12 @@ Apenas o `created_by_user` do workspace tem acesso — convidados recebem `403`.
 - `GET    /api/v1/telegram_link` → `{ linked, chat_title, linked_at }`
 - `POST   /api/v1/telegram_link` → `{ deep_link, expires_at }` — gera código de uso único (TTL 15 min); deep_link = `https://t.me/<bot>?startgroup=<code>`
 - `DELETE /api/v1/telegram_link` → 204 (desvincula; eventos novos ficam só in-app)
-- `POST   /api/v1/webhooks/telegram` — updates do bot (sem sessão; valida header `X-Telegram-Bot-Api-Secret-Token` via secure_compare). Trata `/start <code>` (e `/start@bot <code>`) vinculando o chat ao workspace dono do código. Sempre responde 200 (Telegram re-envia em não-2xx).
-- Registro do webhook: `bin/rails telegram:set_webhook` (usa `APP_HOST` + `TELEGRAM_WEBHOOK_SECRET`), uma vez por ambiente.
+- `POST   /api/v1/webhooks/telegram` — updates do bot (sem sessão; valida header `X-Telegram-Bot-Api-Secret-Token` via secure_compare). Sempre responde 200 (Telegram re-envia em não-2xx). Trata dois tipos de update:
+  - **`message`**: `/start <code>` (e `/start@bot <code>`) vincula o chat ao workspace dono do código.
+  - **`callback_query`** (toque em botão inline): autoriza por chat vinculado (`message.chat.id == workspace.telegram_chat_id`) e `callback_data` no formato `tx:consolidate:<id>` / `tx:reject:<id>`; consolida/rejeita a transação **escopada no workspace** (idempotente — só se `pending`), responde o toque (toast) e edita a mensagem removendo os botões. Toque de chat não vinculado ou contra tx de outro workspace = sem efeito.
+- Registro do webhook: `bin/rails telegram:set_webhook` (usa `APP_HOST` + `TELEGRAM_WEBHOOK_SECRET`; `allowed_updates: [message, callback_query]`), uma vez por ambiente. **Re-rodar após o deploy que introduziu callback_query**, senão os toques não chegam.
+
+**Botões de ação no inbox**: quando um sync traz **≤5** gastos novos e o grupo está vinculado, cada gasto vira uma mensagem no Telegram com inline keyboard (`Consolidar` · `Rejeitar` · `Abrir no app`). Acima de 5, mantém só o resumo `inbox_new`. O sininho in-app recebe o resumo nos dois casos.
 
 ### Faturas do cartão (RF9.5, derivado)
 - `GET /api/v1/accounts/:id/invoices?status=open|future` — lista de faturas do cartão como objetos derivados:

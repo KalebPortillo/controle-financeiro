@@ -210,6 +210,10 @@ O prompt enviado à IA é **compacto** (só os campos acima extraídos do JSONB 
   workspace), vinculação por deep-link `startgroup` + webhook, config em /mais.
   Entrega é best-effort (in-app nunca depende do canal externo). Push/email
   seguem preparados para o futuro pelo mesmo contrato.
+- **RF17.4** **Ações inline no Telegram**: syncs com ≤5 gastos novos mandam uma
+  mensagem por gasto com botões **Consolidar · Rejeitar · Abrir no app** — o
+  casal aprova/rejeita direto do grupo, sem abrir o app. Autorizado pelo chat
+  vinculado, idempotente, escopado no workspace. Acima de 5 gastos, só o resumo.
 
 ### RF18. Exportação (preparado, fora do MVP)
 - **RF18.1** Exportação CSV/Excel não entra no MVP.

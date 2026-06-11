@@ -19,15 +19,34 @@ module NotificationChannels
     end
 
     # Envia texto puro (sem parse_mode — nada de Markdown/HTML escapando errado).
-    def send_message(chat_id:, text:)
-      request("sendMessage", chat_id: chat_id, text: text)
+    # `reply_markup` (opcional) anexa um inline keyboard (botões de ação).
+    def send_message(chat_id:, text:, reply_markup: nil)
+      payload = { chat_id: chat_id, text: text }
+      payload[:reply_markup] = reply_markup if reply_markup
+      request("sendMessage", payload)
+    end
+
+    # Responde o toque num botão inline — tira o "loading" do botão e, com
+    # `text`, mostra um toast curto pro usuário.
+    def answer_callback_query(callback_query_id:, text: nil)
+      payload = { callback_query_id: callback_query_id }
+      payload[:text] = text if text
+      request("answerCallbackQuery", payload)
+    end
+
+    # Edita uma mensagem já enviada (usado pós-ação: troca o texto e remove os
+    # botões passando reply_markup vazio, ou nenhum).
+    def edit_message_text(chat_id:, message_id:, text:, reply_markup: nil)
+      payload = { chat_id: chat_id, message_id: message_id, text: text }
+      payload[:reply_markup] = reply_markup if reply_markup
+      request("editMessageText", payload)
     end
 
     # Registra o webhook de updates (rake telegram:set_webhook). secret_token
     # volta em cada update no header X-Telegram-Bot-Api-Secret-Token.
     def set_webhook(url:, secret_token:)
       request("setWebhook", url: url, secret_token: secret_token,
-                            allowed_updates: [ "message" ])
+                            allowed_updates: [ "message", "callback_query" ])
     end
 
     private

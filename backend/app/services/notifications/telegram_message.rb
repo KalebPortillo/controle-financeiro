@@ -41,13 +41,8 @@ module Notifications
       msg = "Recorrente atrasada: #{payload['descriptor_pattern']}. " \
             "Esperada em #{expected}, #{atraso}"
       cents = payload["expected_amount_cents"]
-      msg += " (valor previsto #{brl(cents)})" if cents.present?
+      msg += " (valor previsto #{Brl.format(cents)})" if cents.present?
       "#{msg}."
-    end
-
-    def brl(cents)
-      reais, centavos = cents.to_i.divmod(100)
-      "R$ #{reais.to_s.gsub(/(\d)(?=(\d{3})+\z)/, '\\1.')},#{format('%02d', centavos)}"
     end
   end
 end

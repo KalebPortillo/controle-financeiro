@@ -10,6 +10,7 @@ ENV["PLUGGY_WEBHOOK_SECRET"]   ||= "test-webhook-secret"
 ENV["TELEGRAM_BOT_TOKEN"]      ||= "test-telegram-bot-token"
 ENV["TELEGRAM_WEBHOOK_SECRET"] ||= "test-telegram-webhook-secret"
 ENV["TELEGRAM_BOT_USERNAME"]   ||= "controle_financeiro_test_bot"
+ENV["APP_HOST"]                ||= "wallet-test.portilho.cc"
 
 require_relative "../config/environment"
 require "rails/test_help"

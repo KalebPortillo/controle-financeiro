@@ -79,5 +79,13 @@ export async function apiFetch<T>(path: string, opts: RequestOptions = {}): Prom
     throw new ApiError(res.status, payload)
   }
 
-  return (await res.json()) as T
+  // Sucesso pode vir sem corpo (202 Accepted dos enqueues assíncronos, ou 200
+  // vazio de endpoints "head :ok"). res.json() num corpo vazio lança
+  // SyntaxError — que viraria um toast "Algo deu errado"; toleramos devolvendo
+  // undefined.
+  try {
+    return (await res.json()) as T
+  } catch {
+    return undefined as T
+  }
 }

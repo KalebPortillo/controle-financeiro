@@ -1,11 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { apiFetch, ApiError, UnauthorizedError } from './client'
 
-function mockFetch(response: Partial<Response> & { jsonBody?: unknown }) {
+function mockFetch(response: Partial<Response> & { jsonBody?: unknown; emptyBody?: boolean }) {
   const fetchMock = vi.fn().mockResolvedValue({
     ok: response.status ? response.status < 400 : true,
     status: response.status ?? 200,
-    json: async () => response.jsonBody,
+    // Espelha o Response real: res.json() num corpo vazio lança SyntaxError.
+    json: async () => {
+      if (response.emptyBody) throw new SyntaxError('Unexpected end of JSON input')
+      return response.jsonBody
+    },
   } as Response)
   globalThis.fetch = fetchMock as unknown as typeof fetch
   return fetchMock
@@ -39,6 +43,20 @@ describe('apiFetch', () => {
   it('returns undefined on 204 No Content', async () => {
     mockFetch({ status: 204, jsonBody: undefined })
     const result = await apiFetch('/api/v1/sessions/current', { method: 'DELETE' })
+    expect(result).toBeUndefined()
+  })
+
+  it('returns undefined on 202 Accepted with empty body (async enqueue)', async () => {
+    // /suggested_categories/generate e /categories/:id/suggest_tags respondem
+    // 202 sem corpo — res.json() lançaria SyntaxError e viraria toast de erro.
+    mockFetch({ status: 202, emptyBody: true })
+    const result = await apiFetch('/api/v1/suggested_categories/generate', { method: 'POST' })
+    expect(result).toBeUndefined()
+  })
+
+  it('returns undefined on 200 with empty body', async () => {
+    mockFetch({ status: 200, emptyBody: true })
+    const result = await apiFetch('/api/v1/something', { method: 'POST' })
     expect(result).toBeUndefined()
   })
 

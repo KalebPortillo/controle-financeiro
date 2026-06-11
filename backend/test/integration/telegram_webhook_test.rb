@@ -78,4 +78,46 @@ class TelegramWebhookTest < ActionDispatch::IntegrationTest
     end
     assert_requested(stub)
   end
+
+  # --- callback_query (botões de ação) ---
+
+  def callback_update(data, chat_id:, secret: ENV.fetch("TELEGRAM_WEBHOOK_SECRET"))
+    body = { callback_query: {
+      id: "cb-1", data: data,
+      message: { message_id: 7, text: "PADARIA — R$ 50,00", chat: { id: chat_id } }
+    } }
+    post "/api/v1/webhooks/telegram", params: body, as: :json,
+         headers: { "X-Telegram-Bot-Api-Secret-Token" => secret }
+  end
+
+  test "callback_query com secret errado → 401, sem efeito" do
+    ws = create(:workspace, telegram_chat_id: -100123, telegram_linked_at: Time.current)
+    tx = create(:transaction, workspace: ws, account: create(:account, workspace: ws),
+                              status: "pending", direction: "debit", amount_cents: 100,
+                              original_description: "X")
+    base = "https://api.telegram.org/bot#{ENV.fetch('TELEGRAM_BOT_TOKEN')}"
+
+    callback_update("tx:consolidate:#{tx.id}", chat_id: -100123, secret: "errado")
+    assert_response :unauthorized
+    assert_equal "pending", tx.reload.status
+    assert_not_requested :post, "#{base}/answerCallbackQuery"
+  end
+
+  test "callback Consolidar do grupo vinculado consolida e responde (ack 200)" do
+    ws = create(:workspace, telegram_chat_id: -100123, telegram_linked_at: Time.current)
+    tx = create(:transaction, workspace: ws, account: create(:account, workspace: ws),
+                              status: "pending", direction: "debit", amount_cents: 100,
+                              original_description: "X")
+    base = "https://api.telegram.org/bot#{ENV.fetch('TELEGRAM_BOT_TOKEN')}"
+    stub_request(:post, %r{#{Regexp.escape(base)}/(answerCallbackQuery|editMessageText)})
+      .to_return(status: 200, body: { ok: true }.to_json)
+
+    perform_enqueued_jobs do
+      callback_update("tx:consolidate:#{tx.id}", chat_id: -100123)
+    end
+
+    assert_response :ok
+    assert_equal "consolidated", tx.reload.status
+    assert_requested :post, "#{base}/answerCallbackQuery"
+  end
 end

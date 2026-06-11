@@ -38,8 +38,13 @@ class Api::V1::WebhooksController < ApplicationController
   START_COMMAND = %r{\A/start(?:@\w+)?\s+(\S+)}
 
   def telegram
-    text  = params.dig(:message, :text).to_s
-    chat  = params.dig(:message, :chat)
+    if params[:callback_query].present?
+      Notifications::HandleTelegramCallback.call(callback_query: params[:callback_query].to_unsafe_h)
+      return head :ok
+    end
+
+    text = params.dig(:message, :text).to_s
+    chat = params.dig(:message, :chat)
 
     if chat.present? && (match = START_COMMAND.match(text))
       Notifications::LinkTelegramChat.call(

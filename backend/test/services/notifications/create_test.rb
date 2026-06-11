@@ -107,5 +107,16 @@ module Notifications
                                    payload: {}, dedup_key: "y")
       end
     end
+
+    test "telegram: false suprime o fan-out mas ainda persiste + broadcasta" do
+      @workspace.update!(telegram_chat_id: -100123, telegram_linked_at: Time.current)
+
+      notification = nil
+      assert_no_enqueued_jobs(only: Notifications::TelegramDeliveryJob) do
+        notification = Notifications::Create.call(workspace: @workspace, kind: "inbox_new",
+                                                  payload: { "count" => 3 }, telegram: false)
+      end
+      assert notification.persisted?
+    end
   end
 end

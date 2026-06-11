@@ -6,7 +6,10 @@ module Notifications
   module Create
     module_function
 
-    def call(workspace:, kind:, payload:, recipient_membership: nil, dedup_key: nil)
+    # `telegram: false` persiste + broadcasta in-app mas NÃO despacha pro
+    # Telegram (usado quando o canal externo é tratado à parte — ex.: lote
+    # pequeno de inbox que vai como mensagens individuais com botões).
+    def call(workspace:, kind:, payload:, recipient_membership: nil, dedup_key: nil, telegram: true)
       notification = workspace.notifications.create!(
         kind:                 kind,
         payload:              payload,
@@ -18,7 +21,9 @@ module Notifications
         event:        "notification_created",
         notification: Notifications::Serializer.call(notification))
 
-      TelegramDeliveryJob.perform_later(notification.id) if workspace.telegram_chat_id.present?
+      if telegram && workspace.telegram_chat_id.present?
+        TelegramDeliveryJob.perform_later(notification.id)
+      end
 
       notification
     rescue ActiveRecord::RecordNotUnique

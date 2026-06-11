@@ -61,7 +61,7 @@ env:
   clear:
     SOLID_QUEUE_IN_PUMA: true
     DB_PORT: 5432
-    ALLOWED_EMAILS: "kaleb@ferreri.co,kaleb.portillo@gmail.com"
+    ALLOWED_EMAILS: "kaleb@ferreri.co,kaleb.portillo@gmail.com,rebecavillain@gmail.com"
     # IA: flash-lite é mais barato e tem teto de free tier maior que o flash, com
     # qualidade suficiente pra classificação (título + tags). Como o RPM é maior,
     # o throttle entre chamadas pode ser menor (3s ≈ 20/min). Ver AiProviders.

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Sparkles, Check, X } from 'lucide-react'
+import { useAiSuggestionRun } from './useAiSuggestionRun'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { TagChip } from '../components/TagChip'
@@ -37,13 +38,23 @@ export function CategoriasPage() {
   const [newName, setNewName] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  // Para o polling de tag-sugestões quando elas chegam pra categoria alvo, ou se
-  // a IA falhou (ai_error). Reset durante render (padrão React), sem useEffect.
+  // Feedback (toasts) + prazo da rodada de sugestão de tags pra categoria alvo.
   const target = categories?.find((c) => c.id === suggestingId)
-  if (suggestingId && (data?.ai_error || (target && target.tag_suggestions.length > 0))) {
-    setSuggestingId(null)
-  }
+  const tagsRun = useAiSuggestionRun({
+    active: suggestingId != null,
+    count: target?.tag_suggestions.length ?? 0,
+    hasError: Boolean(data?.ai_error),
+    onFinish: () => setSuggestingId(null),
+    messages: {
+      loading: 'Procurando tags para esta categoria…',
+      ready: (n) => (n === 1 ? '1 tag sugerida' : `${n} tags sugeridas`),
+      empty: 'A IA não encontrou novas tags para esta categoria agora',
+    },
+  })
+
   const onSuggestTags = (id: string) => {
+    const clicked = categories?.find((c) => c.id === id)
+    tagsRun.start(clicked?.tag_suggestions.length ?? 0)
     setSuggestingId(id)
     suggestTags.mutate(id)
   }
@@ -119,11 +130,22 @@ function SuggestedCategoriesSection() {
   const { suggestions, error } = useSuggestedCategories({ poll: generating })
   const generate = useGenerateSuggestedCategories()
 
-  // Para o polling assim que as sugestões chegam ou um erro aparece. Reset
-  // durante render (padrão React), não em useEffect.
-  if (generating && (suggestions.length > 0 || error)) setGenerating(false)
+  // Toasts (loading → sucesso/aviso) + prazo de 45s; encerra o loading nos três
+  // casos (e no erro, que o Alert abaixo já mostra).
+  const run = useAiSuggestionRun({
+    active: generating,
+    count: suggestions.length,
+    hasError: Boolean(error),
+    onFinish: () => setGenerating(false),
+    messages: {
+      loading: 'Analisando suas tags para sugerir categorias…',
+      ready: (n) => (n === 1 ? '1 nova categoria sugerida' : `${n} novas categorias sugeridas`),
+      empty: 'A IA não encontrou novas categorias agora',
+    },
+  })
 
   const onGenerate = () => {
+    run.start(suggestions.length)
     setGenerating(true)
     generate.mutate()
   }

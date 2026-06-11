@@ -19,8 +19,11 @@ module AiSuggestion
       tag_names = workspace.tags.pluck(:name)
       return if tag_names.empty?
 
+      # Exclui do prompt as reais, as pendentes E as rejeitadas: o upsert já
+      # filtra as rejeitadas no save, mas sem avisar a IA ela gastaria sugestões
+      # re-propondo o que o usuário recusou. Mandando-as, a IA foca no que falta.
       existing = workspace.categories.pluck(:name) +
-                 workspace.suggested_categories.pending.pluck(:name)
+                 workspace.suggested_categories.where(status: %w[pending dismissed]).pluck(:name)
 
       categories = provider.suggest_categories_from_tags(
         tag_names: tag_names, existing_categories: existing.uniq

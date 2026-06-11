@@ -29,6 +29,18 @@ class AiSuggestion::SuggestCategoriesJobTest < ActiveJob::TestCase
     assert_includes provider.captured_existing, "Lazer"
   end
 
+  test "passes dismissed suggestions as exclusions so the AI proposes genuinely new ones" do
+    # Rejeitadas eram filtradas só no save (upsert não-destrutivo) — a IA não
+    # sabia delas e gastava as sugestões re-propondo o que seria descartado.
+    @workspace.suggested_categories.create!(name: "Renda", status: "dismissed", tag_names: [])
+    provider = CaptureProvider.new([])
+    stub_with(provider)
+
+    AiSuggestion::SuggestCategoriesJob.perform_now(@workspace.id)
+
+    assert_includes provider.captured_existing, "Renda"
+  end
+
   test "no-op when the workspace has no tags" do
     @workspace.tags.destroy_all
     stub_provider([ { name: "X", tag_names: [] } ])

@@ -3,7 +3,7 @@ import { renderHook, act } from '@testing-library/react'
 import { useAiSuggestionRun, type AiSuggestionMessages } from './useAiSuggestionRun'
 
 const toast = {
-  loading: vi.fn(() => 'toast-1'),
+  loading: vi.fn((..._args: unknown[]) => 'toast-1'),
   success: vi.fn(),
   message: vi.fn(),
   dismiss: vi.fn(),

@@ -6,6 +6,10 @@ import { toast } from 'sonner'
 // sem um prazo o "Sugerindo…" giraria pra sempre. Janela alinhada ao onboarding.
 export const AI_SUGGESTION_DEADLINE_MS = 45_000
 
+// Ao atualizar um toast de loading pelo mesmo id, o Sonner herda a duração
+// Infinity dele — sem isto o toast de desfecho nunca sumiria.
+const RESULT_TOAST_MS = 4_000
+
 export type AiSuggestionMessages = {
   loading: string
   ready: (count: number) => string
@@ -44,7 +48,7 @@ export function useAiSuggestionRun(opts: Options) {
     }
     const delta = count - baseline.current
     if (delta > 0) {
-      toast.success(messages.ready(delta), { id: toastId.current })
+      toast.success(messages.ready(delta), { id: toastId.current, duration: RESULT_TOAST_MS })
       onFinish()
     }
     // onFinish/messages fora das deps: estáveis o bastante; re-rodar à toa é
@@ -56,7 +60,7 @@ export function useAiSuggestionRun(opts: Options) {
   useEffect(() => {
     if (!active) return
     const t = setTimeout(() => {
-      toast.message(messages.empty, { id: toastId.current })
+      toast.message(messages.empty, { id: toastId.current, duration: RESULT_TOAST_MS })
       onFinish()
     }, deadlineMs)
     return () => clearTimeout(t)

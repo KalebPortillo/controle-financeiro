@@ -57,7 +57,7 @@ describe('useAiSuggestionRun', () => {
     act(() => view.result.current.start(2)) // baseline = 2
     set({ active: true })
     set({ count: 5 })
-    expect(toast.success).toHaveBeenCalledWith('3 prontas', { id: 'toast-1' })
+    expect(toast.success).toHaveBeenCalledWith('3 prontas', expect.objectContaining({ id: 'toast-1' }))
     expect(onFinish).toHaveBeenCalled()
   })
 
@@ -66,7 +66,7 @@ describe('useAiSuggestionRun', () => {
     act(() => view.result.current.start(0))
     set({ active: true })
     act(() => vi.advanceTimersByTime(1000))
-    expect(toast.message).toHaveBeenCalledWith('Nada novo', { id: 'toast-1' })
+    expect(toast.message).toHaveBeenCalledWith('Nada novo', expect.objectContaining({ id: 'toast-1', duration: expect.any(Number) }))
     expect(onFinish).toHaveBeenCalled()
   })
 

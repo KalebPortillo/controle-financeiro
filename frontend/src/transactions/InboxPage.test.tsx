@@ -378,20 +378,39 @@ describe('<InboxPage />', () => {
     // total = 100 + 100 = R$ 200,00 (uma linha só, não duas)
     expect(screen.getByTestId('group-total-g1')).toHaveTextContent('200,00')
     expect(screen.getAllByText('Geladeira')).toHaveLength(1)
-    // sub-lista escondida até expandir
-    expect(screen.queryByTestId('group-parcels-g1')).toBeNull()
+    // a lista de parcelas vive no sheet (fechado até clicar)
+    expect(screen.queryByTestId('group-sheet-parcels-g1')).toBeNull()
   })
 
-  it('expande a sub-lista mostrando cada parcela', async () => {
+  it('clicar no parcelamento abre o sheet com a lista das parcelas', async () => {
     setupFetch({
       '/api/v1/transactions?status=pending': { status: 200, body: { transactions: parcels(), pending_count: 2 } },
     })
     renderInbox()
 
-    await userEvent.click(await screen.findByTestId('expand-group-g1'))
-    expect(screen.getByTestId('group-parcels-g1')).toBeInTheDocument()
-    expect(screen.getByTestId('parcel-p1')).toHaveTextContent('1/12')
-    expect(screen.getByTestId('parcel-p2')).toHaveTextContent('2/12')
+    await userEvent.click(await screen.findByTestId('inbox-group-g1'))
+    expect(await screen.findByTestId('group-sheet-parcels-g1')).toBeInTheDocument()
+    expect(screen.getByTestId('group-sheet-parcel-p1')).toHaveTextContent('1/12')
+    expect(screen.getByTestId('group-sheet-parcel-p2')).toHaveTextContent('2/12')
+    // rodapé de ação em grupo
+    expect(screen.getByTestId('group-sheet-accept-g1')).toHaveTextContent('Aceitar todas (2)')
+  })
+
+  it('aceitar todas pelo sheet chama o endpoint de grupo', async () => {
+    const { fetchMock } = setupFetch({
+      '/api/v1/transactions?status=pending': { status: 200, body: { transactions: parcels(), pending_count: 2 } },
+      'POST /api/v1/installment_groups/g1/consolidate': { status: 200, body: { count: 2 } },
+    })
+    renderInbox()
+
+    await userEvent.click(await screen.findByTestId('inbox-group-g1'))
+    await userEvent.click(await screen.findByTestId('group-sheet-accept-g1'))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/installment_groups/g1/consolidate',
+        expect.objectContaining({ method: 'POST' })
+      )
+    )
   })
 
   it('selecionar o parcelamento marca todas as parcelas (barra de ações em massa)', async () => {

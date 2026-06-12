@@ -1,44 +1,29 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Check, CheckSquare, Sparkles, CircleSlash, Loader2 } from 'lucide-react'
+import { Check, CheckSquare, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Money } from '../components/Money'
 import { TagChip } from '../components/TagChip'
 import { AccountTag } from './AccountTag'
 import { InstallmentBadge } from './InstallmentBadge'
+import { AiConfidenceBadge, NotAnalyzedBadge } from './AiConfidenceBadge'
 import {
   useInbox,
   useConsolidate,
   useReject,
   useConsolidateInstallmentGroup,
+  useRejectInstallmentGroup,
   useReanalyzeInbox,
   originalToShow,
   type InboxTransaction,
-  type AiConfidence,
 } from './useInbox'
 import { buildInboxItems } from './inboxItems'
 import { InstallmentGroupRow } from './InstallmentGroupRow'
+import { InstallmentGroupSheet } from './InstallmentGroupSheet'
 import { useAnalysisProgress } from './useAnalysisProgress'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
 import { SwipeableRow } from './SwipeableRow'
 import { Alert } from '../components/Alert'
-
-function AiConfidenceBadge({ confidence }: { confidence: AiConfidence }) {
-  if (!confidence) return null
-  const styles: Record<NonNullable<AiConfidence>, string> = {
-    high:   'bg-green-50 text-green-700 border-green-200',
-    medium: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-    low:    'bg-red-50 text-red-700 border-red-200',
-  }
-  const labels: Record<NonNullable<AiConfidence>, string> = {
-    high: 'IA', medium: 'IA?', low: 'IA?'
-  }
-  return (
-    <span className={`inline-flex items-center rounded-sm border px-1 py-0 text-[10px] font-medium ${styles[confidence]}`}>
-      {labels[confidence]}
-    </span>
-  )
-}
 
 function formatDate(iso: string): string {
   const [, m, d] = iso.split('-')
@@ -59,14 +44,22 @@ export function InboxPage() {
   const consolidate = useConsolidate()
   const reject = useReject()
   const consolidateGroup = useConsolidateInstallmentGroup()
+  const rejectGroup = useRejectInstallmentGroup()
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [activeId, setActiveId] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null)
+  const [groupSheetOpen, setGroupSheetOpen] = useState(false)
 
   const transactions = data?.transactions ?? []
   const items = buildInboxItems(transactions)
   const active = transactions.find((t) => t.id === activeId) ?? null
+  const activeGroup =
+    items.find(
+      (i): i is Extract<typeof i, { kind: 'installment' }> =>
+        i.kind === 'installment' && i.groupId === activeGroupId
+    ) ?? null
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -89,6 +82,17 @@ export function InboxPage() {
   const open = (t: InboxTransaction) => {
     setActiveId(t.id)
     setSheetOpen(true)
+  }
+
+  // Abre o sheet do parcelamento (lista de parcelas). Mobile-first: tela cheia.
+  const openGroup = (groupId: string) => {
+    setActiveGroupId(groupId)
+    setGroupSheetOpen(true)
+  }
+  // Abrir uma parcela a partir do sheet do grupo: fecha o grupo, abre a parcela.
+  const openParcelFromGroup = (t: InboxTransaction) => {
+    setGroupSheetOpen(false)
+    open(t)
   }
 
   const bulkAccept = async () => {
@@ -215,10 +219,10 @@ export function InboxPage() {
                 key={`grp-${item.groupId}`}
                 item={item}
                 selected={item.parcels.every((p) => selected.has(p.id))}
-                active={sheetOpen && item.parcels.some((p) => p.id === activeId)}
+                active={groupSheetOpen && item.groupId === activeGroupId}
                 onToggleGroup={() => toggleGroup(item.parcels.map((p) => p.id))}
                 onAcceptGroup={() => consolidateGroup.mutate(item.groupId)}
-                onOpenParcel={open}
+                onOpenGroup={() => openGroup(item.groupId)}
               />
             ) : (
               <SwipeableRow
@@ -279,6 +283,15 @@ export function InboxPage() {
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
       />
+
+      <InstallmentGroupSheet
+        item={activeGroup}
+        open={groupSheetOpen}
+        onClose={() => setGroupSheetOpen(false)}
+        onOpenParcel={openParcelFromGroup}
+        onAcceptGroup={() => activeGroup && consolidateGroup.mutate(activeGroup.groupId)}
+        onRejectGroup={() => activeGroup && rejectGroup.mutate(activeGroup.groupId)}
+      />
     </div>
   )
 }
@@ -321,15 +334,7 @@ function RowContent({
             )}
           </span>
           {t.ai_confidence && <AiConfidenceBadge confidence={t.ai_confidence} />}
-          {t.ai_status === 'failed' && (
-            <span
-              className="inline-flex items-center gap-1 rounded-sm border border-warning/40 bg-warning/10 px-1 py-0 text-[10px] font-medium text-warning"
-              data-testid={`not-analyzed-${t.id}`}
-              title="A IA não conseguiu analisar este gasto"
-            >
-              <CircleSlash size={10} /> não analisado
-            </span>
-          )}
+          {t.ai_status === 'failed' && <NotAnalyzedBadge id={t.id} />}
         </div>
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
           <AccountTag kind={t.account_kind} institutionLabel={t.institution_label} accountName={t.account_name} />

@@ -170,8 +170,12 @@ Formato uniforme:
   `status` (default `pending`), `direction`, `account_id`, `from`, `to`, `q`
   (LIKE case-insensitive em description/title). Default sort: `-occurred_at`.
   ⏳ Filtros `tag_id`/`category_id`/`owner_membership_id` quando RF5/RF6 existirem.
-  Item serializado: `id, account_id, account_name, direction, amount_cents,
-  currency, occurred_at, original_description, improved_title, status, source, lock_version`.
+  Item serializado: `id, account_id, account_name, account_kind, institution_label,
+  direction, amount_cents, currency, occurred_at, original_description,
+  improved_title, ai_confidence, ai_suggestion, ai_status, status, source,
+  installment_number, installment_total, installment_group_id, lock_version,
+  tags, effective_amount_cents, refund`. `account_kind` (checking/credit_card) +
+  `institution_label` são a fonte do gasto (RF2.7); `installment_*` o parcelamento (RF9.4).
 - ⏳ `GET /api/v1/transactions/:id` — detalhe completo (com tags, category, splits, refund) — planejado.
 - `GET /api/v1/transactions/:id/edits` — histórico de alterações (RF4.3), mais recente primeiro. Cada item: `{ id, field_name, old_value, new_value, edited_at, edited_by: { id, name } }`. Um registro por campo alterado (improved_title/amount_cents/occurred_at/tags) gravado a cada PATCH.
 
@@ -181,6 +185,11 @@ Formato uniforme:
   lock; conflito → 409 `stale_object`). Cada campo alterado vira um TransactionEdit
   (RF4.3). ⏳ `category_id` quando RF6 existir.
 - `DELETE /api/v1/transactions/:id` — hard delete (RF2.3 remover). 204.
+- `PATCH /api/v1/installment_groups/:id` (RF9.4.1) — `:id` = `installment_group_id`.
+  Body `improved_title` e/ou `tag_ids`. Aplica a TODAS as parcelas do grupo no
+  workspace (um TransactionEdit por parcela alterada); valor/data NÃO mudam.
+  Resposta `{ updated_count, transactions: [{ id, improved_title, tags }] }`.
+  Grupo desconhecido / de outro workspace → 404.
 - `POST /api/v1/transactions/:id/consolidate` — accept (RF2.3). Seta `consolidated_at`.
 - `POST /api/v1/transactions/:id/reject` — reject (RF2.3). Seta `rejected_at`.
 - `POST /api/v1/transactions` — entrada manual (RF12). Body:

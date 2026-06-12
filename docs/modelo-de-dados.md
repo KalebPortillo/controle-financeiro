@@ -193,7 +193,7 @@ Coração do sistema: gasto, receita ou estorno. Vive no inbox ou consolidado.
 | ai_status | string | NOT NULL default 'queued' — estado da análise IA: queued (aguardando) / analyzed (a IA rodou) / failed (não conseguiu, não aguardando). Índice (workspace_id, status, ai_status) |
 | installment_number | smallint | NULL — RF9.4, ex.: 3 |
 | installment_total | smallint | NULL — RF9.4, ex.: 12 |
-| installment_group_id | uuid | NULL — agrupa todas as parcelas de uma mesma compra |
+| installment_group_id | uuid | NULL — agrupa todas as parcelas de uma mesma compra (UUIDv5 determinístico de conta+descritor normalizado+total) |
 | consolidated_at | timestamp | NULL — quando virou consolidated |
 | rejected_at | timestamp | NULL — quando virou rejected |
 | lock_version | integer | NOT NULL default 0 — otimista locking para edição concorrente |
@@ -515,6 +515,7 @@ lida pros dois. Criação única via `Notifications::Create` (broadcast cable + 
 3. **Internal transfer**: `debit.amount_cents = credit.amount_cents`. `|debit.occurred_at - credit.occurred_at| <= 3 dias` (configurável).
 4. **RF6.6 não-duplicação**: queries de "total do período" usam `SELECT DISTINCT transaction_id` antes de somar; queries por categoria fazem join + sinalizam quando há transações em múltiplas categorias.
 5. **Inbox não conta**: relatórios e orçamentos sempre filtram `status='consolidated'`.
+6. **Parcelamento (RF9.4)**: parcelas da mesma compra compartilham `installment_group_id`; cada uma é uma transação no seu mês (`occurred_at`). Edição de título/tags é por grupo (`Transactions::UpdateInstallmentGroup` — aplica a todas, valor/data por parcela). Parcela nova no sync herda título/tags da irmã representativa e **auto-consolida** se já há irmã consolidada (`Transactions::InstallmentInheritance`); `source` permanece `automatic_sync` (o enum `installment_generated` segue não usado). Contabilidade inalterada — cada parcela conta uma vez no seu mês.
 
 ## Índices críticos
 

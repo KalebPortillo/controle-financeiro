@@ -320,10 +320,14 @@ categorias, agrupando as tags efetivamente aceitas.
 - Indicador de confiança da AI (`ai_confidence`): bolinha colorida (verde alta, amarelo média, cinza baixa) à esquerda.
 - **Fonte do gasto** (RF2.7): a linha de metadata mostra ícone + instituição +
   tipo — `CreditCard` p/ cartão, `Landmark` p/ conta — ex.: "Nubank · cartão".
-- **Parcela** (RF9.4): quando parcelado, badge "3/12" (ícone `Layers`) na
-  metadata, ligando visualmente as parcelas do mesmo grupo. Editar título/tags no
-  detalhe vale pra todas as parcelas (nota explícita no Sheet); valor/data são
-  por parcela. Parcelas futuras herdadas entram já consolidadas, sem passar aqui.
+- **Parcela** (RF9.4): no **inbox**, as parcelas de um parcelamento **agregam
+  num único item** (`InstallmentGroupRow`): título compartilhado, fonte, badge
+  "parcelado · Nx" e o **valor total** das parcelas presentes; um chevron expande
+  a **sub-lista** das parcelas ("3/12 · valor · mês"). Aceitar/rejeitar o item age
+  sobre **todas as parcelas de uma vez** (endpoints de grupo). Na lista de **Gastos
+  consolidados**, mantém uma **linha por parcela** com o badge "3/12". Editar
+  título/tags (no detalhe) vale pra todas as parcelas; valor/data são por parcela.
+  Parcelas futuras herdadas entram já consolidadas, sem passar pelo inbox.
 
 **Desktop (table):**
 - Tabela com colunas: Data, Descrição/Título sugerido, Conta, Valor, Tags, Confiança, Ações.

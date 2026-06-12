@@ -190,6 +190,9 @@ Formato uniforme:
   workspace (um TransactionEdit por parcela alterada); valor/data NÃO mudam.
   Resposta `{ updated_count, transactions: [{ id, improved_title, tags }] }`.
   Grupo desconhecido / de outro workspace → 404.
+- `POST /api/v1/installment_groups/:id/consolidate` e `.../reject` (RF9.4.4) —
+  aceita/rejeita TODAS as parcelas **pendentes** do grupo de uma vez (item
+  agregado do inbox). Resposta `{ count }`. Grupo de outro workspace / inexistente → 404.
 - `POST /api/v1/transactions/:id/consolidate` — accept (RF2.3). Seta `consolidated_at`.
 - `POST /api/v1/transactions/:id/reject` — reject (RF2.3). Seta `rejected_at`.
 - `POST /api/v1/transactions` — entrada manual (RF12). Body:

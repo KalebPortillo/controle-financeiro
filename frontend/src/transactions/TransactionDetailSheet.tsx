@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Check, X, Trash2, Calendar, Tag as TagIcon, CreditCard, Sparkles } from 'lucide-react'
+import { Check, X, Trash2, Calendar, Tag as TagIcon, CreditCard, Sparkles, ChevronRight, ChevronDown } from 'lucide-react'
 import { AccountTag } from './AccountTag'
 import { InstallmentBadge } from './InstallmentBadge'
 import { Sheet } from '../components/Sheet'
@@ -15,6 +15,7 @@ import {
   useUpdateTransaction,
   useUpdateInstallmentGroup,
   useTransactionEdits,
+  useTransactionSource,
   originalToShow,
   type InboxTransaction,
   type TransactionEdit,
@@ -189,7 +190,7 @@ function SheetInner({
 
         <FieldLabel icon={<CreditCard size={12} />}>Conta</FieldLabel>
         <div className="h-9 px-3 flex items-center gap-1.5 rounded-md bg-muted text-muted-foreground text-sm truncate">
-          <AccountTag kind={t.account_kind} institutionLabel={t.institution_label} accountName={t.account_name} />
+          <AccountTag t={t} />
           {t.installment_total && (
             <>
               <span className="text-border">·</span>
@@ -230,6 +231,9 @@ function SheetInner({
         <RefundSection transaction={t} />
 
         <ActivityTimeline transactionId={t.id} aiSuggestion={t.ai_suggestion} />
+
+        {/* RF2.7 — payload cru do Pluggy, sob demanda. Só p/ gastos sincronizados. */}
+        {t.source === 'automatic_sync' && <SourceDetails transactionId={t.id} />}
       </div>
 
       {/* Footer */}
@@ -362,6 +366,36 @@ function FieldLabel({ icon, children }: { icon?: React.ReactNode; children: Reac
     <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-medium text-muted-foreground">
       {icon}
       <span>{children}</span>
+    </div>
+  )
+}
+
+// RF2.7 — "exibir mais detalhes": payload cru do Pluggy, formatado, sob demanda.
+function SourceDetails({ transactionId }: { transactionId: string }) {
+  const [open, setOpen] = useState(false)
+  const { data, isLoading } = useTransactionSource(transactionId, open)
+
+  return (
+    <div className="border-t border-border pt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 text-[11px] uppercase tracking-wider font-medium text-muted-foreground hover:text-foreground"
+        data-testid={`source-toggle-${transactionId}`}
+      >
+        {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        Exibir mais detalhes
+      </button>
+      {open && (
+        <div className="mt-2" data-testid={`source-${transactionId}`}>
+          {isLoading && <p className="text-[11px] text-muted-foreground">Carregando…</p>}
+          {data && (
+            <pre className="max-h-72 overflow-auto rounded-md border border-border bg-muted p-3 text-[11px] leading-relaxed font-mono whitespace-pre-wrap break-words">
+              {JSON.stringify(data.source_metadata, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
     </div>
   )
 }

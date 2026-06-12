@@ -35,9 +35,12 @@ export type InboxTransaction = {
   id: string
   account_id: string
   account_name: string | null
-  // RF2.7 — fonte do gasto: tipo da conta (cartão/conta) + instituição.
+  // RF2.7 — fonte do gasto: tipo da conta (cartão/conta), banco e (cartão) bandeira/dígitos.
   account_kind: 'checking' | 'credit_card' | null
   institution_label: string | null
+  account_institution_name: string | null
+  account_brand: string | null
+  account_last_digits: string | null
   // RF9.4 — parcelamento: número/total/grupo (null quando não é parcela).
   installment_number: number | null
   installment_total: number | null
@@ -227,5 +230,15 @@ export function useTransactionEdits(id: string, enabled: boolean) {
     enabled,
     queryFn: () =>
       apiFetch<{ edits: TransactionEdit[] }>(`/api/v1/transactions/${id}/edits`).then((r) => r.edits),
+  })
+}
+
+// Payload cru do Pluggy (RF2.7 "exibir mais detalhes"). Lazy: só busca ao abrir.
+export function useTransactionSource(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['transaction_source', id],
+    enabled,
+    queryFn: () =>
+      apiFetch<{ source: string; source_metadata: unknown }>(`/api/v1/transactions/${id}/source`),
   })
 }

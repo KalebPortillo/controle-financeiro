@@ -1,25 +1,38 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { AccountTag } from './AccountTag'
+import type { InboxTransaction } from './useInbox'
+
+function src(o: Partial<InboxTransaction> = {}): InboxTransaction {
+  return {
+    id: 't1', account_id: 'a1', account_name: 'Nubank CC', account_kind: 'credit_card',
+    institution_label: 'Nubank', account_institution_name: 'Nubank', account_brand: null,
+    account_last_digits: null, installment_number: null, installment_total: null,
+    installment_group_id: null, direction: 'debit', amount_cents: 1, currency: 'BRL',
+    occurred_at: '2026-06-01', original_description: 'X', improved_title: null,
+    ai_confidence: null, ai_suggestion: null, ai_status: 'analyzed', status: 'pending',
+    source: 'automatic_sync', lock_version: 0, tags: [], effective_amount_cents: 1, refund: null, ...o,
+  }
+}
 
 describe('<AccountTag />', () => {
-  it('mostra instituição + "cartão" para credit_card', () => {
-    render(<AccountTag kind="credit_card" institutionLabel="Nubank" accountName="Nubank CC" />)
-    expect(screen.getByTestId('account-tag')).toHaveTextContent('Nubank · cartão')
+  it('cartão: banco · bandeira dígitos', () => {
+    render(<AccountTag t={src({ account_kind: 'credit_card', account_institution_name: 'Nubank', account_brand: 'Mastercard', account_last_digits: '9437' })} />)
+    expect(screen.getByTestId('account-tag')).toHaveTextContent('Nubank · Mastercard 9437')
   })
 
-  it('mostra instituição + "conta" para checking', () => {
-    render(<AccountTag kind="checking" institutionLabel="Inter" accountName="Inter CC" />)
-    expect(screen.getByTestId('account-tag')).toHaveTextContent('Inter · conta')
+  it('cartão sem bandeira: banco · cartão dígitos', () => {
+    render(<AccountTag t={src({ account_kind: 'credit_card', account_institution_name: 'Inter', account_brand: null, account_last_digits: '1234' })} />)
+    expect(screen.getByTestId('account-tag')).toHaveTextContent('Inter · cartão 1234')
   })
 
-  it('cai para o account_name quando não há instituição', () => {
-    render(<AccountTag kind="checking" institutionLabel={null} accountName="Dinheiro / Externo" />)
-    expect(screen.getByTestId('account-tag')).toHaveTextContent('Dinheiro / Externo · conta')
+  it('conta: banco · conta corrente', () => {
+    render(<AccountTag t={src({ account_kind: 'checking', account_institution_name: 'Inter' })} />)
+    expect(screen.getByTestId('account-tag')).toHaveTextContent('Inter · conta corrente')
   })
 
-  it('sem kind mostra só a fonte', () => {
-    render(<AccountTag kind={null} institutionLabel="Nubank" accountName={null} />)
-    expect(screen.getByTestId('account-tag')).toHaveTextContent('Nubank')
+  it('cai para institution_label quando não há nome do conector', () => {
+    render(<AccountTag t={src({ account_kind: 'checking', account_institution_name: null, institution_label: 'Manual' })} />)
+    expect(screen.getByTestId('account-tag')).toHaveTextContent('Manual · conta corrente')
   })
 })

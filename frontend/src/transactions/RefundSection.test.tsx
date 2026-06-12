@@ -21,7 +21,7 @@ function setupFetch(responses: Record<string, Handler>) {
 function tx(o: Partial<InboxTransaction> = {}): InboxTransaction {
   return {
     id: 'c1', account_id: 'a1', account_name: 'Nubank', direction: 'credit',
-    account_kind: 'credit_card', institution_label: 'Nubank',
+    account_kind: 'credit_card', institution_label: 'Nubank', account_institution_name: 'Nubank', account_brand: null, account_last_digits: null,
     installment_number: null, installment_total: null, installment_group_id: null,
     amount_cents: 5000, currency: 'BRL', occurred_at: '2026-06-04',
     original_description: 'ESTORNO LOJA', improved_title: null, ai_confidence: null,

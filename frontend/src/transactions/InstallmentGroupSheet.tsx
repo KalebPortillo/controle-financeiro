@@ -131,7 +131,7 @@ function Inner({
 
         <FieldLabel>Conta</FieldLabel>
         <div className="h-9 px-3 flex items-center rounded-md bg-muted text-muted-foreground text-sm">
-          <AccountTag kind={rep.account_kind} institutionLabel={rep.institution_label} accountName={rep.account_name} />
+          <AccountTag t={rep} />
         </div>
 
         <FieldLabel>Parcelas no inbox ({parcels.length})</FieldLabel>

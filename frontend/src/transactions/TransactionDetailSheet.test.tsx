@@ -9,7 +9,7 @@ import type { InboxTransaction } from './useInbox'
 function tx(o: Partial<InboxTransaction> = {}): InboxTransaction {
   return {
     id: 't1', account_id: 'a1', account_name: 'Nubank', account_kind: 'credit_card',
-    institution_label: 'Nubank', installment_number: null, installment_total: null,
+    institution_label: 'Nubank', account_institution_name: 'Nubank', account_brand: null, account_last_digits: null, installment_number: null, installment_total: null,
     installment_group_id: null, direction: 'debit', amount_cents: 10000, currency: 'BRL',
     occurred_at: '2026-06-04', original_description: 'GELADEIRA', improved_title: 'Geladeira',
     ai_confidence: null, ai_suggestion: null, ai_status: 'analyzed', status: 'pending',
@@ -26,6 +26,7 @@ function setupFetch() {
     let body: unknown = {}
     if (url === '/api/v1/tags') body = { tags: [] }
     else if (url.endsWith('/edits')) body = { edits: [] }
+    else if (url.endsWith('/source')) body = { source: 'automatic_sync', source_metadata: { merchant: { businessName: 'VIVO S.A.' } } }
     return { ok: true, status: 200, json: async () => body } as Response
   }) as unknown as typeof fetch
   return calls
@@ -80,5 +81,21 @@ describe('<TransactionDetailSheet /> parcelamento', () => {
       const patch = calls.find((c) => c.method === 'PATCH')
       expect(patch?.url).toBe('/api/v1/transactions/t1')
     })
+  })
+
+  it('"exibir mais detalhes" busca e mostra o payload do Pluggy', async () => {
+    setupFetch()
+    renderSheet(tx({ source: 'automatic_sync' }))
+
+    await userEvent.click(await screen.findByTestId('source-toggle-t1'))
+    const block = await screen.findByTestId('source-t1')
+    expect(block).toHaveTextContent('VIVO S.A.')
+  })
+
+  it('gasto manual não mostra "exibir mais detalhes"', async () => {
+    setupFetch()
+    renderSheet(tx({ source: 'manual_entry' }))
+    await screen.findByTestId('sheet-title-t1')
+    expect(screen.queryByTestId('source-toggle-t1')).toBeNull()
   })
 })

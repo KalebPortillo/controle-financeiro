@@ -126,7 +126,7 @@ export function GastosPage() {
                   {t.improved_title || t.original_description}
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
-                  <AccountTag kind={t.account_kind} institutionLabel={t.institution_label} accountName={t.account_name} />
+                  <AccountTag t={t} />
                   {t.installment_total && (
                     <>
                       <span className="text-border">·</span>

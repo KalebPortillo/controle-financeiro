@@ -82,7 +82,7 @@ export function InstallmentGroupRow({
           </div>
           {/* 2ª linha: fonte */}
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
-            <AccountTag kind={rep.account_kind} institutionLabel={rep.institution_label} accountName={rep.account_name} />
+            <AccountTag t={rep} />
           </div>
           {/* 3ª linha: indicador de parcelamento (linha própria) */}
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">

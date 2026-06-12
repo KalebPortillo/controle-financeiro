@@ -114,11 +114,17 @@ Conta corrente ou cartão de crédito.
 | institution | enum | NOT NULL |
 | external_id | string | NULL — id da conta no agregador (Pluggy) |
 | currency | char(3) | NOT NULL default 'BRL' |
+| institution_name | string | NULL — nome real do banco (conector Pluggy, ex.: "Banco Inter"); display foge do enum |
+| card_brand | string | NULL — bandeira do cartão (ex.: "Mastercard") |
+| last_digits | string | NULL — 4 últimos dígitos (só cartão) |
 | created_at, updated_at | timestamp | |
 
 **Enum kind**: `checking`, `credit_card`.
 **Enum institution**: `nubank`, `inter`, `itau`, `santander`, `bb`, `manual` (extensível).
-**RFs**: RF1.1, RF1.2, RF12 (origem "Externo/Dinheiro" → `institution='manual'`).
+`institution` (enum, lógica interna) vs `institution_name` (texto livre do conector,
+display — RF2.7, corrige o "Manual" pra bancos fora do enum). `institution_name`/
+`card_brand`/`last_digits` capturados no connect (`BankConnections::Create`).
+**RFs**: RF1.1, RF1.2, RF2.7 (fonte do gasto), RF12 (origem "Externo/Dinheiro" → `institution='manual'`).
 
 ### `bank_connections`
 Conexão via agregador (Pluggy) para sync automática.

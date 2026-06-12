@@ -5,7 +5,7 @@ import type { InboxTransaction } from './useInbox'
 function tx(o: Partial<InboxTransaction> = {}): InboxTransaction {
   return {
     id: 't1', account_id: 'a1', account_name: 'Nubank', account_kind: 'credit_card',
-    institution_label: 'Nubank', installment_number: null, installment_total: null,
+    institution_label: 'Nubank', account_institution_name: 'Nubank', account_brand: null, account_last_digits: null, installment_number: null, installment_total: null,
     installment_group_id: null, direction: 'debit', amount_cents: 10000, currency: 'BRL',
     occurred_at: '2026-06-04', original_description: 'X', improved_title: null,
     ai_confidence: null, ai_suggestion: null, ai_status: 'analyzed', status: 'pending',

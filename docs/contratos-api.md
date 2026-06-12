@@ -171,13 +171,17 @@ Formato uniforme:
   (LIKE case-insensitive em description/title). Default sort: `-occurred_at`.
   ⏳ Filtros `tag_id`/`category_id`/`owner_membership_id` quando RF5/RF6 existirem.
   Item serializado: `id, account_id, account_name, account_kind, institution_label,
-  direction, amount_cents, currency, occurred_at, original_description,
-  improved_title, ai_confidence, ai_suggestion, ai_status, status, source,
-  installment_number, installment_total, installment_group_id, lock_version,
-  tags, effective_amount_cents, refund`. `account_kind` (checking/credit_card) +
-  `institution_label` são a fonte do gasto (RF2.7); `installment_*` o parcelamento (RF9.4).
+  account_institution_name, account_brand, account_last_digits, direction,
+  amount_cents, currency, occurred_at, original_description, improved_title,
+  ai_confidence, ai_suggestion, ai_status, status, source, installment_number,
+  installment_total, installment_group_id, lock_version, tags,
+  effective_amount_cents, refund`. Fonte do gasto (RF2.7): `account_kind`
+  (checking/credit_card), `account_institution_name` (nome real do banco/conector —
+  ex.: "Nubank"), `account_brand` (bandeira do cartão), `account_last_digits`
+  (4 últimos, só cartão). `installment_*` o parcelamento (RF9.4).
 - ⏳ `GET /api/v1/transactions/:id` — detalhe completo (com tags, category, splits, refund) — planejado.
 - `GET /api/v1/transactions/:id/edits` — histórico de alterações (RF4.3), mais recente primeiro. Cada item: `{ id, field_name, old_value, new_value, edited_at, edited_by: { id, name } }`. Um registro por campo alterado (improved_title/amount_cents/occurred_at/tags) gravado a cada PATCH.
+- `GET /api/v1/transactions/:id/source` (RF2.7) — payload cru do agregador para "exibir mais detalhes". `{ source, source_metadata }` (o JSON do Pluggy guardado na ingestão). Lazy — não vai na listagem. 404 cross-workspace.
 
 ### Transactions — escrita e workflow inbox (RF2.3, RF12)
 - `PATCH /api/v1/transactions/:id` — edita `improved_title`, `amount_cents`,

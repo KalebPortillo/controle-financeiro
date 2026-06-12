@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Check, CheckSquare, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '../components/Button'
@@ -10,7 +10,8 @@ import { AiConfidenceBadge, NotAnalyzedBadge } from './AiConfidenceBadge'
 import {
   useInbox,
   useConsolidate,
-  useReject,
+  useBulkConsolidate,
+  useBulkReject,
   useConsolidateInstallmentGroup,
   useRejectInstallmentGroup,
   useReanalyzeInbox,
@@ -42,7 +43,8 @@ function signedCents(t: InboxTransaction): number {
 export function InboxPage() {
   const { data, isLoading } = useInbox()
   const consolidate = useConsolidate()
-  const reject = useReject()
+  const bulkConsolidate = useBulkConsolidate()
+  const bulkReject = useBulkReject()
   const consolidateGroup = useConsolidateInstallmentGroup()
   const rejectGroup = useRejectInstallmentGroup()
 
@@ -52,8 +54,9 @@ export function InboxPage() {
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null)
   const [groupSheetOpen, setGroupSheetOpen] = useState(false)
 
-  const transactions = data?.transactions ?? []
-  const items = buildInboxItems(transactions)
+  const transactions = useMemo(() => data?.transactions ?? [], [data?.transactions])
+  // Memoizado: só recalcula quando a lista muda, não a cada render (seleção, etc.).
+  const items = useMemo(() => buildInboxItems(transactions), [transactions])
   const active = transactions.find((t) => t.id === activeId) ?? null
   const activeGroup =
     items.find(
@@ -61,13 +64,15 @@ export function InboxPage() {
         i.kind === 'installment' && i.groupId === activeGroupId
     ) ?? null
 
-  const toggle = (id: string) =>
+  // Estável (deps vazias) pra permitir memoizar as linhas — só muda o item tocado.
+  const toggle = useCallback((id: string) => {
     setSelected((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
+  }, [])
 
   // Seleção de um parcelamento = todas as parcelas presentes (ids no `selected`),
   // pra reaproveitar a barra de ações em massa.
@@ -95,12 +100,13 @@ export function InboxPage() {
     open(t)
   }
 
+  // Ações em massa: um único request (bulk), não N. A remoção da inbox é otimista.
   const bulkAccept = async () => {
-    await Promise.all([...selected].map((id) => consolidate.mutateAsync(id)))
+    await bulkConsolidate.mutateAsync([...selected])
     setSelected(new Set())
   }
-  const bulkReject = async () => {
-    await Promise.all([...selected].map((id) => reject.mutateAsync(id)))
+  const bulkRejectAll = async () => {
+    await bulkReject.mutateAsync([...selected])
     setSelected(new Set())
   }
 
@@ -129,7 +135,7 @@ export function InboxPage() {
     })
   }
 
-  const busy = consolidate.isPending || reject.isPending
+  const busy = bulkConsolidate.isPending || bulkReject.isPending
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -248,7 +254,7 @@ export function InboxPage() {
                   t={item.transaction}
                   selected={selected.has(item.transaction.id)}
                   active={activeId === item.transaction.id && sheetOpen}
-                  onToggle={() => toggle(item.transaction.id)}
+                  onToggle={toggle}
                 />
               </SwipeableRow>
             )
@@ -268,7 +274,7 @@ export function InboxPage() {
             </button>
           </div>
           <div className="flex gap-2 shrink-0">
-            <Button variant="ghost" size="sm" onClick={bulkReject} disabled={busy} data-testid="bulk-reject">
+            <Button variant="ghost" size="sm" onClick={bulkRejectAll} disabled={busy} data-testid="bulk-reject">
               Rejeitar
             </Button>
             <Button variant="primary" size="sm" onClick={bulkAccept} disabled={busy} data-testid="bulk-accept">
@@ -296,13 +302,15 @@ export function InboxPage() {
   )
 }
 
-function RowContent({
+// memo: com `onToggle` estável e props por valor, só re-renderiza a linha que
+// mudou (seleção/edição) — não as N da lista. Crucial pra inbox grande.
+const RowContent = memo(function RowContent({
   t, selected, active, onToggle,
 }: {
   t: InboxTransaction
   selected: boolean
   active: boolean
-  onToggle: () => void
+  onToggle: (id: string) => void
 }) {
   return (
     <div
@@ -319,7 +327,7 @@ function RowContent({
         <input
           type="checkbox"
           checked={selected}
-          onChange={onToggle}
+          onChange={() => onToggle(t.id)}
           aria-label="Selecionar"
           className="cursor-pointer accent-[var(--accent)]"
           data-testid={`select-${t.id}`}
@@ -374,4 +382,4 @@ function RowContent({
       </div>
     </div>
   )
-}
+})

@@ -238,14 +238,13 @@ describe('<InboxPage />', () => {
     await waitFor(() => expect(screen.getByTestId('bulk-accept')).toBeInTheDocument())
   })
 
-  it('bulk-accepts selected rows', async () => {
+  it('bulk-accepts selected rows in a single bulk request', async () => {
     const { fetchMock } = setupFetch({
       'GET /api/v1/transactions?status=pending': {
         status: 200,
         body: { transactions: [tx({ id: 't1' }), tx({ id: 't2' })], pending_count: 2 },
       },
-      'POST /api/v1/transactions/t1/consolidate': { status: 200, body: { transaction: tx() } },
-      'POST /api/v1/transactions/t2/consolidate': { status: 200, body: { transaction: tx({ id: 't2' }) } },
+      'POST /api/v1/transactions/bulk_consolidate': { status: 200, body: { count: 2 } },
     })
     renderInbox()
     const user = userEvent.setup()
@@ -254,15 +253,16 @@ describe('<InboxPage />', () => {
     await user.click(await screen.findByTestId('bulk-accept'))
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/v1/transactions/t1/consolidate',
-        expect.objectContaining({ method: 'POST' })
+      const call = fetchMock.mock.calls.find(
+        (c) => c[0] === '/api/v1/transactions/bulk_consolidate' && c[1]?.method === 'POST'
       )
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/v1/transactions/t2/consolidate',
-        expect.objectContaining({ method: 'POST' })
-      )
+      expect(call).toBeTruthy()
+      expect((JSON.parse(call![1]!.body as string).ids as string[]).sort()).toEqual(['t1', 't2'])
     })
+    // um único request, não um por item
+    expect(
+      fetchMock.mock.calls.filter((c) => String(c[0]).includes('consolidate')).length
+    ).toBe(1)
   })
 
   it('shows a real analysis progress bar while transactions are being analyzed', async () => {

@@ -141,7 +141,31 @@ class Api::V1::TransactionsController < ApplicationController
     }
   end
 
+  # POST /api/v1/transactions/bulk_consolidate { ids: [...] } — aceita várias
+  # pendentes de uma vez (RF2.3). Uma query (update_all) no lugar de N requests.
+  def bulk_consolidate
+    render json: { count: bulk_apply_status!("consolidated", consolidated_at: Time.current) }
+  end
+
+  # POST /api/v1/transactions/bulk_reject { ids: [...] } — rejeita várias de uma vez.
+  def bulk_reject
+    render json: { count: bulk_apply_status!("rejected", rejected_at: Time.current) }
+  end
+
   private
+
+  # Aplica status a várias transações do workspace de uma vez. Escopo em
+  # current_workspace (segurança) e só em "pending" (idempotente; não revive
+  # rejeitadas/consolidadas). update_all não dispara callbacks — consolidate e
+  # reject são só status + timestamp, então é seguro e bem mais rápido.
+  def bulk_apply_status!(status, **timestamps)
+    ids = Array(params[:ids]).map(&:to_s).uniq
+    return 0 if ids.empty?
+
+    current_workspace.transactions
+                     .where(id: ids, status: "pending")
+                     .update_all({ status: status, updated_at: Time.current }.merge(timestamps))
+  end
 
   def set_transaction
     @transaction = current_workspace.transactions.find(params[:id])

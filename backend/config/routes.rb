@@ -73,6 +73,8 @@ Rails.application.routes.draw do
         collection do
           post "reanalyze"
           get  "analysis_progress" # P4 — progresso real da análise IA
+          post "bulk_consolidate"  # RF2.3 — aceitar várias de uma vez (1 request)
+          post "bulk_reject"       # RF2.3 — rejeitar várias de uma vez
         end
       end
 

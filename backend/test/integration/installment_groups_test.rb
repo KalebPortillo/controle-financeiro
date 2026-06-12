@@ -92,4 +92,53 @@ class InstallmentGroupsTest < ActionDispatch::IntegrationTest
     patch "/api/v1/installment_groups/#{@group}", params: { improved_title: "X" }, as: :json
     assert_response :unauthorized
   end
+
+  test "POST consolidate consolida todas as parcelas pendentes do grupo" do
+    p1, p2, p3 = parcel(1), parcel(2), parcel(3)
+
+    post "/api/v1/installment_groups/#{@group}/consolidate"
+    assert_response :ok
+    assert_equal 3, JSON.parse(response.body)["count"]
+
+    [ p1, p2, p3 ].each do |p|
+      assert_equal "consolidated", p.reload.status
+      assert p.consolidated_at.present?
+    end
+  end
+
+  test "POST consolidate não toca parcelas já consolidadas (conta só as pendentes)" do
+    parcel(1)
+    parcel(2, status: "consolidated", consolidated_at: 1.day.ago)
+
+    post "/api/v1/installment_groups/#{@group}/consolidate"
+    assert_equal 1, JSON.parse(response.body)["count"]
+  end
+
+  test "POST reject rejeita todas as parcelas pendentes do grupo" do
+    p1, p2 = parcel(1), parcel(2)
+
+    post "/api/v1/installment_groups/#{@group}/reject"
+    assert_response :ok
+    assert_equal 2, JSON.parse(response.body)["count"]
+    assert_equal "rejected", p1.reload.status
+    assert p2.reload.rejected_at.present?
+  end
+
+  test "consolidate de grupo inexistente → 404" do
+    post "/api/v1/installment_groups/#{SecureRandom.uuid}/consolidate"
+    assert_response :not_found
+  end
+
+  test "consolidate de grupo de outro workspace → 404, sem efeito" do
+    other = create(:workspace)
+    other_acc = create(:account, workspace: other)
+    alheia = create(:transaction, workspace: other, account: other_acc, status: "pending",
+                                  direction: "debit", amount_cents: 100, original_description: "X",
+                                  installment_number: 1, installment_total: 3,
+                                  installment_group_id: SecureRandom.uuid)
+
+    post "/api/v1/installment_groups/#{alheia.installment_group_id}/consolidate"
+    assert_response :not_found
+    assert_equal "pending", alheia.reload.status
+  end
 end

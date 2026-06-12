@@ -66,6 +66,7 @@ Rails.application.routes.draw do
           post "consolidate"
           post "reject"
           get  "edits"
+          get  "source"            # RF2.7 — payload cru do Pluggy ("mais detalhes")
           get  "refund_candidates" # RF10.1
           post "link_refund"       # RF10.2
         end

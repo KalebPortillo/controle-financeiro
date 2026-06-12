@@ -1,6 +1,6 @@
 class Api::V1::TransactionsController < ApplicationController
   before_action :require_authentication!
-  before_action :set_transaction, only: [ :update, :destroy, :consolidate, :reject, :edits,
+  before_action :set_transaction, only: [ :update, :destroy, :consolidate, :reject, :edits, :source,
                                           :refund_candidates, :link_refund ]
 
   # GET /api/v1/transactions — listagem por status (inbox = pending), com filtros.
@@ -90,6 +90,12 @@ class Api::V1::TransactionsController < ApplicationController
   # GET /api/v1/transactions/:id/edits — trilha de alterações (RF4.3).
   def edits
     render json: { edits: @transaction.edits.recent.map { |e| serialize_edit(e) } }
+  end
+
+  # GET /api/v1/transactions/:id/source — payload cru do agregador (Pluggy) pra
+  # "exibir mais detalhes" no app. Lazy (não vai na listagem).
+  def source
+    render json: { source: @transaction.source, source_metadata: @transaction.source_metadata }
   end
 
   # GET /api/v1/transactions/:id/refund_candidates — gastos que :id (credit)
@@ -233,9 +239,12 @@ class Api::V1::TransactionsController < ApplicationController
       id:                   t.id,
       account_id:           t.account_id,
       account_name:         t.account&.name,
-      # RF2.7 — fonte do gasto: tipo (cartão/conta) + instituição p/ a UI distinguir.
-      account_kind:         t.account&.kind,
-      institution_label:    BankConnections::Serializer::INSTITUTION_LABELS[t.account&.institution],
+      # RF2.7 — fonte do gasto: tipo (cartão/conta) + banco + bandeira/dígitos.
+      account_kind:             t.account&.kind,
+      institution_label:        BankConnections::Serializer::INSTITUTION_LABELS[t.account&.institution],
+      account_institution_name: t.account&.institution_name,
+      account_brand:            t.account&.card_brand,
+      account_last_digits:      t.account&.last_digits,
       direction:            t.direction,
       amount_cents:         t.amount_cents,
       currency:             t.currency,

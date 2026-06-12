@@ -72,6 +72,10 @@ module BankConnections
         account.kind             = KIND_BY_PLUGGY_TYPE.fetch(a[:type], "checking")
         account.institution      = institution
         account.currency         = a[:currency_code] || "BRL"
+        # Fonte do gasto (RF2.7): nome real do banco + bandeira/dígitos do cartão.
+        account.institution_name = item[:connector_name]
+        account.card_brand       = a[:brand]&.capitalize
+        account.last_digits      = a[:number].to_s.gsub(/\D/, "").last(4) if account.credit_card?
         account.save!
       end
     end

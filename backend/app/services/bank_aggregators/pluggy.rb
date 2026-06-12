@@ -133,6 +133,7 @@ module BankAggregators
         type:          a["type"],
         name:          a["name"] || a["marketingName"],
         number:        a["number"],
+        brand:         a.dig("creditData", "brand"), # bandeira do cartão (MASTERCARD…)
         balance:       a["balance"],
         currency_code: a["currencyCode"]
       }

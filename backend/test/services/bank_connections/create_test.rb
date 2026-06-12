@@ -68,6 +68,32 @@ class BankConnections::CreateTest < ActiveSupport::TestCase
     assert_equal "credit_card", cr.kind
   end
 
+  test "captura banco (conector), bandeira e 4 últimos dígitos do cartão (RF2.7)" do
+    provider = FakeProvider.new(
+      item: { connector_id: 999, connector_name: "Banco Inter", status: "UPDATED" },
+      accounts: [
+        { id: "cc", type: "BANK",   name: "Conta Corrente", number: "0001/12345-0", currency_code: "BRL" },
+        { id: "card", type: "CREDIT", name: "Mastercard Black", number: "9437", brand: "MASTERCARD", currency_code: "BRL" }
+      ]
+    )
+    conn = BankConnections::Create.call(
+      workspace: workspace, owner_membership: membership,
+      item_id: "inter-item", history_since: Date.new(2026, 1, 1), provider: provider
+    )
+
+    # Conector fora do enum → institution "manual", mas institution_name real.
+    cc = conn.accounts.find_by(external_id: "cc")
+    assert_equal "manual", cc.institution
+    assert_equal "Banco Inter", cc.institution_name
+    assert_nil cc.last_digits # conta não guarda dígitos
+    assert_nil cc.card_brand
+
+    card = conn.accounts.find_by(external_id: "card")
+    assert_equal "Banco Inter", card.institution_name
+    assert_equal "Mastercard", card.card_brand
+    assert_equal "9437", card.last_digits
+  end
+
   test "é idempotente — re-criar com mesmo item não duplica connection nem accounts" do
     args = {
       workspace:        workspace,

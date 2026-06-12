@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_10_210000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_12_085114) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -18,11 +18,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_10_210000) do
 
   create_table "accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "bank_connection_id"
+    t.string "card_brand"
     t.datetime "created_at", null: false
     t.string "currency", limit: 3, default: "BRL", null: false
     t.string "external_id"
     t.string "institution", null: false
+    t.string "institution_name"
     t.string "kind", null: false
+    t.string "last_digits"
     t.string "name", null: false
     t.uuid "owner_membership_id"
     t.datetime "updated_at", null: false

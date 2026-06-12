@@ -35,6 +35,13 @@ export type InboxTransaction = {
   id: string
   account_id: string
   account_name: string | null
+  // RF2.7 — fonte do gasto: tipo da conta (cartão/conta) + instituição.
+  account_kind: 'checking' | 'credit_card' | null
+  institution_label: string | null
+  // RF9.4 — parcelamento: número/total/grupo (null quando não é parcela).
+  installment_number: number | null
+  installment_total: number | null
+  installment_group_id: string | null
   direction: 'debit' | 'credit'
   amount_cents: number
   currency: string

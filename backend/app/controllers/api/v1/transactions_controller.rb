@@ -233,6 +233,9 @@ class Api::V1::TransactionsController < ApplicationController
       id:                   t.id,
       account_id:           t.account_id,
       account_name:         t.account&.name,
+      # RF2.7 — fonte do gasto: tipo (cartão/conta) + instituição p/ a UI distinguir.
+      account_kind:         t.account&.kind,
+      institution_label:    BankConnections::Serializer::INSTITUTION_LABELS[t.account&.institution],
       direction:            t.direction,
       amount_cents:         t.amount_cents,
       currency:             t.currency,

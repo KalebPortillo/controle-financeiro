@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Check, X, Trash2, Calendar, Tag as TagIcon, CreditCard, Sparkles } from 'lucide-react'
+import { AccountTag } from './AccountTag'
+import { InstallmentBadge } from './InstallmentBadge'
 import { Sheet } from '../components/Sheet'
 import { Button } from '../components/Button'
 import { Money } from '../components/Money'
@@ -170,8 +172,14 @@ function SheetInner({
         </div>
 
         <FieldLabel icon={<CreditCard size={12} />}>Conta</FieldLabel>
-        <div className="h-9 px-3 flex items-center rounded-md bg-muted text-muted-foreground text-sm truncate">
-          {t.account_name ?? '—'}
+        <div className="h-9 px-3 flex items-center gap-1.5 rounded-md bg-muted text-muted-foreground text-sm truncate">
+          <AccountTag kind={t.account_kind} institutionLabel={t.institution_label} accountName={t.account_name} />
+          {t.installment_total && (
+            <>
+              <span className="text-border">·</span>
+              <InstallmentBadge number={t.installment_number} total={t.installment_total} />
+            </>
+          )}
         </div>
 
         <FieldLabel icon={<TagIcon size={12} />}>Tags</FieldLabel>

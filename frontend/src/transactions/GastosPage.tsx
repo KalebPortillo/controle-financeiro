@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { CreditCard, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Money } from '../components/Money'
 import { Button } from '../components/Button'
 import { TagChip } from '../components/TagChip'
+import { AccountTag } from './AccountTag'
+import { InstallmentBadge } from './InstallmentBadge'
 import { useConsolidated, originalToShow, type InboxTransaction } from './useInbox'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
 import { ManualEntrySheet } from './ManualEntrySheet'
@@ -124,8 +126,13 @@ export function GastosPage() {
                   {t.improved_title || t.original_description}
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
-                  <CreditCard size={12} />
-                  <span className="truncate">{t.account_name ?? '—'}</span>
+                  <AccountTag kind={t.account_kind} institutionLabel={t.institution_label} accountName={t.account_name} />
+                  {t.installment_total && (
+                    <>
+                      <span className="text-border">·</span>
+                      <InstallmentBadge number={t.installment_number} total={t.installment_total} />
+                    </>
+                  )}
                   <span className="text-border">·</span>
                   <span>{formatDate(t.occurred_at)}</span>
                 </div>

@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { CreditCard, Check, CheckSquare, Sparkles, CircleSlash, Loader2 } from 'lucide-react'
+import { Check, CheckSquare, Sparkles, CircleSlash, Loader2 } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Money } from '../components/Money'
 import { TagChip } from '../components/TagChip'
+import { AccountTag } from './AccountTag'
+import { InstallmentBadge } from './InstallmentBadge'
 import {
   useInbox,
   useConsolidate,
@@ -303,8 +305,13 @@ function RowContent({
           )}
         </div>
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
-          <CreditCard size={12} />
-          <span className="truncate">{t.account_name ?? '—'}</span>
+          <AccountTag kind={t.account_kind} institutionLabel={t.institution_label} accountName={t.account_name} />
+          {t.installment_total && (
+            <>
+              <span className="text-border">·</span>
+              <InstallmentBadge number={t.installment_number} total={t.installment_total} />
+            </>
+          )}
           <span className="text-border">·</span>
           <span>{formatDate(t.occurred_at)}</span>
         </div>

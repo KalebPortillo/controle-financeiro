@@ -25,6 +25,17 @@ class TransactionsInboxTest < ActionDispatch::IntegrationTest
     assert_equal 12, t["installment_total"]
   end
 
+  test "serializa a fonte do gasto: account_kind + institution_label (RF2.7)" do
+    card = create(:account, workspace: @workspace, owner_membership: @membership,
+                            kind: "credit_card", institution: "nubank", name: "Nubank Cartão")
+    txn(status: "pending", account: card, original_description: "X")
+
+    get "/api/v1/transactions"
+    t = JSON.parse(response.body)["transactions"].first
+    assert_equal "credit_card", t["account_kind"]
+    assert_equal "Nubank", t["institution_label"]
+  end
+
   test "lista pendentes por default, escopado no workspace, com pending_count" do
     p1 = txn(status: "pending", original_description: "Padaria")
     txn(status: "consolidated")

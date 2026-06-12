@@ -23,10 +23,11 @@ class BankConnections::SyncTest < ActiveSupport::TestCase
     [ connection, account ]
   end
 
-  def txn(id, amount, desc, date: "2026-03-10", direction_amount: nil)
+  def txn(id, amount, desc, date: "2026-03-10", type: nil)
     {
-      id: id, amount: amount, currency_code: "BRL",
-      date: date, description: desc, raw: { "id" => id, "amount" => amount }
+      id: id, amount: amount, currency_code: "BRL", type: type,
+      date: date, description: desc,
+      raw: { "id" => id, "amount" => amount, "type" => type }
     }
   end
 
@@ -54,6 +55,40 @@ class BankConnections::SyncTest < ActiveSupport::TestCase
     t2 = account.transactions.find_by!(external_transaction_id: "tx-2")
     assert_equal "credit", t2.direction
     assert_equal 120000,   t2.amount_cents
+  end
+
+  test "usa o `type` do Pluggy pra direção — gasto de cartão vem com amount positivo" do
+    connection, account = setup_connection_with_account
+    provider = FakeProvider.new(by_account: {
+      "acc-1" => [
+        # Cartão de crédito: a compra (gasto) chega com amount POSITIVO e type DEBIT.
+        txn("cc-1", 250.0, "Mercado", type: "DEBIT"),
+        # Pagamento/estorno do cartão: amount negativo e type CREDIT.
+        txn("cc-2", -250.0, "Pagamento fatura", type: "CREDIT")
+      ]
+    })
+
+    BankConnections::Sync.call(connection: connection, provider: provider)
+
+    purchase = account.transactions.find_by!(external_transaction_id: "cc-1")
+    assert_equal "debit", purchase.direction, "compra de cartão (amount+) deve ser débito"
+    assert_equal 25000,   purchase.amount_cents
+
+    payment = account.transactions.find_by!(external_transaction_id: "cc-2")
+    assert_equal "credit", payment.direction
+    assert_equal 25000,    payment.amount_cents
+  end
+
+  test "sem `type` (ex.: import sem o campo) cai no sinal do amount" do
+    connection, account = setup_connection_with_account
+    provider = FakeProvider.new(by_account: {
+      "acc-1" => [ txn("nt-1", -80.0, "Sem type", type: nil) ]
+    })
+
+    BankConnections::Sync.call(connection: connection, provider: provider)
+
+    t = account.transactions.find_by!(external_transaction_id: "nt-1")
+    assert_equal "debit", t.direction
   end
 
   test "é idempotente — re-sync não duplica transações já importadas" do

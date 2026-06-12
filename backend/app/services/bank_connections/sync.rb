@@ -166,7 +166,7 @@ module BankConnections
       attrs = {
         workspace:            account.workspace,
         account:              account,
-        direction:            amount.negative? ? "debit" : "credit",
+        direction:            direction_for(t, amount),
         amount_cents:         (amount.abs * 100).round,
         currency:             t[:currency_code] || "BRL",
         occurred_at:          Date.parse(t[:date].to_s),
@@ -197,6 +197,18 @@ module BankConnections
     rescue ArgumentError, ActiveRecord::RecordInvalid => e
       Rails.logger.warn("[Sync] transação ignorada (#{t[:id]}): #{e.message}")
       :errored
+    end
+
+    # Direção a partir do `type` do Pluggy ("DEBIT"/"CREDIT") — fonte confiável,
+    # crucial em cartão de crédito, onde a compra (gasto) chega com amount
+    # POSITIVO. Só cai no sinal do amount quando não há `type` (ex.: import sem
+    # o campo). Ver BankAggregators::Pluggy#transaction_view.
+    def direction_for(t, amount)
+      case t[:type].to_s.upcase
+      when "DEBIT"  then "debit"
+      when "CREDIT" then "credit"
+      else amount.negative? ? "debit" : "credit"
+      end
     end
 
     ONBOARDING_ACTIVE_STATUSES = %w[connecting analyzing tagging].freeze

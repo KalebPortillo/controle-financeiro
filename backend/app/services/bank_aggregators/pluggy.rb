@@ -143,6 +143,10 @@ module BankAggregators
       {
         id:            t.fetch("id"),
         amount:        t.fetch("amount"),
+        # "DEBIT"/"CREDIT" — fonte confiável da direção. Em cartão de crédito o
+        # sinal do amount é invertido (gasto vem positivo), então não dá pra
+        # inferir débito/crédito só pelo sinal. Ver BankConnections::Sync.
+        type:          t["type"],
         currency_code: t["currencyCode"],
         date:          t["date"],
         description:   t["description"] || t["descriptionRaw"],

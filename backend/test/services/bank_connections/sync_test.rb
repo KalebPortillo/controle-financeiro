@@ -14,11 +14,13 @@ class BankConnections::SyncTest < ActiveSupport::TestCase
     end
   end
 
-  def setup_connection_with_account
+  def setup_connection_with_account(institution: "nubank", kind: "checking")
     connection = create(:bank_connection, sync_history_since: Date.new(2026, 1, 1))
     account = create(:account,
                      workspace: connection.workspace,
                      bank_connection: connection,
+                     institution: institution,
+                     kind: kind,
                      external_id: "acc-1")
     [ connection, account ]
   end
@@ -57,26 +59,49 @@ class BankConnections::SyncTest < ActiveSupport::TestCase
     assert_equal 120000,   t2.amount_cents
   end
 
-  test "usa o `type` do Pluggy pra direção — gasto de cartão vem com amount positivo" do
-    connection, account = setup_connection_with_account
+  # Regressão do bug crítico: gastos de cartão apareciam como receita (+).
+  # Em banco REAL (Nubank) o `type` do Pluggy é a direção do dinheiro e é
+  # canônico: compra de cartão vem type=DEBIT com amount POSITIVO (o sinal
+  # sozinho classificaria errado), estorno/pagamento vem type=CREDIT negativo.
+  test "instituição real: direção vem do `type` do Pluggy (cartão)" do
+    connection, account = setup_connection_with_account(institution: "nubank", kind: "credit_card")
     provider = FakeProvider.new(by_account: {
       "acc-1" => [
-        # Cartão de crédito: a compra (gasto) chega com amount POSITIVO e type DEBIT.
-        txn("cc-1", 250.0, "Mercado", type: "DEBIT"),
-        # Pagamento/estorno do cartão: amount negativo e type CREDIT.
-        txn("cc-2", -250.0, "Pagamento fatura", type: "CREDIT")
+        txn("cc-buy", 250.0, "Amazon 3/10",       type: "DEBIT"),  # compra → gasto
+        txn("cc-ref", -88.0, "Estorno de compra", type: "CREDIT")  # estorno → entrada
       ]
     })
 
     BankConnections::Sync.call(connection: connection, provider: provider)
 
-    purchase = account.transactions.find_by!(external_transaction_id: "cc-1")
-    assert_equal "debit", purchase.direction, "compra de cartão (amount+) deve ser débito"
+    purchase = account.transactions.find_by!(external_transaction_id: "cc-buy")
+    assert_equal "debit", purchase.direction, "compra de cartão (type DEBIT, amount+) deve ser débito"
     assert_equal 25000,   purchase.amount_cents
 
-    payment = account.transactions.find_by!(external_transaction_id: "cc-2")
-    assert_equal "credit", payment.direction
-    assert_equal 25000,    payment.amount_cents
+    refund = account.transactions.find_by!(external_transaction_id: "cc-ref")
+    assert_equal "credit", refund.direction
+    assert_equal 8800,     refund.amount_cents
+  end
+
+  # O conector SANDBOX do Pluggy reporta o `type` do cartão INVERTIDO (compra
+  # vem como CREDIT, amount negativo). Ali o sinal do amount é o confiável.
+  test "conector sandbox: direção vem do sinal do amount (type vem invertido)" do
+    connection, account = setup_connection_with_account(institution: "sandbox", kind: "credit_card")
+    provider = FakeProvider.new(by_account: {
+      "acc-1" => [
+        txn("sb-buy", -55.9, "NETFLIX.COM", type: "CREDIT"), # compra (sandbox inverte o type)
+        txn("sb-in",  120.0, "Entrada",     type: "DEBIT")
+      ]
+    })
+
+    BankConnections::Sync.call(connection: connection, provider: provider)
+
+    purchase = account.transactions.find_by!(external_transaction_id: "sb-buy")
+    assert_equal "debit", purchase.direction, "no sandbox o amount negativo manda — é gasto"
+    assert_equal 5590,    purchase.amount_cents
+
+    entrada = account.transactions.find_by!(external_transaction_id: "sb-in")
+    assert_equal "credit", entrada.direction
   end
 
   test "sem `type` (ex.: import sem o campo) cai no sinal do amount" do

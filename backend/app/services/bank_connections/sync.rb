@@ -166,7 +166,7 @@ module BankConnections
       attrs = {
         workspace:            account.workspace,
         account:              account,
-        direction:            direction_for(t, amount),
+        direction:            direction_for(account, t, amount),
         amount_cents:         (amount.abs * 100).round,
         currency:             t[:currency_code] || "BRL",
         occurred_at:          Date.parse(t[:date].to_s),
@@ -199,15 +199,29 @@ module BankConnections
       :errored
     end
 
-    # Direção a partir do `type` do Pluggy ("DEBIT"/"CREDIT") — fonte confiável,
-    # crucial em cartão de crédito, onde a compra (gasto) chega com amount
-    # POSITIVO. Só cai no sinal do amount quando não há `type` (ex.: import sem
-    # o campo). Ver BankAggregators::Pluggy#transaction_view.
-    def direction_for(t, amount)
+    # Direção (débito = gasto / crédito = receita). Fonte: doc do Pluggy
+    # (docs.pluggy.ai/docs/transactions):
+    #   - `type` é canônico: "DEBIT (outflow)" / "CREDIT (inflow)" — vale pra
+    #     conta corrente E cartão (compra de cartão vem como DEBIT, ainda que com
+    #     amount POSITIVO; estorno/pagamento vem como CREDIT).
+    #   - Sem `type`, cai no sinal do amount, cuja convenção é INVERTIDA no
+    #     cartão (doc: cartão → positivo = gasto; conta → negativo = saída).
+    #
+    # Exceção: o conector SANDBOX do Pluggy não segue a convenção (rotula compra
+    # de cartão como CREDIT/negativo). Como é dado de teste, usamos o sinal do
+    # amount (bank-style) só pra o staging ficar interpretável.
+    def direction_for(account, t, amount)
+      return amount.negative? ? "debit" : "credit" if account.institution == "sandbox"
+
       case t[:type].to_s.upcase
       when "DEBIT"  then "debit"
       when "CREDIT" then "credit"
-      else amount.negative? ? "debit" : "credit"
+      else
+        if account.kind == "credit_card"
+          amount.positive? ? "debit" : "credit"
+        else
+          amount.negative? ? "debit" : "credit"
+        end
       end
     end
 

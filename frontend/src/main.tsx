@@ -8,8 +8,10 @@ import './index.css'
 import App from './App.tsx'
 import { initSentry } from './sentry'
 import { createQueryClient } from './api/queryClient'
+import { registerServiceWorker } from './pwa/registerSW'
 
 initSentry()
+registerServiceWorker()
 
 // Feedback uniforme de erro: o QueryClient dispara toast por mutation falha.
 const queryClient = createQueryClient()

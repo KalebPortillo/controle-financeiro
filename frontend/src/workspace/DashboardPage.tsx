@@ -5,6 +5,7 @@ import { Button } from '../components/Button'
 import { Card, CardBody, CardHeader } from '../components/Card'
 import { MembersCard } from './MembersCard'
 import { TelegramCard } from '../notifications/TelegramCard'
+import { InstallAppCard } from '../pwa/InstallAppCard'
 
 /**
  * "Mais" — landing de configurações/workspace (RF16). Vive dentro do AppLayout
@@ -63,6 +64,8 @@ export function DashboardPage() {
           </CardBody>
         </Card>
       )}
+
+      <InstallAppCard />
 
       {active && <MembersCard workspaceId={active.id} />}
 

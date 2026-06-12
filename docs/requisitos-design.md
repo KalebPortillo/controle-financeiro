@@ -318,6 +318,12 @@ categorias, agrupando as tags efetivamente aceitas.
 - Swipe direita = aceitar; swipe esquerda = rejeitar (com confirmação se valor > X).
 - Long-press = entra em modo seleção múltipla → ações em massa.
 - Indicador de confiança da AI (`ai_confidence`): bolinha colorida (verde alta, amarelo média, cinza baixa) à esquerda.
+- **Fonte do gasto** (RF2.7): a linha de metadata mostra ícone + instituição +
+  tipo — `CreditCard` p/ cartão, `Landmark` p/ conta — ex.: "Nubank · cartão".
+- **Parcela** (RF9.4): quando parcelado, badge "3/12" (ícone `Layers`) na
+  metadata, ligando visualmente as parcelas do mesmo grupo. Editar título/tags no
+  detalhe vale pra todas as parcelas (nota explícita no Sheet); valor/data são
+  por parcela. Parcelas futuras herdadas entram já consolidadas, sem passar aqui.
 
 **Desktop (table):**
 - Tabela com colunas: Data, Descrição/Título sugerido, Conta, Valor, Tags, Confiança, Ações.

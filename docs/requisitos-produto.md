@@ -54,6 +54,10 @@ Esta v1.0 fecha todos os pontos de produto após duas iterações com o usuário
 - **RF2.4** Badge com número de gastos pendentes.
 - **RF2.5** Filtros e ordenação (data, valor, conta, tag sugerida, pessoa).
 - **RF2.6** Seleção múltipla para ações em massa (aceitar várias, aplicar mesma tag).
+- **RF2.7** **Fonte do gasto visível.** Cada gasto (na inbox e nos consolidados)
+  mostra **por onde foi**: instituição + tipo da conta — ex.: ícone de cartão +
+  "Nubank · cartão", ou ícone de conta + "Inter · conta". Distingue cartão de
+  crédito de conta corrente. (Backend serializa `account_kind` + `institution_label`.)
 
 ### RF3. Sugestão inteligente de título e tags (inbox)
 
@@ -124,7 +128,7 @@ O prompt enviado à IA é **compacto** (só os campos acima extraídos do JSONB 
 - **RF6.3** Categorias são usadas como **dimensão de agregação** em relatórios, dashboards e orçamentos. Não substituem tags.
 - **RF6.4** Gestão: criar, renomear, mesclar, excluir.
 - **RF6.5** Categorias são acessadas e mantidas na área de gastos **consolidados** (não na inbox).
-- **RF6.7** **Sugestão de categorias por IA (on-demand).** Na tela de Categorias, um botão "Sugerir categorias com IA" gera categorias **novas** a partir das tags consolidadas, **excluindo** as categorias já existentes (sem duplicar), no máximo **10**. Cada sugestão vem com as tags relacionadas; o usuário **aceita** (vira categoria real + associa as tags, sai das sugeridas e entra nas consolidadas) ou **recusa**. Catálogo `suggested_categories`.
+- **RF6.7** **Sugestão de categorias por IA (on-demand).** Na tela de Categorias, um botão "Sugerir categorias com IA" gera categorias **novas** a partir das tags consolidadas, **excluindo** as categorias já existentes (sem duplicar), no máximo **10**. Cada sugestão vem com as tags relacionadas; o usuário **aceita** (vira categoria real + associa as tags, sai das sugeridas e entra nas consolidadas) ou **recusa**. Catálogo `suggested_categories`. A IA recebe na exclusão as categorias reais, as pendentes **e as recusadas** — não re-propõe o que o usuário já rejeitou, focando no que falta. Feedback de progresso por toast (analisando → N sugeridas / nada novo), com prazo de 45s.
 - **RF6.8** **Sugestão de tags faltantes por categoria (on-demand, persistida).** Cada categoria consolidada tem um botão "Sugerir tags": a IA propõe, dentre as tags **já consolidadas** que ainda **não** estão na categoria, quais encaixam. As sugestões ficam **salvas** (catálogo `category_tag_suggestions`); o usuário **aceita** (adiciona a tag à categoria) ou **recusa**. Nunca cria tag nova.
 - **RF6.6** **Não-duplicação em totalizações.** Quando uma tag pertence a múltiplas categorias, o valor do gasto **nunca é somado mais de uma vez** no total real do período. Regras:
   - **Total geral do período** (ex.: "você gastou R$ X este mês"): cada gasto entra exatamente uma vez, independente de quantas categorias suas tags integrem. É a soma direta dos gastos consolidados.
@@ -149,7 +153,10 @@ O prompt enviado à IA é **compacto** (só os campos acima extraídos do JSONB 
 - **RF9.1** Detecção automática de recorrentes a partir do histórico (mesmo estabelecimento + valor próximo + cadência consistente).
 - **RF9.2** Cadastro manual de contas fixas previstas (aluguel, condomínio, escola).
 - **RF9.3** Visualização "contas previstas para os próximos N dias".
-- **RF9.4** **Parcelamentos no cartão**: cada parcela vira gasto separado no mês de competência, com indicador "3/12". Padrão de mercado (Organizze, Mobills).
+- **RF9.4** **Parcelamentos no cartão**: cada parcela vira gasto separado no mês de competência, com indicador "3/12" na linha. Padrão de mercado (Organizze, Mobills). Parcelas da mesma compra compartilham `installment_group_id`.
+  - **RF9.4.1** **Edição em grupo**: editar **título e tags** de uma parcela vale para **todas as parcelas** do parcelamento (gasto único pra revisar). Valor e data seguem **por parcela** (cada uma no seu mês). Endpoint `PATCH /installment_groups/:id`.
+  - **RF9.4.2** **Herança das parcelas futuras**: as parcelas que chegam mês a mês (sync) **herdam título/tags** do grupo e, quando já há uma parcela **consolidada**, **auto-consolidam** (não voltam pra inbox nem passam pela IA). Se o grupo ainda está pendente, a nova parcela herda o título/tags mas segue pra revisão.
+  - **RF9.4.3** **Relatórios inalterados**: cada parcela conta uma vez no seu mês de competência — o agrupamento é exibição + edição + herança, não muda a contabilidade.
 - **RF9.5** **Faturas futuras do cartão**: visão do total previsto da fatura aberta + faturas dos próximos meses (compostas pelos parcelamentos já em curso + recorrentes detectadas).
 - **RF9.6** Aviso quando uma recorrente esperada não chegou no prazo (ex.: assinatura cancelada?).
 
@@ -392,7 +399,9 @@ deixa tudo pronto para revisar.
 
 | Tema | Decisão |
 |---|---|
-| Parcelamentos | Cada parcela vira gasto separado no mês de competência ("3/12"). |
+| Parcelamentos | Cada parcela vira gasto separado no mês de competência ("3/12"), linhas vinculadas pelo grupo. Editar título/tags vale pra todas; futuras herdam e auto-consolidam (RF9.4.1–3). |
+| Notificações externas | Telegram no grupo do casal (RF17): avisos + botões inline de consolidar/rejeitar gasto direto do chat. |
+| Fonte do gasto | Instituição + tipo (cartão/conta) visível em cada gasto, com ícone (RF2.7). |
 | Estornos | Sistema tenta vincular automaticamente; usuário aprova/ajusta. ID único por gasto. |
 | Transferências internas | Detectadas e excluídas de relatórios. Vista separada de reconciliação. |
 | Dinheiro vivo / carteiras externas | Entrada manual do zero (direto para consolidados). |
@@ -455,4 +464,11 @@ Para o estado atual da engenharia, ver:
 - A comparação com o mercado bate com sua percepção.
 - Não falta feature óbvia para o seu cenário.
 
-**Status:** v1.3 — adicionada RF21 (painel de status de sincronização) com 8 sub-requisitos cobrindo visibilidade, ação manual, indicador global, notificação de falha e histórico.
+**Status:** v1.4 (2026-06-12) — RF17 implementado (notificações in-app +
+Telegram com botões inline de consolidar/rejeitar); RF2.7 fonte do gasto
+(instituição + cartão/conta com ícone); RF9.4.1–3 parcelamentos com edição em
+grupo + herança/auto-consolidação das parcelas futuras; RF6.7 sugestão de
+categorias passa a excluir também as recusadas + feedback por toast. RF2.7 e
+RF9.4.1–3 em implementação; o resto em produção (v0.17.0).
+
+_Histórico: v1.3 — RF21 (painel de status de sincronização)._

@@ -24,7 +24,7 @@ Esta v1.0 fecha todas as decisões técnicas após três iterações. Próxima f
 7. **TDD** (Test-Driven Development) como padrão. Ciclo **Red → Green → Refactor** para cada requisito funcional. Nenhuma linha de produção é escrita antes do teste correspondente falhar.
 8. **Pirâmide de testes**: muitos unitários, alguns de integração, poucos end-to-end. Mas **todos os RFs têm cobertura**.
 9. **CI bloqueia merge** se testes falharem, lint falhar ou cobertura cair abaixo do mínimo.
-10. **Provedores externos atrás de abstração**: AI, agregador bancário, monitoramento — todos por trás de uma interface que permita trocar implementação sem mexer no domínio.
+10. **Provedores externos atrás de abstração**: AI, agregador bancário, monitoramento, **canais de notificação** (Telegram via `NotificationChannels::`) — todos por trás de uma interface que permita trocar implementação sem mexer no domínio.
 
 ## Stack escolhida
 
@@ -105,7 +105,25 @@ Entregue em fatias TDD (3a–5c), deployado em staging:
 | Webhook `POST /webhooks/pluggy` — **header secreto `X-Webhook-Secret`** (Pluggy não assina HMAC), não o HMAC do plano original | ✅ |
 | Painel `/contas` (RF21.1–21.4) + `BankConnectionsChannel` (Action Cable) empurrando status em tempo real | ✅ |
 | **Sandbox por runtime**: `GET /api/v1/app_config` decide `include_sandbox`/`connector_ids` por `RAILS_ENV` (staging só sandbox, prod só real) — não build-time, pois staging/prod são a mesma imagem | ✅ |
-| `sync_history` (RF21.7), indicador global no header (RF21.5), notificação in-app de falha (RF21.6) | ⏳ pendente |
+| `sync_history` (RF21.7), indicador global no header (RF21.5), notificação in-app de falha (RF21.6) | ✅ |
+
+### Notificações (RF17) — ✅ in-app + Telegram
+
+- **In-app**: tabela `notifications` (broadcast ou dirigida; `dedup_key` com
+  unique parcial p/ idempotência), `Notifications::Create` (caminho único:
+  persiste + broadcast `NotificationsChannel` + fan-out Telegram), sininho no
+  header + painel, REST (`/notifications`), tempo real via Action Cable. Tipos:
+  `inbox_new`, `sync_failed` (RF21.6), `recurrent_missed` (job diário).
+- **Canal externo atrás de abstração** (mesmo princípio de AI/agregador):
+  `NotificationChannels::Telegram` (Net::HTTP, sem gem) — `send_message` com
+  inline keyboard, `answer_callback_query`, `edit_message_text`. Vínculo por
+  deep-link `startgroup` + webhook `POST /webhooks/telegram` (secret token).
+  **Botões inline**: gastos novos (sync ≤5) viram mensagens com Consolidar/
+  Rejeitar; o webhook trata `callback_query`, autoriza pelo chat vinculado,
+  idempotente. Entrega best-effort (in-app nunca depende do canal externo).
+  ENV: `TELEGRAM_BOT_TOKEN`/`TELEGRAM_WEBHOOK_SECRET`/`TELEGRAM_BOT_USERNAME`
+  (bot separado por ambiente; re-rodar `telegram:set_webhook` quando
+  `allowed_updates` mudar).
 
 > Banco real (Nubank `612`) via Open Finance exige acesso de produção na conta
 > Pluggy; teste em staging usa o **sandbox Pluggy Bank** (`user-ok`/`password-ok`,

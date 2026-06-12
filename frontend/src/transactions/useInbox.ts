@@ -131,6 +131,20 @@ export function useReject() {
   )
 }
 
+// Aceitar todas as parcelas de um parcelamento de uma vez (RF9.4 — item agregado).
+export function useConsolidateInstallmentGroup() {
+  return useInboxMutation((groupId: string) =>
+    apiFetch(`/api/v1/installment_groups/${groupId}/consolidate`, { method: 'POST' })
+  )
+}
+
+// Rejeitar todas as parcelas de um parcelamento de uma vez.
+export function useRejectInstallmentGroup() {
+  return useInboxMutation((groupId: string) =>
+    apiFetch(`/api/v1/installment_groups/${groupId}/reject`, { method: 'POST' })
+  )
+}
+
 // Remover (RF2.3) — exclusão definitiva.
 export function useRemoveTransaction() {
   return useInboxMutation((id: string) =>

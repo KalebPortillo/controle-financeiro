@@ -75,6 +75,10 @@ Rails.application.routes.draw do
         end
       end
 
+      # Parcelamentos (RF9.4.1) — editar título/tags de todas as parcelas do
+      # grupo de uma vez. :id é o installment_group_id.
+      resources :installment_groups, only: [ :update ]
+
       # Estornos (RF10) — desfazer um vínculo. Criação é via transactions#link_refund.
       resources :transaction_refunds, only: [ :destroy ]
 

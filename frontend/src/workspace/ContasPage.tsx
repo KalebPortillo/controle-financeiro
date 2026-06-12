@@ -1,6 +1,8 @@
 import { SyncStatusPanel } from '../bank/SyncStatusPanel'
+import { ConnectBankButton } from '../bank/ConnectBankButton'
 import { useBankConnectionsChannel } from '../bank/useBankConnectionsChannel'
 import { useSession } from '../auth/useSession'
+import { Card, CardBody, CardHeader } from '../components/Card'
 
 /**
  * Tela de contas e sincronização (RF21.1). Vive dentro do AppLayout. Lista as
@@ -24,6 +26,18 @@ export function ContasPage() {
           Acompanhe o status das conexões e force uma atualização quando precisar.
         </p>
       </section>
+
+      <Card>
+        <CardHeader>
+          <h2 className="font-sans text-sm font-medium">Conectar banco</h2>
+          <p className="text-xs text-muted-foreground">
+            Conecte uma conta via Pluggy. As transações caem na inbox pra você revisar.
+          </p>
+        </CardHeader>
+        <CardBody className="pt-0">
+          <ConnectBankButton />
+        </CardBody>
+      </Card>
 
       <SyncStatusPanel />
     </div>

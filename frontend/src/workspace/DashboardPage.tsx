@@ -5,12 +5,11 @@ import { Button } from '../components/Button'
 import { Card, CardBody, CardHeader } from '../components/Card'
 import { MembersCard } from './MembersCard'
 import { TelegramCard } from '../notifications/TelegramCard'
-import { ConnectBankButton } from '../bank/ConnectBankButton'
 
 /**
  * "Mais" — landing de configurações/workspace (RF16). Vive dentro do AppLayout
  * (o chrome — sidebar/topbar — é do shell). Mostra o usuário/workspace ativo,
- * troca de workspace, membros, conectar banco e sair.
+ * troca de workspace, membros e sair.
  */
 export function DashboardPage() {
   const { data } = useSession()
@@ -68,18 +67,6 @@ export function DashboardPage() {
       {active && <MembersCard workspaceId={active.id} />}
 
       <TelegramCard />
-
-      <Card>
-        <CardHeader>
-          <h2 className="font-sans text-sm font-medium">Conectar banco</h2>
-          <p className="text-xs text-muted-foreground">
-            Conecte uma conta via Pluggy. As transações caem na inbox pra você revisar.
-          </p>
-        </CardHeader>
-        <CardBody className="pt-0">
-          <ConnectBankButton />
-        </CardBody>
-      </Card>
 
       <Card className="overflow-hidden">
         <SectionRow to="/contas" icon={<CreditCard size={16} />} title="Contas e sincronização" sub="Pluggy + status de sync" testid="go-contas" />

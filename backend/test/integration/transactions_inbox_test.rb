@@ -40,6 +40,16 @@ class TransactionsInboxTest < ActionDispatch::IntegrationTest
     assert_equal "9437", t["account_last_digits"]
   end
 
+  test "card_last_digits vem do cartão da transação (creditCardMetadata, RF2.7)" do
+    card = create(:account, workspace: @workspace, owner_membership: @membership, kind: "credit_card")
+    txn(status: "pending", account: card, original_description: "X",
+        source_metadata: { "id" => "p1", "creditCardMetadata" => { "cardNumber" => "5190" } })
+
+    get "/api/v1/transactions"
+    t = JSON.parse(response.body)["transactions"].first
+    assert_equal "5190", t["card_last_digits"]
+  end
+
   test "lista pendentes por default, escopado no workspace, com pending_count" do
     p1 = txn(status: "pending", original_description: "Padaria")
     txn(status: "consolidated")

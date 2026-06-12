@@ -245,6 +245,9 @@ class Api::V1::TransactionsController < ApplicationController
       account_institution_name: t.account&.institution_name,
       account_brand:            t.account&.card_brand,
       account_last_digits:      t.account&.last_digits,
+      # Cartão da PRÓPRIA compra (Nubank tem cartões virtuais c/ dígitos distintos
+      # sob a mesma conta) — vem do payload da transação, não da conta.
+      card_last_digits:         t.source_metadata&.dig("creditCardMetadata", "cardNumber"),
       direction:            t.direction,
       amount_cents:         t.amount_cents,
       currency:             t.currency,

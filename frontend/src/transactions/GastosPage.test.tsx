@@ -26,7 +26,7 @@ function tx(o: Partial<InboxTransaction> = {}): InboxTransaction {
     institution_label: 'Nubank',
     account_institution_name: 'Nubank',
     account_brand: null,
-    account_last_digits: null,
+    account_last_digits: null, card_last_digits: null,
     installment_number: null,
     installment_total: null,
     installment_group_id: null,

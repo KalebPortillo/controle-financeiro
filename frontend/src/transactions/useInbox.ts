@@ -41,6 +41,8 @@ export type InboxTransaction = {
   account_institution_name: string | null
   account_brand: string | null
   account_last_digits: string | null
+  // Dígitos do cartão DESTA compra (cartões virtuais Nubank têm dígitos distintos).
+  card_last_digits: string | null
   // RF9.4 — parcelamento: número/total/grupo (null quando não é parcela).
   installment_number: number | null
   installment_total: number | null

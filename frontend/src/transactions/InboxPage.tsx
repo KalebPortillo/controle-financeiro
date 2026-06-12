@@ -10,11 +10,14 @@ import {
   useInbox,
   useConsolidate,
   useReject,
+  useConsolidateInstallmentGroup,
   useReanalyzeInbox,
   originalToShow,
   type InboxTransaction,
   type AiConfidence,
 } from './useInbox'
+import { buildInboxItems } from './inboxItems'
+import { InstallmentGroupRow } from './InstallmentGroupRow'
 import { useAnalysisProgress } from './useAnalysisProgress'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
 import { SwipeableRow } from './SwipeableRow'
@@ -55,12 +58,14 @@ export function InboxPage() {
   const { data, isLoading } = useInbox()
   const consolidate = useConsolidate()
   const reject = useReject()
+  const consolidateGroup = useConsolidateInstallmentGroup()
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [activeId, setActiveId] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
 
   const transactions = data?.transactions ?? []
+  const items = buildInboxItems(transactions)
   const active = transactions.find((t) => t.id === activeId) ?? null
 
   const toggle = (id: string) =>
@@ -68,6 +73,16 @@ export function InboxPage() {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
+      return next
+    })
+
+  // Seleção de um parcelamento = todas as parcelas presentes (ids no `selected`),
+  // pra reaproveitar a barra de ações em massa.
+  const toggleGroup = (ids: string[]) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      const allSelected = ids.every((id) => next.has(id))
+      ids.forEach((id) => (allSelected ? next.delete(id) : next.add(id)))
       return next
     })
 
@@ -194,34 +209,46 @@ export function InboxPage() {
             <span className="text-right">Valor</span>
           </div>
 
-          {transactions.map((t) => (
-            <SwipeableRow
-              key={t.id}
-              testid={`inbox-row-${t.id}`}
-              swipeLeft={{
-                onAction: () => consolidate.mutate(t.id),
-                label: 'Aceitar',
-                icon: <Check size={16} />,
-                idleClass: 'bg-success/30 text-success',
-                armedClass: 'bg-[var(--success-vivid)] text-white',
-              }}
-              swipeRight={{
-                onAction: () => toggle(t.id),
-                label: selected.has(t.id) ? 'Desmarcar' : 'Selecionar',
-                icon: <CheckSquare size={16} />,
-                idleClass: 'bg-accent/30 text-accent',
-                armedClass: 'bg-accent text-accent-foreground',
-              }}
-              onClick={() => open(t)}
-            >
-              <RowContent
-                t={t}
-                selected={selected.has(t.id)}
-                active={activeId === t.id && sheetOpen}
-                onToggle={() => toggle(t.id)}
+          {items.map((item) =>
+            item.kind === 'installment' ? (
+              <InstallmentGroupRow
+                key={`grp-${item.groupId}`}
+                item={item}
+                selected={item.parcels.every((p) => selected.has(p.id))}
+                active={sheetOpen && item.parcels.some((p) => p.id === activeId)}
+                onToggleGroup={() => toggleGroup(item.parcels.map((p) => p.id))}
+                onAcceptGroup={() => consolidateGroup.mutate(item.groupId)}
+                onOpenParcel={open}
               />
-            </SwipeableRow>
-          ))}
+            ) : (
+              <SwipeableRow
+                key={item.transaction.id}
+                testid={`inbox-row-${item.transaction.id}`}
+                swipeLeft={{
+                  onAction: () => consolidate.mutate(item.transaction.id),
+                  label: 'Aceitar',
+                  icon: <Check size={16} />,
+                  idleClass: 'bg-success/30 text-success',
+                  armedClass: 'bg-[var(--success-vivid)] text-white',
+                }}
+                swipeRight={{
+                  onAction: () => toggle(item.transaction.id),
+                  label: selected.has(item.transaction.id) ? 'Desmarcar' : 'Selecionar',
+                  icon: <CheckSquare size={16} />,
+                  idleClass: 'bg-accent/30 text-accent',
+                  armedClass: 'bg-accent text-accent-foreground',
+                }}
+                onClick={() => open(item.transaction)}
+              >
+                <RowContent
+                  t={item.transaction}
+                  selected={selected.has(item.transaction.id)}
+                  active={activeId === item.transaction.id && sheetOpen}
+                  onToggle={() => toggle(item.transaction.id)}
+                />
+              </SwipeableRow>
+            )
+          )}
         </div>
       )}
 

@@ -358,4 +358,49 @@ describe('<InboxPage />', () => {
       )
     )
   })
+
+  function parcels() {
+    return [
+      tx({ id: 'p1', improved_title: 'Geladeira', installment_number: 1, installment_total: 12,
+           installment_group_id: 'g1', amount_cents: 10000, occurred_at: '2026-03-10' }),
+      tx({ id: 'p2', improved_title: 'Geladeira', installment_number: 2, installment_total: 12,
+           installment_group_id: 'g1', amount_cents: 10000, occurred_at: '2026-04-10' }),
+    ]
+  }
+
+  it('agrega as parcelas num item único com o valor total somado', async () => {
+    setupFetch({
+      '/api/v1/transactions?status=pending': { status: 200, body: { transactions: parcels(), pending_count: 2 } },
+    })
+    renderInbox()
+
+    await waitFor(() => expect(screen.getByTestId('inbox-group-g1')).toBeInTheDocument())
+    // total = 100 + 100 = R$ 200,00 (uma linha só, não duas)
+    expect(screen.getByTestId('group-total-g1')).toHaveTextContent('200,00')
+    expect(screen.getAllByText('Geladeira')).toHaveLength(1)
+    // sub-lista escondida até expandir
+    expect(screen.queryByTestId('group-parcels-g1')).toBeNull()
+  })
+
+  it('expande a sub-lista mostrando cada parcela', async () => {
+    setupFetch({
+      '/api/v1/transactions?status=pending': { status: 200, body: { transactions: parcels(), pending_count: 2 } },
+    })
+    renderInbox()
+
+    await userEvent.click(await screen.findByTestId('expand-group-g1'))
+    expect(screen.getByTestId('group-parcels-g1')).toBeInTheDocument()
+    expect(screen.getByTestId('parcel-p1')).toHaveTextContent('1/12')
+    expect(screen.getByTestId('parcel-p2')).toHaveTextContent('2/12')
+  })
+
+  it('selecionar o parcelamento marca todas as parcelas (barra de ações em massa)', async () => {
+    setupFetch({
+      '/api/v1/transactions?status=pending': { status: 200, body: { transactions: parcels(), pending_count: 2 } },
+    })
+    renderInbox()
+
+    await userEvent.click(await screen.findByTestId('select-group-g1'))
+    expect(screen.getByTestId('bulk-accept')).toHaveTextContent('Aceitar (2)')
+  })
 })

@@ -154,6 +154,19 @@ export function useUpdateTransaction() {
   )
 }
 
+export type UpdateInstallmentGroupInput = {
+  group_id: string
+  improved_title?: string
+  tag_ids?: string[]
+}
+
+// Editar título/tags de TODAS as parcelas do parcelamento (RF9.4.1).
+export function useUpdateInstallmentGroup() {
+  return useInboxMutation(({ group_id, ...body }: UpdateInstallmentGroupInput) =>
+    apiFetch(`/api/v1/installment_groups/${group_id}`, { method: 'PATCH', body })
+  )
+}
+
 export type ManualEntryInput = {
   direction: 'debit' | 'credit'
   amount_cents: number

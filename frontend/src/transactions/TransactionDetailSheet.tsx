@@ -13,6 +13,7 @@ import {
   useReject,
   useRemoveTransaction,
   useUpdateTransaction,
+  useUpdateInstallmentGroup,
   useTransactionEdits,
   originalToShow,
   type InboxTransaction,
@@ -94,10 +95,25 @@ function SheetInner({
   const [title, setTitle] = useState(t.improved_title ?? '')
   const [amount, setAmount] = useState((t.amount_cents / 100).toFixed(2))
   const [date, setDate] = useState(t.occurred_at)
+  const updateGroup = useUpdateInstallmentGroup()
+
+  // RF9.4.1: numa parcela, título e tags valem pro parcelamento inteiro (grupo).
+  const groupId = t.installment_group_id
+  const isInstallment = t.installment_total != null && groupId != null
+
+  // Salva o título — na parcela vai pro grupo (todas as parcelas), senão à tx.
+  const saveTitleValue = (v: string) => {
+    if (isInstallment && groupId) updateGroup.mutate({ group_id: groupId, improved_title: v })
+    else onUpdate({ id: t.id, lock_version: t.lock_version, improved_title: v })
+  }
+  const saveTagsValue = (tagIds: string[]) => {
+    if (isInstallment && groupId) updateGroup.mutate({ group_id: groupId, tag_ids: tagIds })
+    else onUpdate({ id: t.id, lock_version: t.lock_version, tag_ids: tagIds })
+  }
 
   const saveTitle = () => {
     const v = title.trim()
-    if (v !== (t.improved_title ?? '')) onUpdate({ id: t.id, lock_version: t.lock_version, improved_title: v })
+    if (v !== (t.improved_title ?? '')) saveTitleValue(v)
   }
   const saveAmount = () => {
     const cents = Math.round(parseFloat(amount.replace(',', '.')) * 100)
@@ -113,7 +129,7 @@ function SheetInner({
   const canRevert = originalToShow(t) !== null
   const revertToOriginal = () => {
     setTitle(t.original_description)
-    onUpdate({ id: t.id, lock_version: t.lock_version, improved_title: t.original_description })
+    saveTitleValue(t.original_description)
   }
 
   return (
@@ -187,8 +203,13 @@ function SheetInner({
           transactionId={t.id}
           current={t.tags}
           disabled={busy}
-          onChange={(tagIds) => onUpdate({ id: t.id, lock_version: t.lock_version, tag_ids: tagIds })}
+          onChange={saveTagsValue}
         />
+        {isInstallment && (
+          <p className="text-[11px] text-muted-foreground -mt-1.5" data-testid="installment-group-note">
+            Título e tags valem para as {t.installment_total} parcelas deste parcelamento.
+          </p>
+        )}
         {/* Chips fantasma: tags sugeridas pela IA, ainda não aceitas (RF3). */}
         {mode === 'inbox' && t.ai_suggestion && t.ai_suggestion.new_tags.length > 0 && (
           <GhostTagChips transactionId={t.id} suggestedNames={t.ai_suggestion.new_tags} />

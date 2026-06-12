@@ -156,7 +156,14 @@ module BankConnections
     def import_transaction(account, t)
       amount = t.fetch(:amount).to_f
       installment = Transactions::Installment.parse(raw: t[:raw], description: t[:description])
-      tx = Transaction.create!(
+      group_id = installment && Transactions::Installment.group_id(
+        account_id: account.id, description: t[:description], total: installment.total
+      )
+      # RF9.4.2: herança das parcelas do mesmo parcelamento (título/tags +
+      # auto-consolidação quando o usuário já revisou a compra).
+      inherit = group_id && Transactions::InstallmentInheritance.for(account: account, group_id: group_id)
+
+      attrs = {
         workspace:            account.workspace,
         account:              account,
         direction:            amount.negative? ? "debit" : "credit",
@@ -169,11 +176,21 @@ module BankConnections
         source_metadata:      t[:raw] || { "id" => t[:id] },
         installment_number:   installment&.number,
         installment_total:    installment&.total,
-        installment_group_id: installment && Transactions::Installment.group_id(
-          account_id: account.id, description: t[:description], total: installment.total
-        )
-      )
-      @suggest_ids << tx.id
+        installment_group_id: group_id
+      }
+      if inherit
+        attrs[:improved_title] = inherit.improved_title if inherit.improved_title.present?
+        attrs[:ai_status]      = "analyzed" # herdou (ou auto-consolida) → não precisa de IA
+        if inherit.consolidated
+          attrs[:status]          = "consolidated"
+          attrs[:consolidated_at] = Time.current
+        end
+      end
+
+      tx = Transaction.create!(attrs)
+      tx.tags = inherit.tags if inherit&.tags&.any?
+      # Só manda pra IA o que não herdou título nem auto-consolidou (economiza cota).
+      @suggest_ids << tx.id unless inherit
       :created
     rescue ActiveRecord::RecordNotUnique
       :duplicated

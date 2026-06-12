@@ -172,6 +172,57 @@ class BankConnections::SyncTest < ActiveSupport::TestCase
     assert_nil t.installment_group_id
   end
 
+  def sync_parcels(connection, *parcels)
+    BankConnections::Sync.call(connection: connection,
+                               provider: FakeProvider.new(by_account: { "acc-1" => parcels }))
+  end
+
+  test "parcela futura auto-consolida e herda título/tags quando há irmã consolidada (RF9.4.2)" do
+    connection, account = setup_connection_with_account
+    sync_parcels(connection, txn("tx-p1", -50.0, "GELADEIRA 1/12", date: "2026-03-10"))
+    p1 = account.transactions.find_by!(external_transaction_id: "tx-p1")
+    tag = create(:tag, workspace: connection.workspace, name: "Casa")
+    p1.update!(status: "consolidated", consolidated_at: Time.current, improved_title: "Geladeira Brastemp")
+    p1.tags = [ tag ]
+
+    assert_no_enqueued_jobs(only: AiSuggestion::BatchSuggestJob) do
+      sync_parcels(connection, txn("tx-p2", -50.0, "GELADEIRA 2/12", date: "2026-04-10"))
+    end
+
+    p2 = account.transactions.find_by!(external_transaction_id: "tx-p2")
+    assert_equal "consolidated", p2.status
+    assert_equal "Geladeira Brastemp", p2.improved_title
+    assert_equal "analyzed", p2.ai_status
+    assert_equal [ "Casa" ], p2.tags.pluck(:name)
+    assert_equal Date.new(2026, 4, 10), p2.occurred_at # cada parcela no seu mês
+  end
+
+  test "parcela futura fica pending e crua quando não há irmã consolidada nem título" do
+    connection, account = setup_connection_with_account
+    sync_parcels(connection, txn("tx-p1", -50.0, "GELADEIRA 1/12", date: "2026-03-10"))
+    # p1 segue pending sem título (IA não rodou em test)
+
+    sync_parcels(connection, txn("tx-p2", -50.0, "GELADEIRA 2/12", date: "2026-04-10"))
+    p2 = account.transactions.find_by!(external_transaction_id: "tx-p2")
+    assert_equal "pending", p2.status
+    assert_nil p2.improved_title
+  end
+
+  test "parcela futura herda título e pula IA quando a irmã pending já tem título" do
+    connection, account = setup_connection_with_account
+    sync_parcels(connection, txn("tx-p1", -50.0, "GELADEIRA 1/12", date: "2026-03-10"))
+    account.transactions.find_by!(external_transaction_id: "tx-p1").update!(improved_title: "Geladeira")
+
+    assert_no_enqueued_jobs(only: AiSuggestion::BatchSuggestJob) do
+      sync_parcels(connection, txn("tx-p2", -50.0, "GELADEIRA 2/12", date: "2026-04-10"))
+    end
+
+    p2 = account.transactions.find_by!(external_transaction_id: "tx-p2")
+    assert_equal "pending", p2.status
+    assert_equal "Geladeira", p2.improved_title
+    assert_equal "analyzed", p2.ai_status
+  end
+
   test "sync com transações novas emite inbox_new com a contagem (RF17)" do
     connection, _account = setup_connection_with_account
     provider = FakeProvider.new(by_account: {

@@ -1,6 +1,8 @@
 // Dinheiro no padrão do design system: monospace, tabular-nums, R$ 1.234,56.
 // Negativo usa − (em-dash), não '-'. Em modo `signed`, positivos (receitas)
-// ganham verde vívido; negativos ficam neutros (o app é majoritariamente gastos).
+// ganham verde (--success via .cf-money--positive); negativos ficam neutros
+// (o app é majoritariamente gastos). Usamos a classe do design system, não um
+// utilitário Tailwind: .cf-money é unlayered e sobrescreveria o text-[...].
 
 type Props = {
   cents: number
@@ -19,7 +21,7 @@ export function Money({ cents, signed = false, className = '' }: Props) {
   const positive = cents > 0
   const negative = cents < 0
   const sign = signed ? (positive ? '+ ' : negative ? '− ' : '') : negative ? '− ' : ''
-  const color = signed && positive ? 'text-[var(--success-vivid)]' : ''
+  const color = signed && positive ? 'cf-money--positive' : ''
   return (
     <span className={`cf-money ${color} ${className}`} style={{ whiteSpace: 'nowrap' }}>
       {sign}

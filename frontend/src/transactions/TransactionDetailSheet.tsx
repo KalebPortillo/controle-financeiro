@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Check, X, Trash2, Calendar, Tag as TagIcon, CreditCard, Sparkles, ChevronRight, ChevronDown } from 'lucide-react'
+import { Check, X, Trash2, Calendar, Tag as TagIcon, CreditCard, Sparkles, ChevronRight, ChevronDown, ArrowLeft } from 'lucide-react'
 import { AccountTag } from './AccountTag'
 import { InstallmentBadge } from './InstallmentBadge'
 import { Sheet } from '../components/Sheet'
@@ -37,11 +37,15 @@ export function TransactionDetailSheet({
   transaction: t,
   open,
   onClose,
+  onBackToGroup,
   mode = 'inbox',
 }: {
   transaction: InboxTransaction | null
   open: boolean
   onClose: () => void
+  // Quando a parcela foi aberta a partir do sheet do parcelamento, mostra um
+  // "← Parcelamento" pra voltar pro grupo (além do back do navegador).
+  onBackToGroup?: () => void
   mode?: 'inbox' | 'consolidated'
 }) {
   const consolidate = useConsolidate()
@@ -74,19 +78,20 @@ export function TransactionDetailSheet({
 
   return (
     <Sheet open={open} onClose={onClose} width={460}>
-      {t && <SheetInner t={t} mode={mode} busy={busy} onClose={onClose} onAccept={accept} onReject={doReject}
+      {t && <SheetInner t={t} mode={mode} busy={busy} onClose={onClose} onBackToGroup={onBackToGroup} onAccept={accept} onReject={doReject}
                         onUpdate={update.mutate} onRemove={() => remove.mutate(t.id, { onSuccess: onClose })} />}
     </Sheet>
   )
 }
 
 function SheetInner({
-  t, mode, busy, onClose, onAccept, onReject, onUpdate, onRemove,
+  t, mode, busy, onClose, onBackToGroup, onAccept, onReject, onUpdate, onRemove,
 }: {
   t: InboxTransaction
   mode: 'inbox' | 'consolidated'
   busy: boolean
   onClose: () => void
+  onBackToGroup?: () => void
   onAccept: () => void
   onReject: () => void
   onUpdate: ReturnType<typeof useUpdateTransaction>['mutate']
@@ -137,6 +142,15 @@ function SheetInner({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="px-6 pt-5 pb-4 border-b border-border">
+        {onBackToGroup && (
+          <button
+            onClick={onBackToGroup}
+            className="inline-flex items-center gap-1 mb-2.5 text-xs text-muted-foreground hover:text-foreground"
+            data-testid="back-to-group"
+          >
+            <ArrowLeft size={13} /> Parcelamento
+          </button>
+        )}
         <div className="flex items-start gap-2.5">
           <div className="flex-1 min-w-0">
             <div className="font-display text-lg font-semibold tracking-tight mb-1 truncate">

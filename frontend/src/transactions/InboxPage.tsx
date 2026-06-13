@@ -19,6 +19,7 @@ import {
   type InboxTransaction,
 } from './useInbox'
 import { buildInboxItems } from './inboxItems'
+import { useOverlay } from '../app/useOverlay'
 import { InstallmentGroupRow } from './InstallmentGroupRow'
 import { InstallmentGroupSheet } from './InstallmentGroupSheet'
 import { useAnalysisProgress } from './useAnalysisProgress'
@@ -49,10 +50,15 @@ export function InboxPage() {
   const rejectGroup = useRejectInstallmentGroup()
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(null)
-  const [groupSheetOpen, setGroupSheetOpen] = useState(false)
+
+  // Overlays como estado de URL (?tx, ?group) → back do navegador fecha o sheet.
+  const { get, push, close } = useOverlay()
+  const activeId = get('tx')
+  const activeGroupId = get('group')
+  const sheetOpen = activeId != null
+  // O sheet do grupo fica escondido enquanto uma parcela está aberta, mas o
+  // ?group continua na URL pra que o back volte pro parcelamento.
+  const groupSheetOpen = activeGroupId != null && activeId == null
 
   const transactions = useMemo(() => data?.transactions ?? [], [data?.transactions])
   // Memoizado: só recalcula quando a lista muda, não a cada render (seleção, etc.).
@@ -84,21 +90,13 @@ export function InboxPage() {
       return next
     })
 
-  const open = (t: InboxTransaction) => {
-    setActiveId(t.id)
-    setSheetOpen(true)
-  }
+  const open = (t: InboxTransaction) => push((p) => p.set('tx', t.id))
 
   // Abre o sheet do parcelamento (lista de parcelas). Mobile-first: tela cheia.
-  const openGroup = (groupId: string) => {
-    setActiveGroupId(groupId)
-    setGroupSheetOpen(true)
-  }
-  // Abrir uma parcela a partir do sheet do grupo: fecha o grupo, abre a parcela.
-  const openParcelFromGroup = (t: InboxTransaction) => {
-    setGroupSheetOpen(false)
-    open(t)
-  }
+  const openGroup = (groupId: string) => push((p) => p.set('group', groupId))
+  // Abrir uma parcela a partir do grupo: empurra ?tx mantendo o ?group, pra que
+  // o back (ou "← Parcelamento") volte pro sheet do grupo.
+  const openParcelFromGroup = (t: InboxTransaction) => push((p) => p.set('tx', t.id))
 
   // Ações em massa: um único request (bulk), não N. A remoção da inbox é otimista.
   const bulkAccept = async () => {
@@ -287,13 +285,14 @@ export function InboxPage() {
       <TransactionDetailSheet
         transaction={active}
         open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
+        onClose={() => close('tx')}
+        onBackToGroup={activeGroupId != null ? () => close('tx') : undefined}
       />
 
       <InstallmentGroupSheet
         item={activeGroup}
         open={groupSheetOpen}
-        onClose={() => setGroupSheetOpen(false)}
+        onClose={() => close('group')}
         onOpenParcel={openParcelFromGroup}
         onAcceptGroup={() => activeGroup && consolidateGroup.mutate(activeGroup.groupId)}
         onRejectGroup={() => activeGroup && rejectGroup.mutate(activeGroup.groupId)}

@@ -1,5 +1,5 @@
-import { useNavigate } from 'react-router'
 import { Inbox, CircleAlert, Repeat, Bell, type LucideIcon } from 'lucide-react'
+import { useOverlay } from '../app/useOverlay'
 import { Sheet } from '../components/Sheet'
 import {
   useNotifications,
@@ -69,16 +69,18 @@ export function NotificationsPanel({ open, onClose }: { open: boolean; onClose: 
   const { data } = useNotifications()
   const markRead = useMarkRead()
   const markAllRead = useMarkAllRead()
-  const navigate = useNavigate()
+  const { replaceWith } = useOverlay()
 
   const notifications = data?.notifications ?? []
   const hasUnread = (data?.unread_count ?? 0) > 0
 
   function onItemClick(n: AppNotification) {
     if (!n.read_at) markRead.mutate(n.id)
-    onClose()
     const route = KIND_ROUTE[n.kind]
-    if (route) navigate(route)
+    // Navegar pro contexto substitui o ?notifs no histórico (replace), pra que
+    // o back depois volte pra página onde você estava — não reabra o painel.
+    if (route) replaceWith(route)
+    else onClose()
   }
 
   return (

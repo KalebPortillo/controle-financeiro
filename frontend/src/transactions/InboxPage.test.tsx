@@ -425,4 +425,26 @@ describe('<InboxPage />', () => {
     await userEvent.click(await screen.findByTestId('select-group-g1'))
     expect(screen.getByTestId('bulk-accept')).toHaveTextContent('Aceitar (2)')
   })
+
+  it('abrir uma parcela a partir do grupo mostra "← Parcelamento" e o back volta pro grupo', async () => {
+    setupFetch({
+      '/api/v1/transactions?status=pending': { status: 200, body: { transactions: parcels(), pending_count: 2 } },
+      '/api/v1/tags': { status: 200, body: { tags: [] } },
+    })
+    const user = userEvent.setup()
+    renderInbox()
+
+    // grupo → parcela
+    await user.click(await screen.findByTestId('inbox-group-g1'))
+    await user.click(await screen.findByTestId('group-sheet-parcel-p1'))
+
+    // detalhe da parcela aberto, com o back pro grupo; a lista do grupo some
+    const back = await screen.findByTestId('back-to-group')
+    expect(screen.queryByTestId('group-sheet-parcels-g1')).toBeNull()
+
+    // "← Parcelamento" (= back do navegador) restaura o sheet do grupo
+    await user.click(back)
+    expect(await screen.findByTestId('group-sheet-parcels-g1')).toBeInTheDocument()
+    expect(screen.queryByTestId('back-to-group')).toBeNull()
+  })
 })

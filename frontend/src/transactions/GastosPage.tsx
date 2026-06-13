@@ -6,6 +6,7 @@ import { TagChip } from '../components/TagChip'
 import { AccountTag } from './AccountTag'
 import { InstallmentBadge } from './InstallmentBadge'
 import { useConsolidated, originalToShow, type InboxTransaction } from './useInbox'
+import { useOverlay } from '../app/useOverlay'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
 import { ManualEntrySheet } from './ManualEntrySheet'
 
@@ -44,9 +45,12 @@ function signedCents(t: InboxTransaction): number {
 export function GastosPage() {
   const [period, setPeriod] = useState(currentPeriod())
   const { data, isLoading } = useConsolidated(period)
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [manualOpen, setManualOpen] = useState(false)
+
+  // Overlays como estado de URL (?tx, ?new) → back do navegador fecha o sheet.
+  const { get, push, close } = useOverlay()
+  const activeId = get('tx')
+  const sheetOpen = activeId != null
+  const manualOpen = get('new') != null
 
   const txs = data?.transactions ?? []
   const active = txs.find((t) => t.id === activeId) ?? null
@@ -79,7 +83,7 @@ export function GastosPage() {
           >
             <ChevronRight size={16} />
           </button>
-          <Button variant="outline" size="sm" onClick={() => setManualOpen(true)} data-testid="open-manual" className="ml-2">
+          <Button variant="outline" size="sm" onClick={() => push((p) => p.set('new', '1'))} data-testid="open-manual" className="ml-2">
             <Plus size={14} /> Lançar
           </Button>
         </div>
@@ -117,7 +121,7 @@ export function GastosPage() {
           {txs.map((t) => (
             <button
               key={t.id}
-              onClick={() => { setActiveId(t.id); setSheetOpen(true) }}
+              onClick={() => push((p) => p.set('tx', t.id))}
               data-testid={`gasto-row-${t.id}`}
               className="grid w-full text-left grid-cols-[1fr_auto] md:grid-cols-[1fr_150px_110px] gap-3 items-center px-4 py-3 border-b border-border last:border-b-0 hover:bg-muted transition-colors"
             >
@@ -168,11 +172,11 @@ export function GastosPage() {
       <TransactionDetailSheet
         transaction={active}
         open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
+        onClose={() => close('tx')}
         mode="consolidated"
       />
 
-      <ManualEntrySheet open={manualOpen} onClose={() => setManualOpen(false)} />
+      <ManualEntrySheet open={manualOpen} onClose={() => close('new')} />
     </div>
   )
 }

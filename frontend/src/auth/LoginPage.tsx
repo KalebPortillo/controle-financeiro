@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Card, CardBody } from '../components/Card'
 import { buttonClass } from '../components/buttonClass'
 import { WalletLogo } from '../components/WalletLogo'
@@ -8,6 +9,18 @@ import { WalletLogo } from '../components/WalletLogo'
  * cuida do handshake e redireciona pra raiz com a sessão setada.
  */
 export function LoginPage({ error }: { error?: string | null }) {
+  // bfcache: no mobile, dar "back" pra cá depois de logar restaura o documento
+  // do cache sem re-rodar o JS — o redirect autenticado nunca dispara e o user
+  // fica preso no login. Recarregar na restauração faz o LoginRoute re-checar a
+  // sessão e mandar pra /inbox (back vira no-op, padrão de app nativo).
+  useEffect(() => {
+    const onShow = (e: PageTransitionEvent) => {
+      if (e.persisted) window.location.reload()
+    }
+    window.addEventListener('pageshow', onShow)
+    return () => window.removeEventListener('pageshow', onShow)
+  }, [])
+
   return (
     <main className="min-h-screen bg-background text-foreground flex items-center justify-center px-4">
       <Card className="w-full max-w-sm">

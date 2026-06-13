@@ -1,14 +1,14 @@
 {
-  "name": "Controle Financeiro",
-  "short_name": "Finanças",
+  "name": "PortilhoWallet",
+  "short_name": "PortilhoWallet",
   "description": "Suas finanças, organizadas pela inbox.",
   "lang": "pt-BR",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#FFFFFF",
-  "theme_color": "#7C3AED",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
   "icons": [
     { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any" },
     { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },

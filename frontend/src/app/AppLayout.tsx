@@ -68,7 +68,7 @@ function Sidebar({ workspaceName, userEmail }: { workspaceName?: string; userEma
     <aside className="hidden md:flex flex-col bg-muted border-r border-border px-2.5 py-3.5">
       <div className="flex items-center gap-2.5 px-2.5 pt-2 pb-4 font-display text-[15px] font-semibold tracking-tight">
         <WalletLogo size={20} />
-        <span>Controle Financeiro</span>
+        <span>Portilho<span className="text-accent">Wallet</span></span>
       </div>
 
       <nav className="flex flex-col gap-0.5">

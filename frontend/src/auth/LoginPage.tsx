@@ -14,8 +14,8 @@ export function LoginPage({ error }: { error?: string | null }) {
         <CardBody className="flex flex-col items-center gap-5 py-8">
           <WalletLogo size={36} className="text-foreground" />
           <div className="text-center space-y-1">
-            <h1 className="font-sans text-lg font-semibold tracking-tight">
-              Controle financeiro
+            <h1 className="font-display text-lg font-semibold tracking-tight">
+              Portilho<span className="text-accent">Wallet</span>
             </h1>
             <p className="text-xs text-muted-foreground">
               Visão compartilhada dos seus gastos do casal

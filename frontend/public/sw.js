@@ -4,7 +4,7 @@
  * financeiros têm que ser sempre frescos. Estratégia network-first com fallback
  * pra cache só pra navegações e assets estáticos same-origin.
  */
-const CACHE = 'cf-shell-v1'
+const CACHE = 'cf-shell-v2'
 
 // Caminhos que o SW nunca deve interceptar/cachear — sempre vão direto à rede.
 const BYPASS = [/^\/api\//, /^\/cable/, /^\/up$/]

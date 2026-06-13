@@ -5,8 +5,8 @@ import { LoginPage } from './LoginPage'
 describe('<LoginPage />', () => {
   it('renders the wallet logo, headline and Google sign-in link', () => {
     render(<LoginPage />)
-    expect(screen.getByLabelText('Controle Financeiro')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /controle financeiro/i })).toBeInTheDocument()
+    expect(screen.getByLabelText('PortilhoWallet')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /portilho\s*wallet/i })).toBeInTheDocument()
     const link = screen.getByTestId('google-login') as HTMLAnchorElement
     expect(link).toHaveAttribute('href', '/api/v1/auth/google_oauth2')
     expect(link).toHaveTextContent(/entrar com google/i)

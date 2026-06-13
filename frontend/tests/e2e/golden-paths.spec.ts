@@ -16,7 +16,7 @@ const uniqueEmail = (label: string) => `${label}-${Date.now()}@example.com`
 test('visitor anônimo é redirecionado pra /login', async ({ page }) => {
   await goto(page, '/')
   await expect(page).toHaveURL(/\/login$/)
-  await expect(page.getByRole('heading', { name: /controle financeiro/i })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /portilho\s*wallet/i })).toBeVisible()
   await expect(page.getByTestId('google-login')).toBeVisible()
 })
 

@@ -28,7 +28,9 @@ export function TagEditor({
   const createTag = useCreateTag()
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
-  const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null)
+  const [coords, setCoords] = useState<
+    { left: number; width: number; maxHeight: number; top?: number; bottom?: number } | null
+  >(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -48,21 +50,41 @@ export function TagEditor({
   )
   const canCreate = query.trim() !== '' && !exactExists
 
-  // Posiciona o portal embaixo do input; acompanha scroll/resize enquanto aberto.
+  // Posiciona o portal junto do input e acompanha scroll/resize. Usa o
+  // visualViewport (que encolhe com o teclado no mobile) pra decidir o espaço
+  // disponível e VIRA pra cima quando não cabe embaixo — senão a lista abre
+  // atrás do teclado, fora da vista.
   useEffect(() => {
     if (!open) return
+    const vv = window.visualViewport
     const reposition = () => {
       const el = inputRef.current
       if (!el) return
       const r = el.getBoundingClientRect()
-      setCoords({ top: r.bottom + 4, left: r.left, width: r.width })
+      const GAP = 4
+      const DESIRED = 224 // altura máx. desejada do dropdown
+      const viewTop = vv?.offsetTop ?? 0
+      const viewBottom = (vv?.offsetTop ?? 0) + (vv?.height ?? window.innerHeight)
+      const spaceBelow = viewBottom - r.bottom - GAP
+      const spaceAbove = r.top - viewTop - GAP
+      const flipUp = spaceBelow < Math.min(DESIRED, 160) && spaceAbove > spaceBelow
+      const maxHeight = Math.max(112, Math.min(DESIRED, flipUp ? spaceAbove : spaceBelow))
+      setCoords(
+        flipUp
+          ? { left: r.left, width: r.width, maxHeight, bottom: window.innerHeight - r.top + GAP }
+          : { left: r.left, width: r.width, maxHeight, top: r.bottom + GAP },
+      )
     }
     reposition()
     window.addEventListener('scroll', reposition, true)
     window.addEventListener('resize', reposition)
+    vv?.addEventListener('resize', reposition)
+    vv?.addEventListener('scroll', reposition)
     return () => {
       window.removeEventListener('scroll', reposition, true)
       window.removeEventListener('resize', reposition)
+      vv?.removeEventListener('resize', reposition)
+      vv?.removeEventListener('scroll', reposition)
     }
   }, [open])
 
@@ -93,8 +115,14 @@ export function TagEditor({
   const dropdown = open && coords && (suggestions.length > 0 || canCreate) && (
     <ul
       onMouseDown={keepOpen}
-      style={{ position: 'fixed', top: coords.top, left: coords.left, width: coords.width }}
-      className="z-50 max-h-56 overflow-y-auto rounded-md border border-border bg-popover shadow-[var(--shadow-popover)] py-1"
+      style={{
+        position: 'fixed',
+        left: coords.left,
+        width: coords.width,
+        maxHeight: coords.maxHeight,
+        ...(coords.top != null ? { top: coords.top } : { bottom: coords.bottom }),
+      }}
+      className="z-50 overflow-y-auto rounded-md border border-border bg-popover shadow-[var(--shadow-popover)] py-1"
       data-testid={`tag-dropdown-${transactionId}`}
     >
       {suggestions.map((t) => (

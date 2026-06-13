@@ -2,9 +2,11 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <!-- ?v=3 = cache-bust: o public/ tem nome fixo e Cloudflare cacheia por 1 ano;
+         bumpar a query força um MISS pra trocar o ícone (ver deploy-runbook). -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=3" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png?v=3" />
     <!-- user-scalable=no + maximum-scale: bloqueia pinch-zoom e o auto-zoom ao
          focar inputs no PWA (iOS standalone respeita isto). -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
@@ -13,7 +15,7 @@
     <!-- PWA: instalável no celular (Android/Chrome via manifest+SW, iOS via apple-* tags) -->
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#0A0A0A" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="PortilhoWallet" />

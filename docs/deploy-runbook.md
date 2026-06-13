@@ -302,6 +302,27 @@ porque a imagem é a mesma.
 > habilitado na conta Pluggy** — sem isso, o `POST api.pluggy.ai/items` dá 400.
 > Teste ponta-a-ponta = sandbox Pluggy Bank com `user-ok`/`password-ok`.
 
+### 19. Assets do `public/` ficam presos no Cloudflare por 1 ano
+
+Arquivos servidos do `frontend/public/` (favicon, ícones PWA, manifest) têm **nome
+fixo** (o Vite só faz fingerprint dos assets de `src/`, não do `public/`) e o origin
+manda `cache-control: public, max-age=31556952`. O Cloudflare cacheia no edge por
+**1 ano** — então **trocar um ícone mantendo o mesmo nome NÃO propaga**: o `cf-cache-status`
+fica `HIT` servindo a versão antiga (sintoma clássico: ícone errado/antigo na
+homescreen do iOS, que lê o manifest).
+
+Ao trocar qualquer ícone/favicon, **bumpe a query de versão** (`?v=N`) nas refs do
+`index.html` e do `manifest.webmanifest` — URL nova = MISS no Cloudflare = busca fresca.
+(Alternativa: purgar o cache no painel/API do Cloudflare.) Diagnóstico rápido:
+
+```
+curl -sI https://wallet-staging.portilho.cc/apple-touch-icon.png | grep -iE 'cf-cache-status|age|last-modified'
+```
+
+iOS extra: o ícone da homescreen é cacheado **no device** — depois do deploy é preciso
+**remover e re-adicionar** o atalho. E o iOS não lida bem com SVG `sizes:any` no
+manifest (pode escolhê-lo no lugar do PNG) — mantenha só PNG nos `icons` do manifest.
+
 ---
 
 ## Setup completo do zero (recovery)

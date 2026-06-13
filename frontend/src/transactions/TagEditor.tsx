@@ -50,41 +50,48 @@ export function TagEditor({
   )
   const canCreate = query.trim() !== '' && !exactExists
 
-  // Posiciona o portal junto do input e acompanha scroll/resize. Usa o
-  // visualViewport (que encolhe com o teclado no mobile) pra decidir o espaço
-  // disponível e VIRA pra cima quando não cabe embaixo — senão a lista abre
-  // atrás do teclado, fora da vista.
+  // Posiciona o portal junto do input. Usa o visualViewport (que encolhe com o
+  // teclado no mobile) pra medir o espaço visível. Estratégia: PREFERE abrir
+  // embaixo e só vira pra cima quando realmente não cabe embaixo. O browser do
+  // iOS rola o input pra dentro da vista DEPOIS do focus, então além dos eventos
+  // de scroll/resize a gente recalcula em timeouts curtos pra assentar.
   useEffect(() => {
     if (!open) return
     const vv = window.visualViewport
-    const reposition = () => {
+    const place = () => {
       const el = inputRef.current
       if (!el) return
       const r = el.getBoundingClientRect()
       const GAP = 4
       const DESIRED = 224 // altura máx. desejada do dropdown
       const viewTop = vv?.offsetTop ?? 0
-      const viewBottom = (vv?.offsetTop ?? 0) + (vv?.height ?? window.innerHeight)
+      const viewBottom = viewTop + (vv?.height ?? window.innerHeight)
       const spaceBelow = viewBottom - r.bottom - GAP
       const spaceAbove = r.top - viewTop - GAP
-      const flipUp = spaceBelow < Math.min(DESIRED, 160) && spaceAbove > spaceBelow
-      const maxHeight = Math.max(112, Math.min(DESIRED, flipUp ? spaceAbove : spaceBelow))
+      // Embaixo é o padrão; vira pra cima só se não cabe um mínimo embaixo E há
+      // mais espaço acima (caso desktop com o campo perto do fim do drawer).
+      const below = spaceBelow >= 120 || spaceBelow >= spaceAbove
+      const maxHeight = Math.max(96, Math.min(DESIRED, Math.floor(below ? spaceBelow : spaceAbove)))
       setCoords(
-        flipUp
-          ? { left: r.left, width: r.width, maxHeight, bottom: window.innerHeight - r.top + GAP }
-          : { left: r.left, width: r.width, maxHeight, top: r.bottom + GAP },
+        below
+          ? { left: r.left, width: r.width, maxHeight, top: Math.round(r.bottom + GAP) }
+          : { left: r.left, width: r.width, maxHeight, bottom: Math.round(window.innerHeight - r.top + GAP) },
       )
     }
-    reposition()
-    window.addEventListener('scroll', reposition, true)
-    window.addEventListener('resize', reposition)
-    vv?.addEventListener('resize', reposition)
-    vv?.addEventListener('scroll', reposition)
+    place()
+    const t1 = setTimeout(place, 150)
+    const t2 = setTimeout(place, 350)
+    window.addEventListener('scroll', place, true)
+    window.addEventListener('resize', place)
+    vv?.addEventListener('resize', place)
+    vv?.addEventListener('scroll', place)
     return () => {
-      window.removeEventListener('scroll', reposition, true)
-      window.removeEventListener('resize', reposition)
-      vv?.removeEventListener('resize', reposition)
-      vv?.removeEventListener('scroll', reposition)
+      clearTimeout(t1)
+      clearTimeout(t2)
+      window.removeEventListener('scroll', place, true)
+      window.removeEventListener('resize', place)
+      vv?.removeEventListener('resize', place)
+      vv?.removeEventListener('scroll', place)
     }
   }, [open])
 

@@ -50,12 +50,13 @@ export function TagEditor({
   )
   const canCreate = query.trim() !== '' && !exactExists
 
-  // Posiciona o portal SEMPRE abaixo do input (virar pra cima cobre o
-  // formulário quando o teclado está aberto). Se sobra pouco espaço embaixo —
-  // teclado do mobile ou campo perto do fim do drawer — rola o input pro topo
-  // do container UMA vez, abrindo a lista no espaço acima do teclado. A altura é
-  // limitada ao espaço visível (visualViewport encolhe com o teclado), com
-  // scroll interno. iOS rola o input depois do focus, daí os timeouts + eventos.
+  // Posiciona o portal SEMPRE abaixo do input. O segredo é o TIMING no mobile:
+  // ao focar, o teclado abre e o browser joga o input pra cima — só dá pra medir
+  // a posição certa DEPOIS disso assentar. Por isso não posicionamos na hora;
+  // medimos em delays crescentes (cobre teclado lento) e a cada mudança do
+  // visualViewport (que dispara quando o teclado aparece/some). Se sobra pouco
+  // espaço embaixo, rola o input pro topo do container uma vez pra abrir a lista
+  // no espaço acima do teclado. Altura limitada ao espaço visível, com scroll.
   useEffect(() => {
     if (!open) return
     const vv = window.visualViewport
@@ -76,16 +77,14 @@ export function TagEditor({
       const maxHeight = Math.max(96, Math.min(DESIRED, Math.floor(viewBottom - r.bottom - GAP)))
       setCoords({ left: r.left, width: r.width, maxHeight, top: Math.round(r.bottom + GAP) })
     }
-    place()
-    const t1 = setTimeout(place, 150)
-    const t2 = setTimeout(place, 350)
+    // Sem place() imediato: espera o teclado/scroll assentarem.
+    const timers = [120, 300, 550, 850].map((ms) => setTimeout(place, ms))
     window.addEventListener('scroll', place, true)
     window.addEventListener('resize', place)
     vv?.addEventListener('resize', place)
     vv?.addEventListener('scroll', place)
     return () => {
-      clearTimeout(t1)
-      clearTimeout(t2)
+      timers.forEach(clearTimeout)
       window.removeEventListener('scroll', place, true)
       window.removeEventListener('resize', place)
       vv?.removeEventListener('resize', place)

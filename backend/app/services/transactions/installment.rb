@@ -18,12 +18,41 @@ module Transactions
       from_metadata(raw) || from_description(description)
     end
 
-    # group_id determinístico: mesma conta + mesmo estabelecimento (descritor
-    # normalizado) + mesmo total ⇒ mesmas parcelas. Normalização remove o "3/12"
-    # da descrição, então parcelas diferentes da mesma compra colidem de propósito.
-    def group_id(account_id:, description:, total:)
-      key = "#{account_id}:#{Recurrences::Descriptor.normalize(description)}:#{total}"
+    # group_id determinístico das parcelas da mesma compra. O Pluggy não expõe um
+    # id de compra, mas o `creditCardMetadata.purchaseDate` (timestamp da compra
+    # original) é idêntico em todas as parcelas reais — é o identificador de fato.
+    # Quando presente, a chave é conta+cartão+purchaseDate+total, o que distingue
+    # compras diferentes no MESMO estabelecimento e total (que colidiam pelo
+    # descritor). Sem purchaseDate (OFX/manual), cai no descritor normalizado.
+    def group_id(account_id:, description:, total:, raw: nil)
+      meta = raw["creditCardMetadata"] if raw.is_a?(Hash)
+      purchase = meta["purchaseDate"].presence if meta.is_a?(Hash)
+      key =
+        if purchase
+          "#{account_id}:#{meta['cardNumber']}:#{purchase}:#{total}"
+        else
+          "#{account_id}:#{Recurrences::Descriptor.normalize(description)}:#{total}"
+        end
       Digest::UUID.uuid_v5(NAMESPACE, key)
+    end
+
+    # Parcela "projetada" do Pluggy: quando não há a compra real no extrato, ele
+    # emite a parcela futura com um purchaseDate SINTÉTICO (= a própria data de
+    # vencimento, à meia-noite) e sem payeeMCC. Essas vêm com `id` próprio e
+    # furam o dedup, virando duplicata da parcela canônica. occurred é a data da
+    # transação (Date) pra casar com o purchaseDate sintético.
+    def projected?(raw, occurred)
+      meta = raw["creditCardMetadata"] if raw.is_a?(Hash)
+      return false unless meta.is_a?(Hash)
+      return false if meta["payeeMCC"].present?
+
+      pd = meta["purchaseDate"].presence
+      return false unless pd
+
+      t = Time.parse(pd)
+      t.hour.zero? && t.min.zero? && t.sec.zero? && t.to_date == occurred
+    rescue ArgumentError
+      false
     end
 
     def from_metadata(raw)

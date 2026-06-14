@@ -157,7 +157,7 @@ module BankConnections
       amount = t.fetch(:amount).to_f
       installment = Transactions::Installment.parse(raw: t[:raw], description: t[:description])
       group_id = installment && Transactions::Installment.group_id(
-        account_id: account.id, description: t[:description], total: installment.total
+        account_id: account.id, description: t[:description], total: installment.total, raw: t[:raw]
       )
       # RF9.4.2: herança das parcelas do mesmo parcelamento (título/tags +
       # auto-consolidação quando o usuário já revisou a compra).

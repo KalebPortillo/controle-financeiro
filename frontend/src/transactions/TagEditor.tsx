@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useTags, useCreateTag } from './useTags'
 import type { InboxTag } from './useInbox'
 
 /**
  * Editor de tags (RF5) — dropdown-search. Mostra as tags atuais (com X pra
- * remover) e um input que, ao focar, abre um dropdown com as tags disponíveis.
- * Digitar filtra; o botão "+ criar" aparece sempre que há texto e nenhuma tag
- * tem nome idêntico (mesmo havendo matches por substring). onChange recebe a
- * lista final de tag_ids, que o pai persiste.
+ * remover) e um input que, ao focar, abre a lista de tags disponíveis. Digitar
+ * filtra; o botão "+ criar" aparece sempre que há texto e nenhuma tag tem nome
+ * idêntico (mesmo havendo matches por substring). onChange recebe a lista final
+ * de tag_ids, que o pai persiste.
  *
- * O dropdown é renderizado num portal com posição fixed pra não ser cortado por
- * ancestrais com overflow (lista de categorias, body do detail sheet, etc).
+ * A lista é renderizada INLINE, no fluxo do componente (não num portal fixed).
+ * Isso a mantém dentro do scroll do sheet/overlay onde o editor vive — ela rola
+ * junto com o conteúdo da frente (não com o fundo) e não depende de cálculo de
+ * posição vs viewport, que quebrava com o teclado do mobile.
  */
 export function TagEditor({
   transactionId,
@@ -28,9 +29,6 @@ export function TagEditor({
   const createTag = useCreateTag()
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
-  const [coords, setCoords] = useState<
-    { left: number; width: number; maxHeight: number; top: number } | null
-  >(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -50,46 +48,14 @@ export function TagEditor({
   )
   const canCreate = query.trim() !== '' && !exactExists
 
-  // Posiciona o portal SEMPRE abaixo do input. O segredo é o TIMING no mobile:
-  // ao focar, o teclado abre e o browser joga o input pra cima — só dá pra medir
-  // a posição certa DEPOIS disso assentar. Por isso não posicionamos na hora;
-  // medimos em delays crescentes (cobre teclado lento) e a cada mudança do
-  // visualViewport (que dispara quando o teclado aparece/some). Se sobra pouco
-  // espaço embaixo, rola o input pro topo do container uma vez pra abrir a lista
-  // no espaço acima do teclado. Altura limitada ao espaço visível, com scroll.
+  // Ao abrir, traz o input pro topo do container de scroll (depois do teclado do
+  // mobile assentar), pra que a lista logo abaixo apareça no espaço visível.
   useEffect(() => {
     if (!open) return
-    const vv = window.visualViewport
-    let scrolled = false
-    const place = () => {
-      const el = inputRef.current
-      if (!el) return
-      const GAP = 4
-      const DESIRED = 224 // altura máx. desejada do dropdown
-      const viewTop = vv?.offsetTop ?? 0
-      const viewBottom = viewTop + (vv?.height ?? window.innerHeight)
-      let r = el.getBoundingClientRect()
-      if (!scrolled && viewBottom - r.bottom - GAP < 160) {
-        scrolled = true
-        el.scrollIntoView({ block: 'start' })
-        r = el.getBoundingClientRect() // scrollIntoView é síncrono — remede agora
-      }
-      const maxHeight = Math.max(96, Math.min(DESIRED, Math.floor(viewBottom - r.bottom - GAP)))
-      setCoords({ left: r.left, width: r.width, maxHeight, top: Math.round(r.bottom + GAP) })
-    }
-    // Sem place() imediato: espera o teclado/scroll assentarem.
-    const timers = [120, 300, 550, 850].map((ms) => setTimeout(place, ms))
-    window.addEventListener('scroll', place, true)
-    window.addEventListener('resize', place)
-    vv?.addEventListener('resize', place)
-    vv?.addEventListener('scroll', place)
-    return () => {
-      timers.forEach(clearTimeout)
-      window.removeEventListener('scroll', place, true)
-      window.removeEventListener('resize', place)
-      vv?.removeEventListener('resize', place)
-      vv?.removeEventListener('scroll', place)
-    }
+    const t = setTimeout(() => {
+      inputRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    }, 300)
+    return () => clearTimeout(t)
   }, [open])
 
   const addTag = (id: string) => {
@@ -115,50 +81,6 @@ export function TagEditor({
   const keepOpen = () => {
     if (blurTimer.current) clearTimeout(blurTimer.current)
   }
-
-  const dropdown = open && coords && (suggestions.length > 0 || canCreate) && (
-    <ul
-      onMouseDown={keepOpen}
-      style={{
-        position: 'fixed',
-        left: coords.left,
-        width: coords.width,
-        maxHeight: coords.maxHeight,
-        top: coords.top,
-      }}
-      className="z-50 overflow-y-auto rounded-md border border-border bg-popover shadow-[var(--shadow-popover)] py-1"
-      data-testid={`tag-dropdown-${transactionId}`}
-    >
-      {suggestions.map((t) => (
-        <li key={t.id}>
-          <button
-            type="button"
-            onClick={() => addTag(t.id)}
-            disabled={disabled}
-            className="flex w-full items-center gap-2 px-2.5 py-1.5 text-xs text-left hover:bg-muted"
-            data-testid={`tag-suggest-${t.id}`}
-          >
-            <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: t.color || 'var(--muted-foreground)' }} />
-            {t.name}
-            <span className="ml-auto text-[10px] text-muted-foreground">{t.usage_count}</span>
-          </button>
-        </li>
-      ))}
-      {canCreate && (
-        <li className={suggestions.length > 0 ? 'border-t border-border' : ''}>
-          <button
-            type="button"
-            onClick={createAndAdd}
-            disabled={disabled || createTag.isPending}
-            className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-xs text-left text-accent hover:bg-muted"
-            data-testid="tag-create"
-          >
-            + criar "{query.trim()}"
-          </button>
-        </li>
-      )}
-    </ul>
-  )
 
   return (
     <div className="space-y-1" data-testid={`tag-editor-${transactionId}`}>
@@ -198,7 +120,42 @@ export function TagEditor({
         className="h-7 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-2 focus:outline-ring/30"
       />
 
-      {dropdown && createPortal(dropdown, document.body)}
+      {open && (suggestions.length > 0 || canCreate) && (
+        <ul
+          onMouseDown={keepOpen}
+          className="mt-1 max-h-56 overflow-y-auto rounded-md border border-border bg-popover shadow-[var(--shadow-popover)] py-1"
+          data-testid={`tag-dropdown-${transactionId}`}
+        >
+          {suggestions.map((t) => (
+            <li key={t.id}>
+              <button
+                type="button"
+                onClick={() => addTag(t.id)}
+                disabled={disabled}
+                className="flex w-full items-center gap-2 px-2.5 py-1.5 text-xs text-left hover:bg-muted"
+                data-testid={`tag-suggest-${t.id}`}
+              >
+                <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: t.color || 'var(--muted-foreground)' }} />
+                {t.name}
+                <span className="ml-auto text-[10px] text-muted-foreground">{t.usage_count}</span>
+              </button>
+            </li>
+          ))}
+          {canCreate && (
+            <li className={suggestions.length > 0 ? 'border-t border-border' : ''}>
+              <button
+                type="button"
+                onClick={createAndAdd}
+                disabled={disabled || createTag.isPending}
+                className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-xs text-left text-accent hover:bg-muted"
+                data-testid="tag-create"
+              >
+                + criar "{query.trim()}"
+              </button>
+            </li>
+          )}
+        </ul>
+      )}
     </div>
   )
 }

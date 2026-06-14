@@ -29,7 +29,7 @@ export function TagEditor({
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [coords, setCoords] = useState<
-    { left: number; width: number; maxHeight: number; top?: number; bottom?: number } | null
+    { left: number; width: number; maxHeight: number; top: number } | null
   >(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -50,33 +50,31 @@ export function TagEditor({
   )
   const canCreate = query.trim() !== '' && !exactExists
 
-  // Posiciona o portal junto do input. Usa o visualViewport (que encolhe com o
-  // teclado no mobile) pra medir o espaço visível. Estratégia: PREFERE abrir
-  // embaixo e só vira pra cima quando realmente não cabe embaixo. O browser do
-  // iOS rola o input pra dentro da vista DEPOIS do focus, então além dos eventos
-  // de scroll/resize a gente recalcula em timeouts curtos pra assentar.
+  // Posiciona o portal SEMPRE abaixo do input (virar pra cima cobre o
+  // formulário quando o teclado está aberto). Se sobra pouco espaço embaixo —
+  // teclado do mobile ou campo perto do fim do drawer — rola o input pro topo
+  // do container UMA vez, abrindo a lista no espaço acima do teclado. A altura é
+  // limitada ao espaço visível (visualViewport encolhe com o teclado), com
+  // scroll interno. iOS rola o input depois do focus, daí os timeouts + eventos.
   useEffect(() => {
     if (!open) return
     const vv = window.visualViewport
+    let scrolled = false
     const place = () => {
       const el = inputRef.current
       if (!el) return
-      const r = el.getBoundingClientRect()
       const GAP = 4
       const DESIRED = 224 // altura máx. desejada do dropdown
       const viewTop = vv?.offsetTop ?? 0
       const viewBottom = viewTop + (vv?.height ?? window.innerHeight)
-      const spaceBelow = viewBottom - r.bottom - GAP
-      const spaceAbove = r.top - viewTop - GAP
-      // Embaixo é o padrão; vira pra cima só se não cabe um mínimo embaixo E há
-      // mais espaço acima (caso desktop com o campo perto do fim do drawer).
-      const below = spaceBelow >= 120 || spaceBelow >= spaceAbove
-      const maxHeight = Math.max(96, Math.min(DESIRED, Math.floor(below ? spaceBelow : spaceAbove)))
-      setCoords(
-        below
-          ? { left: r.left, width: r.width, maxHeight, top: Math.round(r.bottom + GAP) }
-          : { left: r.left, width: r.width, maxHeight, bottom: Math.round(window.innerHeight - r.top + GAP) },
-      )
+      let r = el.getBoundingClientRect()
+      if (!scrolled && viewBottom - r.bottom - GAP < 160) {
+        scrolled = true
+        el.scrollIntoView({ block: 'start' })
+        r = el.getBoundingClientRect() // scrollIntoView é síncrono — remede agora
+      }
+      const maxHeight = Math.max(96, Math.min(DESIRED, Math.floor(viewBottom - r.bottom - GAP)))
+      setCoords({ left: r.left, width: r.width, maxHeight, top: Math.round(r.bottom + GAP) })
     }
     place()
     const t1 = setTimeout(place, 150)
@@ -127,7 +125,7 @@ export function TagEditor({
         left: coords.left,
         width: coords.width,
         maxHeight: coords.maxHeight,
-        ...(coords.top != null ? { top: coords.top } : { bottom: coords.bottom }),
+        top: coords.top,
       }}
       className="z-50 overflow-y-auto rounded-md border border-border bg-popover shadow-[var(--shadow-popover)] py-1"
       data-testid={`tag-dropdown-${transactionId}`}

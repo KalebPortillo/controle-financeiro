@@ -145,8 +145,13 @@ function Inner({
                 data-testid={`group-sheet-parcel-${p.id}`}
               >
                 <InstallmentBadge number={p.installment_number} total={p.installment_total} />
-                <span className="text-[11px] text-muted-foreground truncate">
-                  {formatDate(p.occurred_at)} · {STATUS_LABEL[p.status] ?? p.status}
+                <span className="min-w-0">
+                  <span className="block text-[12px] text-foreground font-mono truncate" data-testid={`parcel-original-${p.id}`}>
+                    {p.original_description}
+                  </span>
+                  <span className="block text-[11px] text-muted-foreground truncate">
+                    {formatDate(p.occurred_at)} · {STATUS_LABEL[p.status] ?? p.status}
+                  </span>
                 </span>
                 <Money cents={signed(p.direction, p.amount_cents)} signed className="text-[13px]" />
                 <ChevronRight size={14} className="text-muted-foreground" />

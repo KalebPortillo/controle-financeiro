@@ -19,9 +19,20 @@ production:
     class: Notifications::CheckMissedRecurrencesJob
     queue: default
     schedule: at 11am every day
+  # RF1/RF21: pull periódico do Pluggy — rede de segurança caso o webhook não
+  # chegue. Enfileira SyncJob das conexões conectadas (fora de onboarding) que
+  # não sincronizaram há pouco.
+  pluggy_scheduled_sync:
+    class: BankConnections::ScheduledSyncJob
+    queue: default
+    schedule: every hour
 
 staging:
   check_missed_recurrences:
     class: Notifications::CheckMissedRecurrencesJob
     queue: default
     schedule: at 11am every day
+  pluggy_scheduled_sync:
+    class: BankConnections::ScheduledSyncJob
+    queue: default
+    schedule: every hour

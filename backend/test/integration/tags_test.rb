@@ -62,9 +62,12 @@ class TagsTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
   end
 
-  test "POST /tags sem nome → 422" do
+  test "POST /tags sem nome → 422 no formato canônico com details" do
     post "/api/v1/tags", params: { name: "" }, as: :json
     assert_response :unprocessable_entity
+    error = JSON.parse(response.body)["error"]
+    assert_equal "validation_failed", error["code"]
+    assert error["details"].any? { |d| d["field"] == "name" }
   end
 
   # --- update -----------------------------------------------------------

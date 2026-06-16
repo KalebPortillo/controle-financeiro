@@ -73,9 +73,6 @@ class Api::V1::BankConnectionsController < ApplicationController
     # Sync inicial assíncrono (RF1.4) — puxa as transações pra inbox.
     BankConnections::SyncJob.perform_later(connection.id)
     render json: { bank_connection: serialize(connection) }, status: :created
-  rescue ActionController::ParameterMissing => e
-    render json: { error: { code: "validation_failed", message: e.message } },
-           status: :unprocessable_entity
   rescue BankAggregators::Error => e
     render json: { error: { code: "provider_error", message: e.message } },
            status: :bad_gateway

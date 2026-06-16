@@ -30,10 +30,6 @@ class Api::V1::ImportsController < ApplicationController
     import.save!
     Imports::ProcessJob.perform_later(import.id)
     render json: { import: serialize(import) }, status: :accepted
-  rescue ActionController::ParameterMissing => e
-    render json: { error: { code: "validation_failed", message: e.message } }, status: :unprocessable_entity
-  rescue ActiveRecord::RecordInvalid => e
-    render json: { error: { code: "validation_failed", message: e.message } }, status: :unprocessable_entity
   end
 
   private

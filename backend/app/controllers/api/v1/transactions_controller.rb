@@ -43,10 +43,9 @@ class Api::V1::TransactionsController < ApplicationController
     transaction.save!
     apply_tags(transaction, params[:tag_ids]) if params.key?(:tag_ids)
     render json: { transaction: serialize(transaction) }, status: :created
-  rescue ActionController::ParameterMissing, ArgumentError => e
-    render json: { error: { code: "validation_failed", message: e.message } }, status: :unprocessable_entity
-  rescue ActiveRecord::RecordInvalid => e
-    render json: { error: { code: "validation_failed", message: e.message } }, status: :unprocessable_entity
+  rescue ArgumentError => e
+    # Date.parse inválida — ParameterMissing e RecordInvalid sobem pro rescue_from.
+    render_validation_message(e.message)
   end
 
   # PATCH /api/v1/transactions/:id — edita título/valor/data (RF2.3) com optimistic
@@ -64,9 +63,6 @@ class Api::V1::TransactionsController < ApplicationController
   rescue ActiveRecord::StaleObjectError
     render json: { error: { code: "stale_object", message: "Transação alterada por outra pessoa. Recarregue." } },
            status: :conflict
-  rescue ActiveRecord::RecordInvalid => e
-    render json: { error: { code: "validation_failed", message: e.message } },
-           status: :unprocessable_entity
   end
 
   # DELETE /api/v1/transactions/:id — exclusão definitiva (RF2.3 remover).

@@ -55,12 +55,16 @@ class WorkspacesApiTest < ActionDispatch::IntegrationTest
     assert_equal "editor", membership.role
   end
 
-  test "POST /workspaces with blank name returns 422" do
+  test "POST /workspaces with blank name returns 422 in the canonical error shape" do
     sign_in_as(create(:user))
     post "/api/v1/workspaces", params: { name: "" }, as: :json
     assert_response :unprocessable_entity
-    body = JSON.parse(response.body)
-    assert_equal "validation_failed", body.dig("error", "code")
+    error = JSON.parse(response.body)["error"]
+    assert_equal "validation_failed", error["code"]
+    assert error["message"].present?
+    # contratos-api.md v1.1: validação de model traz details[] por campo.
+    assert_kind_of Array, error["details"]
+    assert error["details"].any? { |d| d["field"] == "name" }
   end
 
   # ---- show ------------------------------------------------------------

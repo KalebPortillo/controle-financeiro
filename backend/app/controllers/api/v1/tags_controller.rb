@@ -19,18 +19,12 @@ class Api::V1::TagsController < ApplicationController
   def create
     tag = current_workspace.tags.create!(tag_params)
     render json: { tag: serialize(tag) }, status: :created
-  rescue ActiveRecord::RecordInvalid => e
-    render json: { error: { code: "validation_failed", message: e.message } },
-           status: :unprocessable_entity
   end
 
   # PATCH /api/v1/tags/:id — { name, color, icon }.
   def update
     @tag.update!(tag_params)
     render json: { tag: serialize(@tag) }
-  rescue ActiveRecord::RecordInvalid => e
-    render json: { error: { code: "validation_failed", message: e.message } },
-           status: :unprocessable_entity
   end
 
   # DELETE /api/v1/tags/:id — 422 se em uso (orienta merge), senão remove.

@@ -21,8 +21,6 @@ class Api::V1::CategoriesController < ApplicationController
     category.save!
     apply_tags(category, params[:tag_ids]) if params.key?(:tag_ids)
     render json: { category: serialize(category) }, status: :created
-  rescue ActiveRecord::RecordInvalid => e
-    render json: { error: { code: "validation_failed", message: e.message } }, status: :unprocessable_entity
   end
 
   # PATCH /api/v1/categories/:id — renomeia/cor + substitui tags (RF6.4).
@@ -30,8 +28,6 @@ class Api::V1::CategoriesController < ApplicationController
     @category.update!(category_params)
     apply_tags(@category, params[:tag_ids]) if params.key?(:tag_ids)
     render json: { category: serialize(@category) }
-  rescue ActiveRecord::RecordInvalid => e
-    render json: { error: { code: "validation_failed", message: e.message } }, status: :unprocessable_entity
   end
 
   # DELETE /api/v1/categories/:id

@@ -42,8 +42,6 @@ class Api::V1::RecurrencesController < ApplicationController
     recurrence.source = "manual"
     recurrence.save!
     render json: { recurrence: serialize(recurrence) }, status: :created
-  rescue ActiveRecord::RecordInvalid => e
-    render_validation_error(e.record)
   end
 
   # PATCH /api/v1/recurrences/:id — editar tolerância, cadência, valor esperado,
@@ -51,8 +49,6 @@ class Api::V1::RecurrencesController < ApplicationController
   def update
     @recurrence.update!(update_params)
     render json: { recurrence: serialize(@recurrence) }
-  rescue ActiveRecord::RecordInvalid => e
-    render_validation_error(e.record)
   end
 
   # DELETE /api/v1/recurrences/:id

@@ -27,15 +27,11 @@ class Api::V1::WorkspacesController < ApplicationController
     end
 
     render json: { workspace: serialize(workspace) }, status: :created
-  rescue ActiveRecord::RecordInvalid => e
-    render_validation_error(e.record)
   end
 
   def update
     @workspace.update!(name: params[:name])
     render json: { workspace: serialize(@workspace) }
-  rescue ActiveRecord::RecordInvalid => e
-    render_validation_error(e.record)
   end
 
   private

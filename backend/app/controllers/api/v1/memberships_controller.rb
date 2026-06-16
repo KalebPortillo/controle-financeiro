@@ -27,8 +27,6 @@ class Api::V1::MembershipsController < ApplicationController
       joined_at: Time.current
     )
     render json: { membership: serialize(membership) }, status: :created
-  rescue ActiveRecord::RecordInvalid => e
-    render_validation_error(e.record)
   end
 
   def destroy

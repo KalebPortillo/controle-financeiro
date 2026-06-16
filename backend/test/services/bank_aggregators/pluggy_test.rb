@@ -138,4 +138,46 @@ class BankAggregators::PluggyTest < ActiveSupport::TestCase
     assert_equal 2, account_count, "esperava 1 retry (total 2 chamadas)"
     assert_equal 2, auth_count,    "esperava re-auth (total 2 chamadas)"
   end
+
+  # --- webhooks (registro) ---------------------------------------------
+  # WebMock direto: não há cassette VCR pra /webhooks (criaria webhook real).
+
+  def stub_auth
+    stub_request(:post, "https://api.pluggy.ai/auth").to_return(
+      status: 200, body: { apiKey: "jwt-x" }.to_json,
+      headers: { "Content-Type" => "application/json" }
+    )
+  end
+
+  test "list_webhooks devolve id/event/url de cada webhook registrado" do
+    stub_auth
+    stub_request(:get, "https://api.pluggy.ai/webhooks").to_return(
+      status: 200,
+      body: { results: [ { "id" => "wh1", "event" => "item/updated", "url" => "https://a/x" } ] }.to_json,
+      headers: { "Content-Type" => "application/json" }
+    )
+
+    hooks = provider.list_webhooks
+    assert_equal [ { id: "wh1", event: "item/updated", url: "https://a/x" } ], hooks
+  end
+
+  test "create_webhook posta url/event/headers e devolve o webhook criado" do
+    stub_auth
+    posted = nil
+    stub_request(:post, "https://api.pluggy.ai/webhooks").to_return do |req|
+      posted = JSON.parse(req.body)
+      { status: 200, body: { id: "wh9", event: posted["event"], url: posted["url"] }.to_json,
+        headers: { "Content-Type" => "application/json" } }
+    end
+
+    result = provider.create_webhook(
+      url: "https://a/api/v1/webhooks/pluggy", event: "transactions/created",
+      headers: { "X-Webhook-Secret" => "sek" }
+    )
+
+    assert_equal "https://a/api/v1/webhooks/pluggy", posted["url"]
+    assert_equal "transactions/created", posted["event"]
+    assert_equal({ "X-Webhook-Secret" => "sek" }, posted["headers"])
+    assert_equal({ id: "wh9", event: "transactions/created", url: "https://a/api/v1/webhooks/pluggy" }, result)
+  end
 end

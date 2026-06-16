@@ -72,6 +72,23 @@ module BankAggregators
       payload.fetch("results").map { |t| transaction_view(t) }
     end
 
+    # Webhooks registrados na conta Pluggy. [{ id:, event:, url: }, ...].
+    def list_webhooks
+      payload = get("/webhooks")
+      payload.fetch("results", []).map { |w| { id: w["id"], event: w["event"], url: w["url"] } }
+    end
+
+    # Registra um webhook (UM evento por webhook, conforme a API do Pluggy).
+    # `headers` é um objeto que o Pluggy REENVIA em toda notificação — usamos
+    # pra ecoar o X-Webhook-Secret que o nosso endpoint valida (Pluggy não
+    # assina HMAC). Devolve { id:, event:, url: }.
+    def create_webhook(url:, event:, headers: {})
+      payload = request(Net::HTTP::Post, "/webhooks",
+                        body: { url: url, event: event, headers: headers },
+                        authenticated: true, retry_on_401: true)
+      { id: payload["id"], event: payload["event"], url: payload["url"] }
+    end
+
     private
 
     def authenticate!

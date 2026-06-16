@@ -1,4 +1,25 @@
 namespace :pluggy do
+  # Registra (idempotente) os webhooks do Pluggy apontando pro nosso endpoint.
+  # Sem isso o Pluggy nunca empurra eventos e o inbox só atualiza no sync
+  # manual/periódico. Rodar uma vez por ambiente e pós-deploy.
+  #
+  # Uso: source ~/.config/controle-financeiro/secrets.env && \
+  #      APP_HOST=wallet-staging.portilho.cc bin/rails pluggy:ensure_webhook
+  desc "Registra (idempotente) os webhooks do Pluggy apontando pro endpoint do app"
+  task ensure_webhook: :environment do
+    host   = ENV.fetch("APP_HOST")
+    secret = ENV.fetch("PLUGGY_WEBHOOK_SECRET")
+    url    = "https://#{host}/api/v1/webhooks/pluggy"
+
+    created = BankConnections::EnsureWebhook.call(url: url, secret: secret)
+
+    if created.any?
+      puts "✓ webhooks Pluggy registrados (#{url}): #{created.join(', ')}"
+    else
+      puts "✓ webhooks Pluggy já registrados em #{url} — nada a fazer."
+    end
+  end
+
   # Cria um item sandbox novo no Pluggy (connector 2 + user-ok/password-ok)
   # e imprime os IDs (item, accounts) pra atualizar a constante
   # `SANDBOX_ITEM_ID` em test/services/bank_aggregators/pluggy_test.rb e

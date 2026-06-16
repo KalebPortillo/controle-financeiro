@@ -1,8 +1,10 @@
 class Api::V1::WebhooksController < ApplicationController
   # Pluggy e Telegram chamam essas rotas (máquina→máquina), não um usuário
   # logado. NÃO exigem sessão; validam um header secreto compartilhado
-  # (Pluggy: header configurável no registro + IP whitelist 177.71.238.212;
-  # Telegram: secret_token do setWebhook ecoado em cada update).
+  # (Pluggy: header `X-Webhook-Secret` configurado no registro do webhook via
+  # `pluggy:ensure_webhook` e ecoado pelo Pluggy em cada chamada — ele não
+  # assina HMAC; IP de origem documentado 52.67.145.81, não aplicado aqui pois
+  # o header secreto é a autenticação. Telegram: secret_token do setWebhook).
   skip_before_action :verify_authenticity_token, raise: false
   before_action :verify_webhook_secret, only: [ :pluggy ]
   before_action :verify_telegram_secret, only: [ :telegram ]

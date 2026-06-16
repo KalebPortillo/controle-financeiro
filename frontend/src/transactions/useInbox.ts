@@ -118,7 +118,7 @@ function patchInbox(qc: QueryClient, fn: (p: InboxPayload) => InboxPayload) {
 }
 
 // Remove transações da lista pendente e ajusta o contador.
-function dropFromInbox(qc: QueryClient, ids: Iterable<string>) {
+export function dropFromInbox(qc: QueryClient, ids: Iterable<string>) {
   const drop = new Set(ids)
   if (drop.size === 0) return
   patchInbox(qc, (p) => {

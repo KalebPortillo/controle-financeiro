@@ -66,6 +66,11 @@ class Transaction < ApplicationRecord
     define_method("#{s}?") { status == s }
   end
 
+  # RF2.3 — uso simultâneo (casal, web + Telegram): quando alguém decide
+  # (consolida/rejeita), empurra a mudança pro inbox dos outros membros em tempo
+  # real, pra o item sair da lista sem refresh. Só status; edição não dispara.
+  after_update_commit :broadcast_status_change, if: -> { saved_change_to_status? }
+
   # RF10 — soma dos estornos recebidos por este gasto (em centavos).
   def refunded_amount_cents
     refunds_received.sum { |r| r.refund_transaction.amount_cents }
@@ -84,5 +89,11 @@ class Transaction < ApplicationRecord
   # RF11 — participa de uma transferência interna (em qualquer ponta)?
   def internal_transfer?
     transfer_as_debit.present? || transfer_as_credit.present?
+  end
+
+  private
+
+  def broadcast_status_change
+    TransactionsChannel.broadcast_to(workspace, event: "transaction_updated", id: id, status: status)
   end
 end

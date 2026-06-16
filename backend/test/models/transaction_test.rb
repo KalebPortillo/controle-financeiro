@@ -1,8 +1,26 @@
 require "test_helper"
 
 class TransactionTest < ActiveSupport::TestCase
+  include ActionCable::TestHelper
+
   test "factory builds a valid transaction" do
     assert build(:transaction).valid?
+  end
+
+  test "muda de status → broadcasta no TransactionsChannel do workspace (tempo real)" do
+    tx = create(:transaction, status: "pending")
+
+    assert_broadcasts(TransactionsChannel.broadcasting_for(tx.workspace), 1) do
+      tx.update!(status: "consolidated", consolidated_at: Time.current)
+    end
+  end
+
+  test "editar sem mexer no status NÃO broadcasta" do
+    tx = create(:transaction, status: "pending")
+
+    assert_no_broadcasts(TransactionsChannel.broadcasting_for(tx.workspace)) do
+      tx.update!(improved_title: "Novo título")
+    end
   end
 
   test "requires workspace, account, direction, amount_cents, occurred_at, original_description" do

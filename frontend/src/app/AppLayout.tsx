@@ -18,6 +18,7 @@ import { InboxBadge } from '../transactions/InboxBadge'
 import { GlobalSyncIndicator } from '../bank/GlobalSyncIndicator'
 import { NotificationsBell } from '../notifications/NotificationsBell'
 import { useNotificationsChannel } from '../notifications/useNotificationsChannel'
+import { useTransactionsChannel } from '../transactions/useTransactionsChannel'
 
 type NavItem = {
   id: string
@@ -46,6 +47,8 @@ export function AppLayout() {
   const active = data?.workspaces.find((w) => w.id === data.active_workspace_id) ?? data?.workspaces[0]
   // Notificações em tempo real (RF17) — escopadas no workspace ativo.
   useNotificationsChannel(active?.id)
+  // Inbox em tempo real (RF2.3) — decisão de outro membro some da minha lista.
+  useTransactionsChannel(active?.id)
 
   return (
     <div className="min-h-screen bg-background text-foreground md:grid md:grid-cols-[256px_1fr]">

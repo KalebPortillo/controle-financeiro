@@ -1,12 +1,19 @@
 namespace :telegram do
   desc "Registra o webhook do bot no Telegram (rodar uma vez por ambiente, pós-deploy)"
   task set_webhook: :environment do
+    channel     = NotificationChannels::Telegram.new
     webhook_url = "https://#{ENV.fetch('APP_HOST')}/api/v1/webhooks/telegram"
-    NotificationChannels::Telegram.new.set_webhook(
+    channel.set_webhook(
       url:          webhook_url,
       secret_token: ENV.fetch("TELEGRAM_WEBHOOK_SECRET")
     )
     puts "Webhook registrado: #{webhook_url}"
+
+    # Comandos no menu "/" do grupo (descoberta do /pendentes).
+    channel.set_my_commands(commands: [
+      { command: "pendentes", description: "Ver os gastos pendentes no inbox" }
+    ])
+    puts "Comandos do bot registrados: /pendentes"
   end
 
   desc "Smoke: envia mensagem de teste pros grupos vinculados (verifica fiação bot↔grupo)"

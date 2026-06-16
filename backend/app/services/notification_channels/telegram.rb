@@ -49,6 +49,12 @@ module NotificationChannels
                             allowed_updates: [ "message", "callback_query" ])
     end
 
+    # Lista de comandos do bot (aparece no menu "/" do Telegram).
+    # commands: [{ command: "pendentes", description: "..." }, ...].
+    def set_my_commands(commands:)
+      request("setMyCommands", commands: commands)
+    end
+
     private
 
     def request(method, payload)

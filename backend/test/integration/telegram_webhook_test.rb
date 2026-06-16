@@ -120,4 +120,52 @@ class TelegramWebhookTest < ActionDispatch::IntegrationTest
     assert_equal "consolidated", tx.reload.status
     assert_requested :post, "#{base}/answerCallbackQuery"
   end
+
+  # --- comando /pendentes + paginação ---
+
+  test "/pendentes do grupo vinculado envia os gastos pendentes (ack 200)" do
+    ws = create(:workspace, telegram_chat_id: -100123, telegram_linked_at: Time.current)
+    create(:transaction, workspace: ws, account: create(:account, workspace: ws),
+                         status: "pending", direction: "debit", amount_cents: 100,
+                         original_description: "PADARIA", occurred_at: Date.new(2026, 6, 9))
+    base = "https://api.telegram.org/bot#{ENV.fetch('TELEGRAM_BOT_TOKEN')}"
+    stub = stub_request(:post, "#{base}/sendMessage").to_return(status: 200, body: { ok: true }.to_json)
+
+    perform_enqueued_jobs do
+      post_update(start_message("/pendentes", chat_id: -100123))
+    end
+
+    assert_response :ok
+    assert_requested(stub)
+  end
+
+  test "/pendentes de chat não vinculado → 200 sem enviar nada" do
+    base = "https://api.telegram.org/bot#{ENV.fetch('TELEGRAM_BOT_TOKEN')}"
+    stub = stub_request(:post, "#{base}/sendMessage").to_return(status: 200, body: { ok: true }.to_json)
+
+    perform_enqueued_jobs do
+      post_update(start_message("/pendentes", chat_id: -999000))
+    end
+
+    assert_response :ok
+    assert_not_requested(stub)
+  end
+
+  test "botão 'ver mais' (inbox:more) pagina os pendentes (ack 200)" do
+    ws = create(:workspace, telegram_chat_id: -100123, telegram_linked_at: Time.current)
+    create(:transaction, workspace: ws, account: create(:account, workspace: ws),
+                         status: "pending", direction: "debit", amount_cents: 100,
+                         original_description: "X", occurred_at: Date.new(2026, 6, 9))
+    base = "https://api.telegram.org/bot#{ENV.fetch('TELEGRAM_BOT_TOKEN')}"
+    stub_request(:post, %r{#{Regexp.escape(base)}/(answerCallbackQuery|sendMessage)})
+      .to_return(status: 200, body: { ok: true }.to_json)
+
+    perform_enqueued_jobs do
+      callback_update("inbox:more:0", chat_id: -100123)
+    end
+
+    assert_response :ok
+    assert_requested :post, "#{base}/answerCallbackQuery"
+    assert_requested :post, "#{base}/sendMessage"
+  end
 end

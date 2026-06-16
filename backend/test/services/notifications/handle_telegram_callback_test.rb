@@ -2,6 +2,8 @@ require "test_helper"
 
 module Notifications
   class HandleTelegramCallbackTest < ActiveSupport::TestCase
+    include ActiveJob::TestHelper
+
     class FakeChannel
       attr_reader :answers, :edits
 
@@ -101,6 +103,15 @@ module Notifications
     test "callback_data malformado → ação inválida" do
       HandleTelegramCallback.call(callback_query: callback("lixo"), channel: @channel)
       assert_match(/inválida/i, @channel.answers.first[:text])
+    end
+
+    test "inbox:more:<offset> dá ack e enfileira o digest paginado" do
+      assert_enqueued_with(job: TelegramPendingDigestJob, args: [ @workspace.id, 7 ]) do
+        HandleTelegramCallback.call(callback_query: callback("inbox:more:7"), channel: @channel)
+      end
+      # ack sem toast (não mexe em transação nem edita a mensagem).
+      assert_equal 1, @channel.answers.size
+      assert_empty @channel.edits
     end
   end
 end

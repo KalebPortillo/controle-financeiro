@@ -37,7 +37,8 @@ class Api::V1::WebhooksController < ApplicationController
   # "/start <code>" (ou "/start@bot <code>", como chega em grupo) pra vincular
   # o chat ao workspace. Sempre 200: Telegram re-envia updates em não-2xx e
   # não queremos retry de mensagem que ignoramos de propósito.
-  START_COMMAND = %r{\A/start(?:@\w+)?\s+(\S+)}
+  START_COMMAND   = %r{\A/start(?:@\w+)?\s+(\S+)}
+  PENDING_COMMAND = %r{\A/pendentes(?:@\w+)?\b}
 
   def telegram
     if params[:callback_query].present?
@@ -48,12 +49,19 @@ class Api::V1::WebhooksController < ApplicationController
     text = params.dig(:message, :text).to_s
     chat = params.dig(:message, :chat)
 
-    if chat.present? && (match = START_COMMAND.match(text))
-      Notifications::LinkTelegramChat.call(
-        code:       match[1],
-        chat_id:    chat[:id],
-        chat_title: chat[:title]
-      )
+    if chat.present?
+      if (match = START_COMMAND.match(text))
+        Notifications::LinkTelegramChat.call(
+          code:       match[1],
+          chat_id:    chat[:id],
+          chat_title: chat[:title]
+        )
+      elsif PENDING_COMMAND.match?(text)
+        # Manda as 7 pendentes mais recentes com botões (+ paginação). Só pro
+        # grupo já vinculado; chat desconhecido é ack silencioso.
+        workspace = Workspace.find_by(telegram_chat_id: chat[:id])
+        Notifications::TelegramPendingDigestJob.perform_later(workspace.id) if workspace
+      end
     end
 
     head :ok

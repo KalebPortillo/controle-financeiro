@@ -10,6 +10,7 @@ module Notifications
     module_function
 
     CALLBACK = /\Atx:(consolidate|reject):(.+)\z/
+    MORE     = /\Ainbox:more:(\d+)\z/
 
     def call(callback_query:, channel: NotificationChannels::Telegram.new)
       cq_id      = callback_query[:id]
@@ -21,6 +22,12 @@ module Notifications
 
       workspace = Workspace.find_by(telegram_chat_id: chat_id)
       return answer(channel, cq_id, "Grupo não vinculado") if workspace.nil?
+
+      # "Ver mais" — pagina os pendentes num job (pode mandar várias mensagens).
+      if (more = MORE.match(data))
+        answer(channel, cq_id)
+        return TelegramPendingDigestJob.perform_later(workspace.id, more[1].to_i)
+      end
 
       match = CALLBACK.match(data)
       return answer(channel, cq_id, "Ação inválida") unless match
@@ -57,7 +64,7 @@ module Notifications
       end
     end
 
-    def answer(channel, cq_id, text)
+    def answer(channel, cq_id, text = nil)
       channel.answer_callback_query(callback_query_id: cq_id, text: text)
     end
 

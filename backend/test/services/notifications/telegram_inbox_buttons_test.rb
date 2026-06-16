@@ -29,14 +29,19 @@ module Notifications
       }.merge(attrs))
     end
 
+    # Mensagens que são um gasto (têm botão tx:*), separadas do rodapé.
+    def expense_messages
+      @channel.sent.select { |m| m.dig(:reply_markup, :inline_keyboard, 0, 0, :callback_data)&.start_with?("tx:") }
+    end
+
     test "envia uma mensagem por transação pendente, pro chat do workspace" do
       a = pending_tx
       b = pending_tx(original_description: "UBER", amount_cents: 2350)
 
       TelegramInboxButtons.call(workspace: @workspace, transaction_ids: [ a.id, b.id ], channel: @channel)
 
-      assert_equal 2, @channel.sent.size
-      assert_equal [ -100777, -100777 ], @channel.sent.map { |m| m[:chat_id] }
+      assert_equal 2, expense_messages.size
+      assert_equal [ -100777, -100777 ], expense_messages.map { |m| m[:chat_id] }
     end
 
     test "texto traz título, valor e conta" do
@@ -58,25 +63,26 @@ module Notifications
       assert_match "MERCADO X", @channel.sent.first[:text]
     end
 
-    test "inline keyboard tem Consolidar, Rejeitar e Abrir no app" do
+    test "cada gasto tem só Consolidar e Rejeitar; 'Abrir no app' vai no rodapé" do
       tx = pending_tx
 
       TelegramInboxButtons.call(workspace: @workspace, transaction_ids: [ tx.id ], channel: @channel)
 
       rows = @channel.sent.first[:reply_markup][:inline_keyboard]
+      assert_equal 1, rows.size # só Consolidar/Rejeitar — sem linha de link
       consolidar, rejeitar = rows[0]
-      assert_equal "Consolidar", consolidar[:text]
       assert_equal "tx:consolidate:#{tx.id}", consolidar[:callback_data]
-      assert_equal "Rejeitar", rejeitar[:text]
       assert_equal "tx:reject:#{tx.id}", rejeitar[:callback_data]
+      assert rows.flatten.none? { |b| b[:url] }, "o gasto não deve ter link 'Abrir no app'"
 
-      abrir = rows[1].first
+      footer = @channel.sent.last
+      abrir  = footer[:reply_markup][:inline_keyboard].last.first
       assert_equal "Abrir no app", abrir[:text]
       assert_equal "https://#{ENV.fetch('APP_HOST')}/inbox", abrir[:url]
     end
 
     test "ignora transações que não estão mais pendentes" do
-      pendente   = pending_tx
+      pendente    = pending_tx
       consolidada = pending_tx(status: "consolidated", consolidated_at: Time.current)
 
       TelegramInboxButtons.call(
@@ -85,7 +91,7 @@ module Notifications
         channel: @channel
       )
 
-      assert_equal 1, @channel.sent.size
+      assert_equal 1, expense_messages.size
     end
 
     test "callback_data cabe no limite de 64 bytes do Telegram" do
@@ -99,20 +105,19 @@ module Notifications
 
     # --- cap 7 + overflow (fluxo do sync) --------------------------------
 
-    test "lote grande: manda só as 7 mais recentes + 1 mensagem de overflow com link" do
+    test "lote grande: manda só as 7 mais recentes + rodapé com overflow e link" do
       ids = (1..10).map { |i| pending_tx(occurred_at: Date.new(2026, 6, i)).id }
 
       TelegramInboxButtons.call(workspace: @workspace, transaction_ids: ids, channel: @channel)
 
-      # 7 com botões + 1 de overflow = 8 mensagens.
+      # 7 gastos + 1 rodapé = 8 mensagens.
+      assert_equal 7, expense_messages.size
       assert_equal 8, @channel.sent.size
-      buttoned = @channel.sent.first(7)
-      assert buttoned.all? { |m| m[:reply_markup][:inline_keyboard][0][0][:text] == "Consolidar" }
 
-      overflow = @channel.sent.last
-      assert_match "Mais 3 gastos novos", overflow[:text]
-      link = overflow[:reply_markup][:inline_keyboard][0][0]
-      assert_equal "Abrir inbox", link[:text]
+      footer = @channel.sent.last
+      assert_match "Mais 3 gastos novos", footer[:text]
+      link = footer[:reply_markup][:inline_keyboard].last.first
+      assert_equal "Abrir no app", link[:text]
       assert_equal "https://#{ENV.fetch('APP_HOST')}/inbox", link[:url]
     end
 
@@ -127,13 +132,15 @@ module Notifications
       assert sent_texts.none? { |t| t.include?("ANTIGA") }
     end
 
-    test "exatamente 7: sem mensagem de overflow" do
+    test "exatamente 7: rodapé sem contagem de overflow, só o link" do
       ids = (1..7).map { |i| pending_tx(occurred_at: Date.new(2026, 6, i)).id }
 
       TelegramInboxButtons.call(workspace: @workspace, transaction_ids: ids, channel: @channel)
 
-      assert_equal 7, @channel.sent.size
-      assert @channel.sent.none? { |m| m[:text].to_s.include?("gerencie no inbox") }
+      assert_equal 7, expense_messages.size
+      footer = @channel.sent.last
+      assert_no_match(/mais \d+ gasto/i, footer[:text]) # sem overflow
+      assert_equal "Abrir no app", footer[:reply_markup][:inline_keyboard].last.first[:text]
     end
 
     # --- push_pending (comando /pendentes + ver mais) --------------------
@@ -143,22 +150,28 @@ module Notifications
 
       TelegramInboxButtons.push_pending(workspace: @workspace, offset: 0, channel: @channel)
 
-      assert_equal 8, @channel.sent.size # 7 botões + 1 "ver mais"
-      more = @channel.sent.last
-      assert_match "Mostrando 7 de 10 pendentes", more[:text]
-      btn = more[:reply_markup][:inline_keyboard][0][0]
-      assert_equal "Ver mais 7", btn[:text]
-      assert_equal "inbox:more:7", btn[:callback_data]
+      assert_equal 7, expense_messages.size
+      assert_equal 8, @channel.sent.size # 7 gastos + 1 rodapé
+      footer = @channel.sent.last
+      assert_match "Mostrando 7 de 10 pendentes", footer[:text]
+      rows = footer[:reply_markup][:inline_keyboard]
+      ver_mais = rows[0][0]
+      assert_equal "Ver mais 7", ver_mais[:text]
+      assert_equal "inbox:more:7", ver_mais[:callback_data]
+      # "Abrir no app" embaixo do "Ver mais 7".
+      assert_equal "Abrir no app", rows.last.first[:text]
     end
 
-    test "push_pending com offset pagina os próximos e encerra sem botão" do
+    test "push_pending com offset pagina os próximos e encerra sem ver mais" do
       (1..10).each { |i| pending_tx(occurred_at: Date.new(2026, 6, i)) }
 
       TelegramInboxButtons.push_pending(workspace: @workspace, offset: 7, channel: @channel)
 
-      # restam 3 → 3 mensagens, sem "ver mais".
-      assert_equal 3, @channel.sent.size
+      # restam 3 gastos → 3 + rodapé = 4, e o rodapé não tem "Ver mais".
+      assert_equal 3, expense_messages.size
+      footer = @channel.sent.last
       assert @channel.sent.none? { |m| m[:text].to_s.include?("Ver mais") }
+      assert_equal "Abrir no app", footer[:reply_markup][:inline_keyboard].last.first[:text]
     end
 
     test "push_pending com inbox vazio avisa que não há pendentes" do

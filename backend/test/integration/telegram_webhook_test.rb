@@ -136,7 +136,7 @@ class TelegramWebhookTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :ok
-    assert_requested(stub)
+    assert_requested(stub, at_least_times: 1)
   end
 
   test "/pendentes de chat não vinculado → 200 sem enviar nada" do
@@ -166,6 +166,6 @@ class TelegramWebhookTest < ActionDispatch::IntegrationTest
 
     assert_response :ok
     assert_requested :post, "#{base}/answerCallbackQuery"
-    assert_requested :post, "#{base}/sendMessage"
+    assert_requested :post, "#{base}/sendMessage", at_least_times: 1
   end
 end

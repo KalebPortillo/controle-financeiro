@@ -18,12 +18,19 @@ module Notifications
       chat_id = workspace.telegram_chat_id
       return if chat_id.blank?
 
-      scope = workspace.transactions.where(id: transaction_ids, status: "pending")
-      total = scope.count
-      send_buttons(channel, chat_id, ordered(scope).limit(PAGE_SIZE).to_a)
+      scope  = workspace.transactions.where(id: transaction_ids, status: "pending")
+      recent = ordered(scope).limit(PAGE_SIZE).to_a
+      return if recent.empty?
 
-      overflow = total - PAGE_SIZE
-      send_overflow_link(channel, chat_id, overflow) if overflow.positive?
+      send_buttons(channel, chat_id, recent)
+
+      overflow = scope.count - PAGE_SIZE
+      text = if overflow.positive?
+        "Mais #{overflow} #{overflow == 1 ? 'gasto novo' : 'gastos novos'} no app"
+      else
+        "Gerencie no inbox do app"
+      end
+      send_footer(channel, chat_id, text)
     end
 
     def push_pending(workspace:, offset: 0, channel: NotificationChannels::Telegram.new)
@@ -42,7 +49,9 @@ module Notifications
       send_buttons(channel, chat_id, page)
 
       shown = offset + page.size
-      send_more_button(channel, chat_id, shown, total) if total > shown
+      more  = total > shown ? shown : nil
+      text  = more ? "Mostrando #{shown} de #{total} pendentes" : "Esses são todos os pendentes"
+      send_footer(channel, chat_id, text, more_offset: more)
     end
 
     # --- helpers ----------------------------------------------------------
@@ -58,21 +67,13 @@ module Notifications
       end
     end
 
-    def send_overflow_link(channel, chat_id, count)
-      noun = count == 1 ? "gasto novo" : "gastos novos"
-      channel.send_message(
-        chat_id:      chat_id,
-        text:         "Mais #{count} #{noun} — gerencie no inbox do app",
-        reply_markup: { inline_keyboard: [ [ { text: "Abrir inbox", url: inbox_url } ] ] }
-      )
-    end
-
-    def send_more_button(channel, chat_id, shown, total)
-      channel.send_message(
-        chat_id:      chat_id,
-        text:         "Mostrando #{shown} de #{total} pendentes",
-        reply_markup: { inline_keyboard: [ [ { text: "Ver mais #{PAGE_SIZE}", callback_data: "inbox:more:#{shown}" } ] ] }
-      )
+    # Rodapé único: opcionalmente "Ver mais 7" (paginação) e SEMPRE "Abrir no
+    # app" embaixo — em vez de repetir o link em cada gasto.
+    def send_footer(channel, chat_id, text, more_offset: nil)
+      rows = []
+      rows << [ { text: "Ver mais #{PAGE_SIZE}", callback_data: "inbox:more:#{more_offset}" } ] if more_offset
+      rows << [ { text: "Abrir no app", url: inbox_url } ]
+      channel.send_message(chat_id: chat_id, text: text, reply_markup: { inline_keyboard: rows })
     end
 
     def text_for(tx)
@@ -87,8 +88,7 @@ module Notifications
           [
             { text: "Consolidar", callback_data: "tx:consolidate:#{tx.id}" },
             { text: "Rejeitar",   callback_data: "tx:reject:#{tx.id}" }
-          ],
-          [ { text: "Abrir no app", url: inbox_url } ]
+          ]
         ]
       }
     end

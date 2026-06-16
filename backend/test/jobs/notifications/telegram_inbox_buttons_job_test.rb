@@ -17,7 +17,7 @@ module Notifications
         .to_return(status: 200, body: { ok: true }.to_json)
 
       TelegramInboxButtonsJob.perform_now(@workspace.id, [ @tx.id ])
-      assert_requested(stub)
+      assert_requested(stub, at_least_times: 1) # gasto + rodapé
     end
 
     test "workspace desvinculado entre enqueue e perform → no-op" do

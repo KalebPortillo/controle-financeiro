@@ -96,5 +96,84 @@ module Notifications
         assert_operator btn[:callback_data].bytesize, :<=, 64
       end
     end
+
+    # --- cap 7 + overflow (fluxo do sync) --------------------------------
+
+    test "lote grande: manda só as 7 mais recentes + 1 mensagem de overflow com link" do
+      ids = (1..10).map { |i| pending_tx(occurred_at: Date.new(2026, 6, i)).id }
+
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: ids, channel: @channel)
+
+      # 7 com botões + 1 de overflow = 8 mensagens.
+      assert_equal 8, @channel.sent.size
+      buttoned = @channel.sent.first(7)
+      assert buttoned.all? { |m| m[:reply_markup][:inline_keyboard][0][0][:text] == "Consolidar" }
+
+      overflow = @channel.sent.last
+      assert_match "Mais 3 gastos novos", overflow[:text]
+      link = overflow[:reply_markup][:inline_keyboard][0][0]
+      assert_equal "Abrir inbox", link[:text]
+      assert_equal "https://#{ENV.fetch('APP_HOST')}/inbox", link[:url]
+    end
+
+    test "manda as 7 MAIS RECENTES (ordem por data desc)" do
+      old = pending_tx(occurred_at: Date.new(2026, 1, 1), original_description: "ANTIGA")
+      ids = (2..9).map { |i| pending_tx(occurred_at: Date.new(2026, 6, i)).id }
+
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: ids + [ old.id ], channel: @channel)
+
+      # 9 ids → manda 7, a mais antiga fica de fora.
+      sent_texts = @channel.sent.first(7).map { |m| m[:text] }
+      assert sent_texts.none? { |t| t.include?("ANTIGA") }
+    end
+
+    test "exatamente 7: sem mensagem de overflow" do
+      ids = (1..7).map { |i| pending_tx(occurred_at: Date.new(2026, 6, i)).id }
+
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: ids, channel: @channel)
+
+      assert_equal 7, @channel.sent.size
+      assert @channel.sent.none? { |m| m[:text].to_s.include?("gerencie no inbox") }
+    end
+
+    # --- push_pending (comando /pendentes + ver mais) --------------------
+
+    test "push_pending manda as 7 pendentes mais recentes + botão ver mais quando há mais" do
+      (1..10).each { |i| pending_tx(occurred_at: Date.new(2026, 6, i)) }
+
+      TelegramInboxButtons.push_pending(workspace: @workspace, offset: 0, channel: @channel)
+
+      assert_equal 8, @channel.sent.size # 7 botões + 1 "ver mais"
+      more = @channel.sent.last
+      assert_match "Mostrando 7 de 10 pendentes", more[:text]
+      btn = more[:reply_markup][:inline_keyboard][0][0]
+      assert_equal "Ver mais 7", btn[:text]
+      assert_equal "inbox:more:7", btn[:callback_data]
+    end
+
+    test "push_pending com offset pagina os próximos e encerra sem botão" do
+      (1..10).each { |i| pending_tx(occurred_at: Date.new(2026, 6, i)) }
+
+      TelegramInboxButtons.push_pending(workspace: @workspace, offset: 7, channel: @channel)
+
+      # restam 3 → 3 mensagens, sem "ver mais".
+      assert_equal 3, @channel.sent.size
+      assert @channel.sent.none? { |m| m[:text].to_s.include?("Ver mais") }
+    end
+
+    test "push_pending com inbox vazio avisa que não há pendentes" do
+      TelegramInboxButtons.push_pending(workspace: @workspace, offset: 0, channel: @channel)
+
+      assert_equal 1, @channel.sent.size
+      assert_match(/nenhum gasto pendente/i, @channel.sent.first[:text])
+    end
+
+    test "push_pending sem Telegram vinculado é no-op" do
+      @workspace.update!(telegram_chat_id: nil)
+      pending_tx
+
+      TelegramInboxButtons.push_pending(workspace: @workspace, channel: @channel)
+      assert_empty @channel.sent
+    end
   end
 end

@@ -115,11 +115,6 @@ module BankConnections
       InternalTransfers::DetectJob.perform_later(ws.id)
     end
 
-    # Acima deste volume, o Telegram recebe só o resumo "N novos gastos"; até
-    # ele, cada gasto vira uma mensagem com botões (Consolidar/Rejeitar) —
-    # interativo sem virar spam num sync grande (RF17).
-    TELEGRAM_INBOX_BUTTONS_MAX = 5
-
     # Cada sync com novidades é um evento legítimo — sem dedup. Durante o
     # onboarding o usuário já está olhando o fluxo, notificar seria ruído.
     def notify_new_inbox_items(created)
@@ -128,15 +123,15 @@ module BankConnections
       ws = @connection.workspace
       return if onboarding_in_progress?(ws)
 
-      small_batch = created <= TELEGRAM_INBOX_BUTTONS_MAX
       institution = @connection.accounts.first&.institution
 
-      # Resumo in-app sempre (sininho). No Telegram o resumo só pro lote grande;
-      # lote pequeno ganha mensagens individuais com botões logo abaixo.
+      # Sininho in-app sempre. O Telegram recebe os gastos com botões — as 7 mais
+      # recentes do lote + link pro resto no app (TelegramInboxButtons), então o
+      # resumo NÃO vai pro Telegram (telegram: false).
       Notifications::Create.call(
         workspace: ws,
         kind:      "inbox_new",
-        telegram:  !small_batch,
+        telegram:  false,
         payload:   {
           "count"              => created,
           "bank_connection_id" => @connection.id,
@@ -144,9 +139,7 @@ module BankConnections
         }
       )
 
-      if small_batch && ws.telegram_chat_id.present?
-        Notifications::TelegramInboxButtonsJob.perform_later(ws.id, @suggest_ids)
-      end
+      Notifications::TelegramInboxButtonsJob.perform_later(ws.id, @suggest_ids) if ws.telegram_chat_id.present?
     end
 
     # :created | :duplicated | :errored. Unicidade é garantida no DB

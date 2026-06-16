@@ -350,7 +350,7 @@ class BankConnections::SyncTest < ActiveSupport::TestCase
     (1..count).map { |i| txn("tx-#{i}", -(10.0 + i), "Gasto #{i}") }
   end
 
-  test "lote pequeno (≤5) com Telegram vinculado: botões por tx, sem resumo no Telegram" do
+  test "com Telegram vinculado: botões por tx, nunca resumo no Telegram (lote pequeno)" do
     connection, _account = setup_connection_with_account
     connection.workspace.update!(telegram_chat_id: -100, telegram_linked_at: Time.current)
     provider = FakeProvider.new(by_account: { "acc-1" => many_txns(3) })
@@ -364,16 +364,17 @@ class BankConnections::SyncTest < ActiveSupport::TestCase
     assert_equal 1, connection.workspace.notifications.where(kind: "inbox_new").count
   end
 
-  test "lote grande (>5) com Telegram vinculado: resumo no Telegram, sem botões" do
+  test "lote grande também vai como botões (últimas 7 + link), nunca resumo no Telegram" do
     connection, _account = setup_connection_with_account
     connection.workspace.update!(telegram_chat_id: -100, telegram_linked_at: Time.current)
-    provider = FakeProvider.new(by_account: { "acc-1" => many_txns(6) })
+    provider = FakeProvider.new(by_account: { "acc-1" => many_txns(12) })
 
-    assert_enqueued_with(job: Notifications::TelegramDeliveryJob) do
-      assert_no_enqueued_jobs(only: Notifications::TelegramInboxButtonsJob) do
+    assert_enqueued_with(job: Notifications::TelegramInboxButtonsJob) do
+      assert_no_enqueued_jobs(only: Notifications::TelegramDeliveryJob) do
         BankConnections::Sync.call(connection: connection, provider: provider)
       end
     end
+    assert_equal 1, connection.workspace.notifications.where(kind: "inbox_new").count
   end
 
   test "lote pequeno sem Telegram vinculado: só in-app, nenhum job de Telegram" do

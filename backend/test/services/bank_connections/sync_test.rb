@@ -221,6 +221,32 @@ class BankConnections::SyncTest < ActiveSupport::TestCase
     assert_equal g3, g4
   end
 
+  test "não importa parcela projetada quando já existe a canônica (anti-duplicata)" do
+    connection, account = setup_connection_with_account(kind: "credit_card")
+    # Canônica (compra real, com purchaseDate real + MCC) já no banco.
+    create(:transaction, account: account, workspace: account.workspace,
+           original_description: "Mercadolivre 3/4", installment_number: 3, installment_total: 4,
+           occurred_at: Date.new(2026, 7, 30), status: "pending",
+           source_metadata: { "id" => "real-3", "creditCardMetadata" => {
+             "purchaseDate" => "2026-05-30T03:05:01.001Z", "payeeMCC" => 5999,
+             "installmentNumber" => 3, "totalInstallments" => 4 } })
+
+    # Projetada: purchaseDate sintético (própria data, meia-noite), sem MCC, id próprio.
+    projected = {
+      id: "proj-3", amount: 26.95, currency_code: "BRL", type: "DEBIT",
+      date: "2026-07-31", description: "Mercadolivre 3/4",
+      raw: { "id" => "proj-3", "creditCardMetadata" => {
+        "purchaseDate" => "2026-07-31T00:00:00.001Z",
+        "installmentNumber" => 3, "totalInstallments" => 4 } }
+    }
+    provider = FakeProvider.new(by_account: { "acc-1" => [ projected ] })
+
+    assert_no_difference -> { Transaction.count } do
+      BankConnections::Sync.call(connection: connection, provider: provider)
+    end
+    assert_nil account.transactions.find_by(external_transaction_id: "proj-3")
+  end
+
   test "transação à vista não recebe campos de parcelamento" do
     connection, account = setup_connection_with_account
     provider = FakeProvider.new(by_account: { "acc-1" => [ txn("tx-v", -50.0, "PADARIA") ] })

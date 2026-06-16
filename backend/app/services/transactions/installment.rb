@@ -55,6 +55,20 @@ module Transactions
       false
     end
 
+    # Existe no `relation` uma parcela canônica (não projetada) equivalente —
+    # mesma posição (número/total) e mesmo estabelecimento (descritor
+    # normalizado)? Usado pra (a) não importar a projetada duplicada no sync e
+    # (b) rejeitá-la no backfill.
+    def canonical_exists?(relation, total:, number:, description:, exclude_id: nil)
+      desc = Recurrences::Descriptor.normalize(description)
+      rel = relation.where(installment_total: total, installment_number: number)
+      rel = rel.where.not(id: exclude_id) if exclude_id
+      rel.any? do |s|
+        Recurrences::Descriptor.normalize(s.original_description) == desc &&
+          !projected?(s.source_metadata, s.occurred_at)
+      end
+    end
+
     def from_metadata(raw)
       meta = raw["creditCardMetadata"] if raw.is_a?(Hash)
       return unless meta.is_a?(Hash)

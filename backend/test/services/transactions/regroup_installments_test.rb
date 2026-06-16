@@ -42,7 +42,7 @@ class Transactions::RegroupInstallmentsTest < ActiveSupport::TestCase
     assert_equal p1.reload.installment_group_id, p2.reload.installment_group_id
   end
 
-  test "remove parcela projetada duplicada quando há a canônica" do
+  test "rejeita (não deleta) parcela projetada duplicada quando há a canônica" do
     canonical = parcel(desc: "MERCADOLIVRE LIVIAARTS 3/4", number: 3, total: 4,
                        purchase_date: "2026-05-30T03:05:01.001Z", occurred: Date.new(2026, 7, 30))
     projected = parcel(desc: "Mercadolivre Liviaarts 3/4", number: 3, total: 4, mcc: nil,
@@ -50,30 +50,33 @@ class Transactions::RegroupInstallmentsTest < ActiveSupport::TestCase
 
     result = Transactions::RegroupInstallments.call(scope: @ws.transactions)
 
-    assert_equal 1, result[:removed]
-    assert Transaction.exists?(canonical.id), "a parcela canônica permanece"
-    assert_not Transaction.exists?(projected.id), "a projetada é removida"
+    assert_equal 1, result[:rejected]
+    assert_equal "pending",  canonical.reload.status, "a canônica permanece pending"
+    # A projetada PERSISTE como rejected (não é deletada) — assim o dedup por id
+    # barra o reimport no próximo sync.
+    assert_equal "rejected", projected.reload.status
+    assert_not_nil projected.rejected_at
   end
 
-  test "não remove projetada se não houver canônica (evita apagar legítima)" do
+  test "não rejeita projetada se não houver canônica (evita descartar legítima)" do
     lonely = parcel(desc: "LOJA X 2/3", number: 2, total: 3, mcc: nil,
                     purchase_date: "2026-07-31T00:00:00.001Z", occurred: Date.new(2026, 7, 31))
 
     result = Transactions::RegroupInstallments.call(scope: @ws.transactions)
 
-    assert_equal 0, result[:removed]
-    assert Transaction.exists?(lonely.id)
+    assert_equal 0, result[:rejected]
+    assert_equal "pending", lonely.reload.status
   end
 
-  test "não remove parcela consolidada (já revisada pelo usuário)" do
+  test "não mexe em parcela consolidada (já revisada pelo usuário)" do
     parcel(desc: "ML 3/4", number: 3, total: 4, purchase_date: "2026-05-30T03:05:01.001Z", occurred: Date.new(2026, 7, 30))
     consolidated_dup = parcel(desc: "ML 3/4", number: 3, total: 4, mcc: nil, status: "consolidated",
                               purchase_date: "2026-07-31T00:00:00.001Z", occurred: Date.new(2026, 7, 31))
 
     result = Transactions::RegroupInstallments.call(scope: @ws.transactions)
 
-    assert_equal 0, result[:removed]
-    assert Transaction.exists?(consolidated_dup.id)
+    assert_equal 0, result[:rejected]
+    assert_equal "consolidated", consolidated_dup.reload.status
   end
 
   test "idempotente: rodar de novo não muda nada" do
@@ -83,6 +86,6 @@ class Transactions::RegroupInstallmentsTest < ActiveSupport::TestCase
     Transactions::RegroupInstallments.call(scope: @ws.transactions)
     second = Transactions::RegroupInstallments.call(scope: @ws.transactions)
 
-    assert_equal({ regrouped: 0, removed: 0 }, second)
+    assert_equal({ regrouped: 0, rejected: 0 }, second)
   end
 end

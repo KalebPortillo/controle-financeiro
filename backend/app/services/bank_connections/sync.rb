@@ -155,7 +155,20 @@ module BankConnections
     # malformada) contam como :errored e não derrubam o lote.
     def import_transaction(account, t)
       amount = t.fetch(:amount).to_f
+      occurred = Date.parse(t[:date].to_s)
       installment = Transactions::Installment.parse(raw: t[:raw], description: t[:description])
+
+      # Parcela projetada do Pluggy (purchaseDate sintético) que duplica uma
+      # canônica já no banco: não importa — senão, como tem `id` próprio, fura o
+      # dedup e reaparece como duplicata a cada sync.
+      if installment && Transactions::Installment.projected?(t[:raw], occurred) &&
+         Transactions::Installment.canonical_exists?(
+           account.transactions, total: installment.total,
+           number: installment.number, description: t[:description]
+         )
+        return :duplicated
+      end
+
       group_id = installment && Transactions::Installment.group_id(
         account_id: account.id, description: t[:description], total: installment.total, raw: t[:raw]
       )
@@ -169,7 +182,7 @@ module BankConnections
         direction:            direction_for(account, t, amount),
         amount_cents:         (amount.abs * 100).round,
         currency:             t[:currency_code] || "BRL",
-        occurred_at:          Date.parse(t[:date].to_s),
+        occurred_at:          occurred,
         original_description: t[:description].presence || "(sem descrição)",
         status:               "pending",
         source:               "automatic_sync",

@@ -3,16 +3,18 @@ module Transactions
   #   1. Recomputa `installment_group_id` com a chave nova (por `purchaseDate` do
   #      Pluggy) — desfaz colisões em que compras distintas no mesmo
   #      estabelecimento+total tinham caído no mesmo grupo.
-  #   2. Remove parcelas PROJETADAS duplicadas: o Pluggy às vezes emite a parcela
+  #   2. Rejeita parcelas PROJETADAS duplicadas: o Pluggy às vezes emite a parcela
   #      futura com `id` próprio e purchaseDate sintético (fura o dedup). Quando
-  #      existe a parcela canônica equivalente, a projetada (pending) é apagada.
+  #      existe a parcela canônica equivalente, a projetada (pending) é rejeitada
+  #      — NÃO deletada: a linha rejeitada some da inbox e, por persistir, o dedup
+  #      por `id` impede o reimport no próximo sync.
   #
-  # Seguro de re-rodar. Retorna { regrouped:, removed: }.
+  # Seguro de re-rodar. Retorna { regrouped:, rejected: }.
   module RegroupInstallments
     module_function
 
     def call(scope: Transaction.where.not(installment_total: nil))
-      { regrouped: regroup(scope), removed: remove_projected_duplicates(scope) }
+      { regrouped: regroup(scope), rejected: reject_projected_duplicates(scope) }
     end
 
     def regroup(scope)
@@ -32,30 +34,21 @@ module Transactions
       count
     end
 
-    def remove_projected_duplicates(scope)
+    def reject_projected_duplicates(scope)
       count = 0
       scope.find_each do |t|
         next unless t.status == "pending"
         next unless Installment.projected?(t.source_metadata, t.occurred_at)
-        next unless canonical_sibling?(t)
+        next unless Installment.canonical_exists?(
+          Transaction.where(account_id: t.account_id),
+          total: t.installment_total, number: t.installment_number,
+          description: t.original_description, exclude_id: t.id
+        )
 
-        t.destroy!
+        t.update_columns(status: "rejected", rejected_at: Time.current) # rubocop:disable Rails/SkipsModelValidations
         count += 1
       end
       count
-    end
-
-    # Existe outra parcela com mesma conta+total+número, mesmo estabelecimento
-    # (descritor normalizado) e que NÃO é projetada (tem a compra real)?
-    def canonical_sibling?(t)
-      desc = Recurrences::Descriptor.normalize(t.original_description)
-      Transaction
-        .where(account_id: t.account_id, installment_total: t.installment_total, installment_number: t.installment_number)
-        .where.not(id: t.id)
-        .any? do |s|
-          Recurrences::Descriptor.normalize(s.original_description) == desc &&
-            !Installment.projected?(s.source_metadata, s.occurred_at)
-        end
     end
   end
 end

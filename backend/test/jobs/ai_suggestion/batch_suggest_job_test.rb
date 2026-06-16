@@ -47,6 +47,18 @@ class AiSuggestion::BatchSuggestJobTest < ActiveJob::TestCase
     assert_equal "Posto Shell", @tx2.reload.improved_title
   end
 
+  test "does not re-send already analyzed transactions to the AI" do
+    # tx pending que já foi analisada não deve voltar pro provider (economiza
+    # quota): só as que estão `queued` aguardam análise.
+    @tx2.update!(ai_status: "analyzed", improved_title: "Já feito")
+    received = capture_batch(@tx1.id => result(improved_title: "Mercado ABC", confidence: "high"))
+
+    AiSuggestion::BatchSuggestJob.perform_now([ @tx1.id, @tx2.id ])
+
+    assert_equal [ @tx1.id ], received.map(&:id)
+    assert_equal "Já feito", @tx2.reload.improved_title # intocada
+  end
+
   test "does not crash on missing ids" do
     assert_nothing_raised do
       AiSuggestion::BatchSuggestJob.perform_now([ "00000000-0000-0000-0000-000000000000" ])
@@ -108,6 +120,17 @@ class AiSuggestion::BatchSuggestJobTest < ActiveJob::TestCase
     sclass.send(:alias_method, :__original_call, :call)
     sclass.send(:define_method, :call) { |**_| results }
     @batch_stubbed = true
+  end
+
+  # Como stub_batch, mas devolve o array (preenchido após o perform) com as
+  # transações que o BatchService recebeu — pra asserir o filtro de elegibilidade.
+  def capture_batch(results)
+    received = []
+    sclass = AiSuggestion::BatchService.singleton_class
+    sclass.send(:alias_method, :__original_call, :call)
+    sclass.send(:define_method, :call) { |**kwargs| received.concat(Array(kwargs[:transactions])); results }
+    @batch_stubbed = true
+    received
   end
 
   def stub_batch_raises(error)

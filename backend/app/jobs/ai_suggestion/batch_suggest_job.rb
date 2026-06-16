@@ -16,7 +16,10 @@ module AiSuggestion
     )
 
     def perform(transaction_ids)
-      txs = Transaction.where(id: transaction_ids, status: "pending").to_a
+      # Só transações ainda AGUARDANDO análise (ai_status "queued"): pending já
+      # "analyzed" não voltam pro provider (economiza quota). Reanálise volta os
+      # ids pra "queued" antes de despachar, então continua funcionando.
+      txs = Transaction.where(id: transaction_ids, status: "pending", ai_status: "queued").to_a
       return if txs.empty?
 
       results = AiSuggestion::BatchService.call(transactions: txs)

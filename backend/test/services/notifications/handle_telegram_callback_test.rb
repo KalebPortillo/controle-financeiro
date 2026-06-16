@@ -105,6 +105,16 @@ module Notifications
       assert_match(/inválida/i, @channel.answers.first[:text])
     end
 
+    test "corrida pura (StaleObjectError) vira 'já processada', sem sobrescrever" do
+      # `stale` é carregada pensando que está pending; outra requisição commita
+      # antes, deixando o lock_version defasado → o update! levanta StaleObjectError.
+      stale = @workspace.transactions.find(@tx.id)
+      @tx.update!(status: "consolidated", consolidated_at: Time.current)
+
+      assert_equal :already_done, HandleTelegramCallback.apply(stale, "reject")
+      assert_equal "consolidated", @tx.reload.status # decisão concorrente preservada
+    end
+
     test "inbox:more:<offset> dá ack e enfileira o digest paginado" do
       assert_enqueued_with(job: TelegramPendingDigestJob, args: [ @workspace.id, 7 ]) do
         HandleTelegramCallback.call(callback_query: callback("inbox:more:7"), channel: @channel)

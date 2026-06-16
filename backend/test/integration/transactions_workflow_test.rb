@@ -38,6 +38,31 @@ class TransactionsWorkflowTest < ActionDispatch::IntegrationTest
     assert_not_nil t.rejected_at
   end
 
+  test "consolidate de uma já consolidada → 200 idempotente (duplo toque)" do
+    t = txn(status: "consolidated", consolidated_at: 1.hour.ago)
+    post "/api/v1/transactions/#{t.id}/consolidate"
+    assert_response :ok
+    assert_equal "consolidated", t.reload.status
+  end
+
+  test "consolidate de uma já REJEITADA → 409 sem sobrescrever (parceiro decidiu)" do
+    t = txn(status: "rejected", rejected_at: 1.hour.ago)
+    post "/api/v1/transactions/#{t.id}/consolidate"
+    assert_response :conflict
+    assert_equal "rejected", t.reload.status # decisão do parceiro preservada
+    body = JSON.parse(response.body)
+    assert_equal "already_decided", body.dig("error", "code")
+    assert_equal "rejected", body.dig("transaction", "status")
+  end
+
+  test "reject de uma já CONSOLIDADA → 409 sem sobrescrever" do
+    t = txn(status: "consolidated", consolidated_at: 1.hour.ago)
+    post "/api/v1/transactions/#{t.id}/reject"
+    assert_response :conflict
+    assert_equal "consolidated", t.reload.status
+    assert_equal "already_decided", JSON.parse(response.body).dig("error", "code")
+  end
+
   # --- update (optimistic lock) -----------------------------------------
 
   test "update edita título/valor/data com lock_version correto" do

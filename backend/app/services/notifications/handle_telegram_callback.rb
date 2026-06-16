@@ -42,7 +42,9 @@ module Notifications
     end
 
     # Só age se ainda está pendente; toque duplo (ou ação pela tela do app no
-    # meio) vira no-op idempotente.
+    # meio) vira no-op idempotente. Numa corrida pura (web e Telegram commitando
+    # ao mesmo tempo), o optimistic lock levanta StaleObjectError no perdedor —
+    # tratamos como "já processada" em vez de deixar virar 500 + retry do webhook.
     def apply(tx, action)
       return :already_done unless tx.pending?
 
@@ -54,6 +56,8 @@ module Notifications
         tx.update!(status: "rejected", rejected_at: Time.current)
         :rejected
       end
+    rescue ActiveRecord::StaleObjectError
+      :already_done
     end
 
     def toast_for(result)

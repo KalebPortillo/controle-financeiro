@@ -69,18 +69,19 @@ class Api::V1::TransactionsController < ApplicationController
   def destroy
     @transaction.destroy!
     head :no_content
+  rescue ActiveRecord::StaleObjectError
+    # Outra pessoa mexeu na transação no meio do caminho — recarregue e refaça.
+    render_already_decided(@transaction.reload)
   end
 
   # POST /api/v1/transactions/:id/consolidate — aceitar (RF2.3).
   def consolidate
-    @transaction.update!(status: "consolidated", consolidated_at: Time.current)
-    render json: { transaction: serialize(@transaction) }
+    apply_decision("consolidated", :consolidated_at)
   end
 
   # POST /api/v1/transactions/:id/reject — rejeitar (RF2.3).
   def reject
-    @transaction.update!(status: "rejected", rejected_at: Time.current)
-    render json: { transaction: serialize(@transaction) }
+    apply_decision("rejected", :rejected_at)
   end
 
   # GET /api/v1/transactions/:id/edits — trilha de alterações (RF4.3).
@@ -165,6 +166,33 @@ class Api::V1::TransactionsController < ApplicationController
 
   def set_transaction
     @transaction = current_workspace.transactions.find(params[:id])
+  end
+
+  # Aceitar/rejeitar com "semáforo" pra uso simultâneo (casal, web + Telegram):
+  #   - já no estado-alvo  → 200 idempotente (duplo toque, sem efeito colateral)
+  #   - já decidido diferente → 409 sem sobrescrever (preserva a decisão do outro)
+  #   - corrida pura (dois commits ao mesmo tempo) → o optimistic lock
+  #     (lock_version) levanta StaleObjectError no perdedor → 409 (em vez de 500)
+  STATUS_PT = { "consolidated" => "consolidado", "rejected" => "rejeitado" }.freeze
+
+  def apply_decision(target, timestamp_attr)
+    return render json: { transaction: serialize(@transaction) } if @transaction.status == target
+    return render_already_decided(@transaction) unless @transaction.pending?
+
+    @transaction.update!(status: target, timestamp_attr => Time.current)
+    render json: { transaction: serialize(@transaction) }
+  rescue ActiveRecord::StaleObjectError
+    render_already_decided(@transaction.reload)
+  end
+
+  def render_already_decided(transaction)
+    render json: {
+      error: {
+        code:    "already_decided",
+        message: "Gasto já #{STATUS_PT[transaction.status] || transaction.status}. Recarregue o inbox."
+      },
+      transaction: serialize(transaction)
+    }, status: :conflict
   end
 
   # Registra um TransactionEdit por campo alterado (RF4.3). `scalar_changes` é o

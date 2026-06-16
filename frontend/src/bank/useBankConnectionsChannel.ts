@@ -1,6 +1,5 @@
-import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { getCableConsumer } from '../api/cable'
+import { useChannelSubscription } from '../api/useChannelSubscription'
 import {
   bankConnectionsKey,
   type BankConnection,
@@ -31,33 +30,24 @@ function summarize(connections: BankConnection[]): ConnectionsSummary {
 export function useBankConnectionsChannel(workspaceId: string | null | undefined) {
   const qc = useQueryClient()
 
-  useEffect(() => {
-    if (!workspaceId) return
-
-    const subscription = getCableConsumer().subscriptions.create(
-      { channel: 'BankConnectionsChannel', workspace_id: workspaceId },
-      {
-        received(data: ConnectionUpdatedMessage) {
-          if (data?.event !== 'connection_updated') return
-          qc.setQueryData<BankConnectionsList>(bankConnectionsKey, (prev) => {
-            if (!prev) return prev
-            const exists = prev.connections.some((c) => c.id === data.bank_connection.id)
-            const connections = exists
-              ? prev.connections.map((c) =>
-                  c.id === data.bank_connection.id ? data.bank_connection : c
-                )
-              : [ ...prev.connections, data.bank_connection ]
-            return { connections, summary: summarize(connections) }
-          })
-          // O sync que terminou criou uma nova linha no histórico (RF21.7) —
-          // invalida pra refetchar se o painel de histórico estiver aberto.
-          qc.invalidateQueries({ queryKey: [ 'sync_history', data.bank_connection.id ] })
-        },
-      }
-    )
-
-    return () => {
-      subscription.unsubscribe()
+  useChannelSubscription<ConnectionUpdatedMessage>(
+    'BankConnectionsChannel',
+    workspaceId,
+    (data) => {
+      if (data?.event !== 'connection_updated') return
+      qc.setQueryData<BankConnectionsList>(bankConnectionsKey, (prev) => {
+        if (!prev) return prev
+        const exists = prev.connections.some((c) => c.id === data.bank_connection.id)
+        const connections = exists
+          ? prev.connections.map((c) =>
+              c.id === data.bank_connection.id ? data.bank_connection : c
+            )
+          : [ ...prev.connections, data.bank_connection ]
+        return { connections, summary: summarize(connections) }
+      })
+      // O sync que terminou criou uma nova linha no histórico (RF21.7) —
+      // invalida pra refetchar se o painel de histórico estiver aberto.
+      qc.invalidateQueries({ queryKey: [ 'sync_history', data.bank_connection.id ] })
     }
-  }, [workspaceId, qc])
+  )
 }

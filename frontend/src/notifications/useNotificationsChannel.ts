@@ -1,6 +1,5 @@
-import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { getCableConsumer } from '../api/cable'
+import { useChannelSubscription } from '../api/useChannelSubscription'
 import {
   notificationsKey,
   type AppNotification,
@@ -20,31 +19,22 @@ type NotificationCreatedMessage = {
 export function useNotificationsChannel(workspaceId: string | null | undefined) {
   const qc = useQueryClient()
 
-  useEffect(() => {
-    if (!workspaceId) return
-
-    const subscription = getCableConsumer().subscriptions.create(
-      { channel: 'NotificationsChannel', workspace_id: workspaceId },
-      {
-        received(data: NotificationCreatedMessage) {
-          if (data?.event !== 'notification_created') return
-          qc.setQueryData<NotificationsPayload>(notificationsKey, (prev) => {
-            if (!prev) return prev
-            if (prev.notifications.some((n) => n.id === data.notification.id)) return prev
-            return {
-              notifications: [data.notification, ...prev.notifications],
-              unread_count: prev.unread_count + 1,
-            }
-          })
-          if (data.notification.kind === 'inbox_new') {
-            qc.invalidateQueries({ queryKey: ['transactions', 'pending'] })
-          }
-        },
+  useChannelSubscription<NotificationCreatedMessage>(
+    'NotificationsChannel',
+    workspaceId,
+    (data) => {
+      if (data?.event !== 'notification_created') return
+      qc.setQueryData<NotificationsPayload>(notificationsKey, (prev) => {
+        if (!prev) return prev
+        if (prev.notifications.some((n) => n.id === data.notification.id)) return prev
+        return {
+          notifications: [data.notification, ...prev.notifications],
+          unread_count: prev.unread_count + 1,
+        }
+      })
+      if (data.notification.kind === 'inbox_new') {
+        qc.invalidateQueries({ queryKey: ['transactions', 'pending'] })
       }
-    )
-
-    return () => {
-      subscription.unsubscribe()
     }
-  }, [workspaceId, qc])
+  )
 }

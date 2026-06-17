@@ -253,13 +253,7 @@ class Api::V1::TransactionsController < ApplicationController
   end
 
   def apply_search(scope, query)
-    return scope if query.blank?
-
-    like = "%#{query.strip.downcase}%"
-    scope.where(
-      "LOWER(original_description) LIKE :q OR LOWER(COALESCE(improved_title, '')) LIKE :q",
-      q: like
-    )
+    scope.search(query)
   end
 
   # Conta "Dinheiro / Externo" do workspace (RF12) — origem dos lançamentos

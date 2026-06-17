@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Routes, Route } from 'react-router'
+import { MemoryRouter, Routes, Route, useSearchParams } from 'react-router'
 import { AppLayout } from './AppLayout'
 
 function setupFetch() {
@@ -37,11 +37,21 @@ function renderShell() {
         <Routes>
           <Route element={<AppLayout />}>
             <Route path="/" element={<div>conteúdo</div>} />
+            <Route
+              path="/gastos"
+              element={<GastosRouteProbe />}
+            />
           </Route>
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
   )
+}
+
+// Sonda: mostra o ?q da URL pra assertar a navegação da busca da TopBar.
+function GastosRouteProbe() {
+  const [params] = useSearchParams()
+  return <div>gastos q={params.get('q')}</div>
 }
 
 describe('<AppLayout />', () => {
@@ -65,6 +75,14 @@ describe('<AppLayout />', () => {
     const orcamentos = screen.getByTestId('nav-orcamentos')
     expect(orcamentos).toHaveTextContent('em breve')
     expect(orcamentos.tagName).not.toBe('A') // não navegável
+  })
+
+  it('topbar search navigates to /gastos with the typed query', async () => {
+    setupFetch()
+    renderShell()
+    const user = userEvent.setup()
+    await user.type(screen.getByTestId('topbar-search'), 'amazon{Enter}')
+    await waitFor(() => expect(screen.getByText('gastos q=amazon')).toBeInTheDocument())
   })
 
   it('theme toggle flips data-theme on <html>', async () => {

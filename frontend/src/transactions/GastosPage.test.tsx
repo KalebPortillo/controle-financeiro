@@ -51,11 +51,11 @@ function tx(o: Partial<InboxTransaction> = {}): InboxTransaction {
   }
 }
 
-function renderGastos() {
+function renderGastos(initialEntry = '/gastos') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <GastosPage />
       </MemoryRouter>
     </QueryClientProvider>
@@ -87,6 +87,40 @@ describe('<GastosPage />', () => {
     const callsBefore = calls.length
     await user.click(screen.getByTestId('prev-month'))
     await waitFor(() => expect(calls.length).toBeGreaterThan(callsBefore))
+  })
+
+  it('searches all consolidated by query (no month range) when typing', async () => {
+    const { calls } = setupFetch((url) => {
+      if (url.includes('q=mercado')) {
+        return { status: 200, body: { transactions: [tx({ improved_title: 'Mercado da semana' })], pending_count: 0 } }
+      }
+      return { status: 200, body: { transactions: [], pending_count: 0 } }
+    })
+    renderGastos()
+    const user = userEvent.setup()
+    await user.type(await screen.findByTestId('gastos-search'), 'mercado')
+
+    await waitFor(() =>
+      expect(calls.some((c) => c.url.includes('status=consolidated') && c.url.includes('q=mercado'))).toBe(true)
+    )
+    // busca é global: NÃO manda recorte de mês
+    const searchCall = calls.find((c) => c.url.includes('q=mercado'))!
+    expect(searchCall.url).not.toMatch(/from=/)
+    expect(await screen.findByText('Mercado da semana')).toBeInTheDocument()
+  })
+
+  it('hydrates the search from the URL ?q and queries the API', async () => {
+    const { calls } = setupFetch((url) => {
+      if (url.includes('q=amazon')) {
+        return { status: 200, body: { transactions: [tx({ improved_title: 'Amazon Prime' })], pending_count: 0 } }
+      }
+      return { status: 200, body: { transactions: [], pending_count: 0 } }
+    })
+    renderGastos('/gastos?q=amazon')
+
+    expect((await screen.findByTestId('gastos-search')) as HTMLInputElement).toHaveValue('amazon')
+    await waitFor(() => expect(calls.some((c) => c.url.includes('q=amazon'))).toBe(true))
+    expect(await screen.findByText('Amazon Prime')).toBeInTheDocument()
   })
 
   it('shows the edit history when toggled in the sheet', async () => {

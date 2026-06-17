@@ -1,3 +1,4 @@
+import { useState, type FormEvent } from 'react'
 import { NavLink, useLocation, useNavigate, Outlet } from 'react-router'
 import {
   Inbox,
@@ -132,18 +133,32 @@ function SidebarItem({ item }: { item: NavItem }) {
 }
 
 function TopBar({ theme, onToggleTheme }: { theme: string; onToggleTheme: () => void }) {
+  const navigate = useNavigate()
+  const [query, setQuery] = useState('')
+
+  // Atalho global: digitar + Enter leva à busca em Gastos (?q). A busca completa
+  // (lista própria de resultados) vive na página; aqui é só o ponto de entrada.
+  function submit(e: FormEvent) {
+    e.preventDefault()
+    const q = query.trim()
+    navigate(q ? `/gastos?q=${encodeURIComponent(q)}` : '/gastos')
+  }
+
   return (
     <header className="flex items-center gap-4 h-14 px-4 md:px-8 border-b border-border bg-background shrink-0">
       <div className="flex items-center gap-2 md:hidden font-display text-sm font-semibold">
         <WalletLogo size={18} />
       </div>
-      <div className="flex-1 max-w-xl relative items-center hidden sm:flex">
+      <form onSubmit={submit} className="flex-1 max-w-xl relative items-center hidden sm:flex">
         <Search size={14} className="absolute left-3 text-muted-foreground pointer-events-none" />
         <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
           placeholder="Buscar gastos, tags, contas…"
+          data-testid="topbar-search"
           className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-2 focus:outline-ring/30"
         />
-      </div>
+      </form>
       <div className="ml-auto flex items-center gap-3">
         <GlobalSyncIndicator />
         <button

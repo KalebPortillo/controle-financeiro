@@ -66,6 +66,26 @@ class Transaction < ApplicationRecord
     define_method("#{s}?") { status == s }
   end
 
+  # Busca textual (Fase 1) — acento-insensível e por substring sobre o título
+  # melhorado (atual), a descrição original do banco e os nomes das tags.
+  # unaccent() remove acentos dos dois lados; ranking ponderado vem na Fase 2.
+  def self.search(query)
+    q = query.to_s.strip
+    return all if q.blank?
+
+    like = "%#{sanitize_sql_like(q)}%"
+    where(
+      "unaccent(original_description) ILIKE unaccent(:like) " \
+      "OR unaccent(COALESCE(improved_title, '')) ILIKE unaccent(:like) " \
+      "OR EXISTS (" \
+      "  SELECT 1 FROM transaction_tags tt " \
+      "  JOIN tags ON tags.id = tt.tag_id " \
+      "  WHERE tt.transaction_id = transactions.id " \
+      "  AND unaccent(tags.name::text) ILIKE unaccent(:like))",
+      like: like
+    )
+  end
+
   # RF2.3 — uso simultâneo (casal, web + Telegram): quando alguém decide
   # (consolida/rejeita), empurra a mudança pro inbox dos outros membros em tempo
   # real, pra o item sair da lista sem refresh. Só status; edição não dispara.

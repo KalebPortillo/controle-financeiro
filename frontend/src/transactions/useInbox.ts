@@ -89,6 +89,7 @@ export function originalToShow(t: Pick<InboxTransaction, 'improved_title' | 'ori
 // Chaves de cache. inbox = pendentes; consolidados são por mês (lazy).
 export const inboxKey = ['transactions', 'pending'] as const
 export const consolidatedKey = (period: string) => ['transactions', 'consolidated', period] as const
+export const searchKey = (q: string) => ['transactions', 'search', q] as const
 
 // Lista as transações pendentes (RF2.1/2.4). Inclui pending_count pro badge.
 export function useInbox() {
@@ -98,16 +99,21 @@ export function useInbox() {
   })
 }
 
-// Lista consolidados de um mês (RF4). `period` = 'YYYY-MM'.
-export function useConsolidated(period: string) {
+// Lista consolidados de um mês (RF4). `period` = 'YYYY-MM'. Quando `q` é
+// informado, a busca passa a valer sobre TODOS os consolidados (sem recorte de
+// mês) — "buscar gastos" é global, não preso ao mês aberto (Fase 1 da busca).
+export function useConsolidated(period: string, q?: string) {
+  const query = q?.trim() ?? ''
   const [year, month] = period.split('-').map(Number)
   const from = `${period}-01`
   const to = new Date(year, month, 0).toISOString().slice(0, 10) // último dia do mês
   return useQuery({
-    queryKey: consolidatedKey(period),
+    queryKey: query ? searchKey(query) : consolidatedKey(period),
     queryFn: () =>
       apiFetch<InboxPayload>(
-        `/api/v1/transactions?status=consolidated&from=${from}&to=${to}`
+        query
+          ? `/api/v1/transactions?status=consolidated&q=${encodeURIComponent(query)}`
+          : `/api/v1/transactions?status=consolidated&from=${from}&to=${to}`
       ),
   })
 }

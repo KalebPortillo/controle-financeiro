@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router'
+import { ChevronLeft, ChevronRight, Plus, Search, X } from 'lucide-react'
 import { Money } from '../components/Money'
 import { Button } from '../components/Button'
 import { TagChip } from '../components/TagChip'
@@ -38,6 +39,17 @@ function signedCents(t: InboxTransaction): number {
   return t.direction === 'debit' ? -t.amount_cents : t.amount_cents
 }
 
+// Atrasa o valor pra não disparar uma busca por tecla (a URL atualiza na hora;
+// só o fetch espera o usuário parar de digitar).
+function useDebounced<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(t)
+  }, [value, delay])
+  return debounced
+}
+
 /**
  * Gastos consolidados (RF4) — o que foi aceito da inbox, por mês. Totais de
  * gasto/receita, navegação de período, e edição/remoção via detail sheet.
@@ -45,7 +57,25 @@ function signedCents(t: InboxTransaction): number {
  */
 export function GastosPage() {
   const [period, setPeriod] = useState(currentPeriod())
-  const { data, isLoading } = useConsolidated(period)
+
+  // Busca como estado de URL (?q): compartilhável e a TopBar navega pra cá. A
+  // URL atualiza por tecla (replace, sem poluir histórico); o fetch é debounced.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const q = searchParams.get('q') ?? ''
+  const debouncedQ = useDebounced(q, 250)
+  const searching = debouncedQ.trim().length > 0
+  const setQuery = (value: string) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (value) next.set('q', value)
+        else next.delete('q')
+        return next
+      },
+      { replace: true },
+    )
+
+  const { data, isLoading } = useConsolidated(period, debouncedQ)
 
   // Overlays como estado de URL (?tx, ?new) → back do navegador fecha o sheet.
   const { get, push, close } = useOverlay()
@@ -63,31 +93,61 @@ export function GastosPage() {
     <div className="max-w-4xl mx-auto">
       <div className="flex items-end justify-between mb-4">
         <div>
-          <div className="text-xs text-muted-foreground">{periodLabel(period)} · todas as contas</div>
-          <h1 className="font-sans text-2xl font-semibold tracking-tight mt-1">Gastos consolidados</h1>
+          <div className="text-xs text-muted-foreground">
+            {searching ? `busca: “${debouncedQ}”` : periodLabel(period)} · todas as contas
+          </div>
+          <h1 className="font-sans text-2xl font-semibold tracking-tight mt-1">
+            {searching ? 'Resultados da busca' : 'Gastos consolidados'}
+          </h1>
         </div>
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => setPeriod((p) => shiftPeriod(p, -1))}
-            aria-label="Mês anterior"
-            data-testid="prev-month"
-            className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <span className="text-sm font-medium w-24 text-center">{periodLabel(period)}</span>
-          <button
-            onClick={() => setPeriod((p) => shiftPeriod(p, 1))}
-            aria-label="Próximo mês"
-            data-testid="next-month"
-            className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
-          >
-            <ChevronRight size={16} />
-          </button>
+          {!searching && (
+            <>
+              <button
+                onClick={() => setPeriod((p) => shiftPeriod(p, -1))}
+                aria-label="Mês anterior"
+                data-testid="prev-month"
+                className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-sm font-medium w-24 text-center">{periodLabel(period)}</span>
+              <button
+                onClick={() => setPeriod((p) => shiftPeriod(p, 1))}
+                aria-label="Próximo mês"
+                data-testid="next-month"
+                className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </>
+          )}
           <Button variant="outline" size="sm" onClick={() => push((p) => p.set('new', '1'))} data-testid="open-manual" className="ml-2">
             <Plus size={14} /> Lançar
           </Button>
         </div>
+      </div>
+
+      <div className="relative flex items-center mb-4">
+        <Search size={14} className="absolute left-3 text-muted-foreground pointer-events-none" />
+        <input
+          value={q}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Buscar por título, descrição ou tag…"
+          data-testid="gastos-search"
+          aria-label="Buscar gastos"
+          className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-2 focus:outline-ring/30"
+        />
+        {q && (
+          <button
+            onClick={() => setQuery('')}
+            aria-label="Limpar busca"
+            data-testid="gastos-search-clear"
+            className="absolute right-2 h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <X size={14} />
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 mb-4">
@@ -108,7 +168,9 @@ export function GastosPage() {
       {isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
       {!isLoading && txs.length === 0 && (
         <p className="text-sm text-muted-foreground" data-testid="gastos-empty">
-          Nenhum gasto consolidado em {periodLabel(period)}.
+          {searching
+            ? `Nenhum gasto encontrado para “${debouncedQ}”.`
+            : `Nenhum gasto consolidado em ${periodLabel(period)}.`}
         </p>
       )}
 

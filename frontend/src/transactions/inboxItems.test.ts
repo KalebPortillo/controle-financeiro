@@ -63,4 +63,40 @@ describe('buildInboxItems', () => {
     ])
     expect(items).toHaveLength(2)
   })
+
+  it('purchaseDate do grupo = purchase_date das parcelas', () => {
+    const items = buildInboxItems([
+      tx({ id: 'p1', installment_number: 1, installment_total: 3, installment_group_id: 'g1',
+        occurred_at: '2026-06-10', purchase_date: '2026-05-14' }),
+      tx({ id: 'p2', installment_number: 2, installment_total: 3, installment_group_id: 'g1',
+        occurred_at: '2026-07-10', purchase_date: '2026-05-14' }),
+    ])
+    const item = items[0]
+    if (item.kind !== 'installment') throw new Error('esperava installment')
+    expect(item.purchaseDate).toBe('2026-05-14') // não a data da parcela
+  })
+
+  it('purchaseDate cai na 1ª parcela quando não há purchase_date', () => {
+    const items = buildInboxItems([
+      tx({ id: 'p2', installment_number: 2, installment_total: 3, installment_group_id: 'g1',
+        occurred_at: '2026-07-10', purchase_date: null }),
+      tx({ id: 'p1', installment_number: 1, installment_total: 3, installment_group_id: 'g1',
+        occurred_at: '2026-06-10', purchase_date: null }),
+    ])
+    const item = items[0]
+    if (item.kind !== 'installment') throw new Error('esperava installment')
+    expect(item.purchaseDate).toBe('2026-06-10') // a parcela mais antiga
+  })
+
+  it('ordena a lista por data desc (compra do parcelamento, não a parcela)', () => {
+    const items = buildInboxItems([
+      tx({ id: 'a', occurred_at: '2026-06-20' }),
+      // parcela recente (07/10) mas compra antiga (05/14) → grupo entra por 05/14
+      tx({ id: 'p1', installment_number: 1, installment_total: 3, installment_group_id: 'g1',
+        occurred_at: '2026-07-10', purchase_date: '2026-05-14' }),
+      tx({ id: 'b', occurred_at: '2026-06-01' }),
+    ])
+    expect(items.map((i) => (i.kind === 'single' ? i.transaction.id : `grp:${i.groupId}`)))
+      .toEqual(['a', 'b', 'grp:g1']) // 06/20, 06/01, 05/14
+  })
 })

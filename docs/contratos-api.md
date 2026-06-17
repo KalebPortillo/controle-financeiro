@@ -174,11 +174,14 @@ Formato uniforme:
   account_institution_name, account_brand, account_last_digits, direction,
   amount_cents, currency, occurred_at, original_description, improved_title,
   ai_confidence, ai_suggestion, ai_status, status, source, installment_number,
-  installment_total, installment_group_id, lock_version, tags,
+  installment_total, installment_group_id, purchase_date, lock_version, tags,
   effective_amount_cents, refund`. Fonte do gasto (RF2.7): `account_kind`
   (checking/credit_card), `account_institution_name` (nome real do banco/conector —
   ex.: "Nubank"), `account_brand` (bandeira do cartão), `account_last_digits`
-  (4 últimos, só cartão). `installment_*` o parcelamento (RF9.4).
+  (4 últimos, só cartão). `installment_*` o parcelamento (RF9.4); `purchase_date`
+  (RF9.4) = data da COMPRA `YYYY-MM-DD` (creditCardMetadata.purchaseDate do Pluggy,
+  igual pra todas as parcelas; null fora de cartão) — o front exibe/ordena o
+  parcelamento agregado por ela, já que `occurred_at` é a data de cada parcela.
 - ⏳ `GET /api/v1/transactions/:id` — detalhe completo (com tags, category, splits, refund) — planejado.
 - `GET /api/v1/transactions/:id/edits` — histórico de alterações (RF4.3), mais recente primeiro. Cada item: `{ id, field_name, old_value, new_value, edited_at, edited_by: { id, name } }`. Um registro por campo alterado (improved_title/amount_cents/occurred_at/tags) gravado a cada PATCH.
 - `GET /api/v1/transactions/:id/source` (RF2.7) — payload cru do agregador para "exibir mais detalhes". `{ source, source_metadata }` (o JSON do Pluggy guardado na ingestão). Lazy — não vai na listagem. 404 cross-workspace.

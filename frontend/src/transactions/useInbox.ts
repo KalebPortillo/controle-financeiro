@@ -47,6 +47,8 @@ export type InboxTransaction = {
   installment_number: number | null
   installment_total: number | null
   installment_group_id: string | null
+  // RF9.4 — data da COMPRA (mesma pra todas as parcelas); null fora de cartão.
+  purchase_date: string | null
   direction: 'debit' | 'credit'
   amount_cents: number
   currency: string

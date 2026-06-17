@@ -10,10 +10,18 @@ export type InboxItem =
       parcels: InboxTransaction[]
       total: number
       representative: InboxTransaction
+      // Data da COMPRA do parcelamento (purchase_date; fallback: 1ª parcela).
+      purchaseDate: string
     }
 
 function isInstallment(t: InboxTransaction): boolean {
   return t.installment_total != null && t.installment_group_id != null
+}
+
+// Data que posiciona o item na lista: avulso = data do gasto; parcelamento =
+// data da compra. Ambas YYYY-MM-DD, então ordenam lexicograficamente.
+export function itemDate(item: InboxItem): string {
+  return item.kind === 'single' ? item.transaction.occurred_at : item.purchaseDate
 }
 
 /**
@@ -42,6 +50,7 @@ export function buildInboxItems(transactions: InboxTransaction[]): InboxItem[] {
         parcels: [t],
         total: t.amount_cents,
         representative: t,
+        purchaseDate: t.occurred_at, // recomputado abaixo
       })
     } else {
       const item = items[at]
@@ -51,13 +60,19 @@ export function buildInboxItems(transactions: InboxTransaction[]): InboxItem[] {
     }
   }
 
-  // Ordena as parcelas por número e escolhe o representante (com título primeiro).
+  // Por grupo: ordena parcelas por número, escolhe o representante (com título
+  // primeiro) e fixa a data da compra (purchase_date; fallback = 1ª parcela).
   for (const item of items) {
     if (item.kind !== 'installment') continue
     item.parcels.sort((a, b) => (a.installment_number ?? 0) - (b.installment_number ?? 0))
-    item.representative =
-      item.parcels.find((p) => p.improved_title) ?? item.parcels[0]
+    item.representative = item.parcels.find((p) => p.improved_title) ?? item.parcels[0]
+    item.purchaseDate =
+      item.representative.purchase_date ??
+      item.parcels.reduce((min, p) => (p.occurred_at < min ? p.occurred_at : min), item.parcels[0].occurred_at)
   }
 
-  return items
+  // Ordena a lista por data desc (gasto = occurred_at; parcelamento = data da
+  // compra), pra o parcelamento não flutuar pra posição da sua parcela mais
+  // recente. Empate mantém a ordem que veio do backend (occurred_at, created_at).
+  return items.sort((a, b) => itemDate(b).localeCompare(itemDate(a)))
 }

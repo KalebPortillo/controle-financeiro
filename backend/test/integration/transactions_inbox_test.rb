@@ -50,6 +50,23 @@ class TransactionsInboxTest < ActionDispatch::IntegrationTest
     assert_equal "5190", t["card_last_digits"]
   end
 
+  test "purchase_date (data da compra) vem do creditCardMetadata como YYYY-MM-DD (RF9.4)" do
+    txn(status: "pending", original_description: "Geladeira 1/12",
+        source_metadata: { "id" => "p1", "creditCardMetadata" => { "purchaseDate" => "2026-05-14T00:00:00.000Z" } })
+
+    get "/api/v1/transactions"
+    t = JSON.parse(response.body)["transactions"].first
+    assert_equal "2026-05-14", t["purchase_date"]
+  end
+
+  test "purchase_date é null sem creditCardMetadata" do
+    txn(status: "pending", original_description: "Conta de luz", source_metadata: { "id" => "p2" })
+
+    get "/api/v1/transactions"
+    t = JSON.parse(response.body)["transactions"].first
+    assert_nil t["purchase_date"]
+  end
+
   test "lista pendentes por default, escopado no workspace, com pending_count" do
     p1 = txn(status: "pending", original_description: "Padaria")
     txn(status: "consolidated")

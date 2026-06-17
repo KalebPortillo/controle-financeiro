@@ -282,6 +282,17 @@ class Api::V1::TransactionsController < ApplicationController
     }
   end
 
+  # Data da compra (YYYY-MM-DD) extraída do raw do Pluggy; nil quando ausente
+  # (conta corrente, OFX, manual) ou timestamp inválido.
+  def purchase_date_for(t)
+    raw = t.source_metadata&.dig("creditCardMetadata", "purchaseDate")
+    return nil if raw.blank?
+
+    Date.parse(raw.to_s).iso8601
+  rescue ArgumentError
+    nil
+  end
+
   def serialize(t)
     {
       id:                   t.id,
@@ -310,6 +321,10 @@ class Api::V1::TransactionsController < ApplicationController
       installment_number:   t.installment_number,
       installment_total:    t.installment_total,
       installment_group_id: t.installment_group_id,
+      # RF9.4 — data da COMPRA (creditCardMetadata.purchaseDate do Pluggy): a
+      # mesma pra todas as parcelas, usada pra exibir/ordenar o parcelamento
+      # agregado (occurred_at é a data de cada parcela, mensal). null fora disso.
+      purchase_date:        purchase_date_for(t),
       lock_version:         t.lock_version,
       # sort_by (não .order) pra aproveitar o preload da listagem — .order
       # dispararia uma query nova por transação mesmo com includes.

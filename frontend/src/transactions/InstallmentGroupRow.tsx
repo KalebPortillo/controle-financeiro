@@ -12,6 +12,11 @@ function signed(direction: string, cents: number): number {
   return direction === 'debit' ? -cents : cents
 }
 
+function formatDate(iso: string): string {
+  const [, m, d] = iso.split('-')
+  return `${d}/${m}`
+}
+
 /**
  * Item agregado de um parcelamento no inbox (RF9.4). Mobile-first: linha enxuta —
  * título + selo de IA na 1ª linha, fonte na 2ª, e o indicador de parcelamento em
@@ -28,7 +33,7 @@ export function InstallmentGroupRow({
   onAcceptGroup: () => void
   onOpenGroup: () => void
 }) {
-  const { representative: rep, parcels, total, groupId } = item
+  const { representative: rep, parcels, total, groupId, purchaseDate } = item
   const title = rep.improved_title || rep.original_description
   const hasTitle = Boolean(rep.improved_title)
 
@@ -108,8 +113,11 @@ export function InstallmentGroupRow({
           {rep.tags.length > 2 && <span className="text-[11px] text-muted-foreground">+{rep.tags.length - 2}</span>}
         </div>
 
-        {/* total das parcelas presentes */}
+        {/* data da compra + total das parcelas presentes */}
         <div className="text-right whitespace-nowrap">
+          <div className="text-[11px] text-muted-foreground tabular-nums mb-0.5" data-testid={`group-date-${groupId}`}>
+            {formatDate(purchaseDate)}
+          </div>
           <span data-testid={`group-total-${groupId}`}>
             <Money cents={signed(rep.direction, total)} signed className="font-semibold" />
           </span>

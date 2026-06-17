@@ -8,7 +8,7 @@ function src(o: Partial<InboxTransaction> = {}): InboxTransaction {
     id: 't1', account_id: 'a1', account_name: 'Nubank CC', account_kind: 'credit_card',
     institution_label: 'Nubank', account_institution_name: 'Nubank', account_brand: null,
     account_last_digits: null, card_last_digits: null, installment_number: null, installment_total: null,
-    installment_group_id: null, direction: 'debit', amount_cents: 1, currency: 'BRL',
+    installment_group_id: null, purchase_date: null, direction: 'debit', amount_cents: 1, currency: 'BRL',
     occurred_at: '2026-06-01', original_description: 'X', improved_title: null,
     ai_confidence: null, ai_suggestion: null, ai_status: 'analyzed', status: 'pending',
     source: 'automatic_sync', lock_version: 0, tags: [], effective_amount_cents: 1, refund: null, ...o,

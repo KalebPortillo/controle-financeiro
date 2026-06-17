@@ -14,7 +14,7 @@ function tx(o: Partial<InboxTransaction> = {}): InboxTransaction {
     id: 't1', account_id: 'a1', account_name: 'Nubank', account_kind: 'credit_card',
     institution_label: 'Nubank', account_institution_name: 'Nubank', account_brand: null,
     account_last_digits: null, card_last_digits: null, installment_number: 1, installment_total: 3,
-    installment_group_id: 'g1', direction: 'debit', amount_cents: 10000, currency: 'BRL',
+    installment_group_id: 'g1', purchase_date: null, direction: 'debit', amount_cents: 10000, currency: 'BRL',
     occurred_at: '2026-06-04', original_description: 'GELADEIRA 01/03', improved_title: 'Geladeira',
     ai_confidence: null, ai_suggestion: null, ai_status: 'analyzed', status: 'pending',
     source: 'automatic_sync', lock_version: 0, tags: [], effective_amount_cents: 10000,
@@ -25,7 +25,7 @@ function tx(o: Partial<InboxTransaction> = {}): InboxTransaction {
 function group(): InstallmentItem {
   const p1 = tx({ id: 'p1', installment_number: 1, original_description: 'GELADEIRA 01/03' })
   const p2 = tx({ id: 'p2', installment_number: 2, original_description: 'GELADEIRA 02/03', occurred_at: '2026-07-04' })
-  return { kind: 'installment', groupId: 'g1', parcels: [p1, p2], total: 20000, representative: p1 }
+  return { kind: 'installment', groupId: 'g1', parcels: [p1, p2], total: 20000, representative: p1, purchaseDate: '2026-06-04' }
 }
 
 beforeEach(() => {

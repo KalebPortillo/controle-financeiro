@@ -36,6 +36,7 @@ function tx(overrides: Partial<InboxTransaction> = {}): InboxTransaction {
     installment_number: null,
     installment_total: null,
     installment_group_id: null,
+    purchase_date: null,
     direction: 'debit',
     amount_cents: 2500,
     currency: 'BRL',

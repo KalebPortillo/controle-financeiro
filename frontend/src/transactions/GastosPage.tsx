@@ -5,6 +5,7 @@ import { Button } from '../components/Button'
 import { TagChip } from '../components/TagChip'
 import { AccountTag } from './AccountTag'
 import { InstallmentBadge } from './InstallmentBadge'
+import { CurrencyChip } from './CurrencyChip'
 import { useConsolidated, originalToShow, type InboxTransaction } from './useInbox'
 import { useOverlay } from '../app/useOverlay'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
@@ -126,8 +127,11 @@ export function GastosPage() {
               className="grid w-full text-left grid-cols-[1fr_auto] md:grid-cols-[1fr_150px_110px] gap-3 items-center px-4 py-3 border-b border-border last:border-b-0 hover:bg-muted transition-colors"
             >
               <div className="min-w-0">
-                <div className="text-[13px] font-medium truncate">
-                  {t.improved_title || t.original_description}
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className="text-[13px] font-medium truncate">
+                    {t.improved_title || t.original_description}
+                  </span>
+                  <CurrencyChip currency={t.foreign_currency} />
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
                   <AccountTag t={t} />

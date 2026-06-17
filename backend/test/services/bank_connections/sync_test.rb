@@ -25,11 +25,13 @@ class BankConnections::SyncTest < ActiveSupport::TestCase
     [ connection, account ]
   end
 
-  def txn(id, amount, desc, date: "2026-03-10", type: nil)
+  def txn(id, amount, desc, date: "2026-03-10", type: nil, currency_code: "BRL", amount_in_account_currency: nil)
     {
-      id: id, amount: amount, currency_code: "BRL", type: type,
+      id: id, amount: amount, currency_code: currency_code, type: type,
+      amount_in_account_currency: amount_in_account_currency,
       date: date, description: desc,
-      raw: { "id" => id, "amount" => amount, "type" => type }
+      raw: { "id" => id, "amount" => amount, "type" => type,
+             "currencyCode" => currency_code, "amountInAccountCurrency" => amount_in_account_currency }
     }
   end
 
@@ -57,6 +59,35 @@ class BankConnections::SyncTest < ActiveSupport::TestCase
     t2 = account.transactions.find_by!(external_transaction_id: "tx-2")
     assert_equal "credit", t2.direction
     assert_equal 120000,   t2.amount_cents
+  end
+
+  # Bug: gasto em USD entrava com o número em dólar como se fosse BRL. O Pluggy
+  # manda o valor já convertido pra moeda da conta em amountInAccountCurrency.
+  test "compra em moeda estrangeira usa o valor convertido (BRL), não o nominal em USD" do
+    connection, account = setup_connection_with_account(institution: "nubank", kind: "credit_card")
+    provider = FakeProvider.new(by_account: { "acc-1" => [
+      txn("usd-1", 400.0, "Claude", type: "DEBIT", currency_code: "USD", amount_in_account_currency: 2189.59)
+    ] })
+
+    BankConnections::Sync.call(connection: connection, provider: provider)
+
+    tx = account.transactions.find_by!(external_transaction_id: "usd-1")
+    assert_equal 218959, tx.amount_cents, "esperava R$ 2.189,59 convertido, não R$ 400"
+    assert_equal "BRL", tx.currency
+    assert_equal "debit", tx.direction
+  end
+
+  test "compra em BRL ignora amountInAccountCurrency (null) e usa o amount" do
+    connection, account = setup_connection_with_account
+    provider = FakeProvider.new(by_account: { "acc-1" => [
+      txn("brl-1", -50.0, "Padaria") # currency BRL, converted nil
+    ] })
+
+    BankConnections::Sync.call(connection: connection, provider: provider)
+
+    tx = account.transactions.find_by!(external_transaction_id: "brl-1")
+    assert_equal 5000, tx.amount_cents
+    assert_equal "BRL", tx.currency
   end
 
   # Regressão do bug crítico: gastos de cartão apareciam como receita (+).

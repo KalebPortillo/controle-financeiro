@@ -3,6 +3,7 @@ import { Money } from '../components/Money'
 import { TagChip } from '../components/TagChip'
 import { AccountTag } from './AccountTag'
 import { AiConfidenceBadge, NotAnalyzedBadge } from './AiConfidenceBadge'
+import { CurrencyChip } from './CurrencyChip'
 import { SwipeableRow } from './SwipeableRow'
 import type { InboxItem } from './inboxItems'
 
@@ -84,6 +85,7 @@ export function InstallmentGroupRow({
             </span>
             {rep.ai_confidence && <AiConfidenceBadge confidence={rep.ai_confidence} />}
             {rep.ai_status === 'failed' && <NotAnalyzedBadge id={rep.id} />}
+            <CurrencyChip currency={rep.foreign_currency} />
           </div>
           {/* 2ª linha: fonte */}
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">

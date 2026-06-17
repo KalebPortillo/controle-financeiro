@@ -169,12 +169,18 @@ module BankConnections
       # auto-consolidação quando o usuário já revisou a compra).
       inherit = group_id && Transactions::InstallmentInheritance.for(account: account, group_id: group_id)
 
+      # Compra em moeda estrangeira: o Pluggy já manda o valor convertido pra
+      # moeda da conta em amountInAccountCurrency. Usamos ele (em BRL) — senão o
+      # número em USD entraria como se fosse BRL. Mesma moeda da conta vem com
+      # esse campo null e usamos o amount normal.
+      value, currency = value_in_account_currency(account, t, amount)
+
       attrs = {
         workspace:            account.workspace,
         account:              account,
         direction:            direction_for(account, t, amount),
-        amount_cents:         (amount.abs * 100).round,
-        currency:             t[:currency_code] || "BRL",
+        amount_cents:         (value.abs * 100).round,
+        currency:             currency,
         occurred_at:          occurred,
         original_description: t[:description].presence || "(sem descrição)",
         status:               "pending",
@@ -203,6 +209,21 @@ module BankConnections
     rescue ArgumentError, ActiveRecord::RecordInvalid => e
       Rails.logger.warn("[Sync] transação ignorada (#{t[:id]}): #{e.message}")
       :errored
+    end
+
+    # [valor, moeda] na MOEDA DA CONTA. Compra em moeda estrangeira usa o valor
+    # convertido pelo banco (amountInAccountCurrency); na própria moeda da conta
+    # esse campo vem null e usamos o amount. `amount` mantém o sinal pra direção.
+    def value_in_account_currency(account, t, amount)
+      account_currency = account.currency.presence || "BRL"
+      tx_currency      = t[:currency_code].presence || account_currency
+      converted        = t[:amount_in_account_currency]
+
+      if tx_currency.to_s.upcase != account_currency.to_s.upcase && converted.present?
+        [ converted.to_f, account_currency ]
+      else
+        [ amount, tx_currency ]
+      end
     end
 
     # Direção (débito = gasto / crédito = receita). Fonte: doc do Pluggy

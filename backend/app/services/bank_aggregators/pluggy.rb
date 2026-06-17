@@ -165,6 +165,10 @@ module BankAggregators
         # inferir débito/crédito só pelo sinal. Ver BankConnections::Sync.
         type:          t["type"],
         currency_code: t["currencyCode"],
+        # Valor já convertido pra moeda da CONTA (ex.: compra em USD → BRL). O
+        # Pluggy manda null quando a compra é na própria moeda da conta. Sem
+        # isso, gasto em dólar entraria com o número em USD como se fosse BRL.
+        amount_in_account_currency: t["amountInAccountCurrency"],
         date:          t["date"],
         description:   t["description"] || t["descriptionRaw"],
         raw:           t

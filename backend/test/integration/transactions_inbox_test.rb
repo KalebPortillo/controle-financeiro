@@ -67,6 +67,18 @@ class TransactionsInboxTest < ActionDispatch::IntegrationTest
     assert_nil t["purchase_date"]
   end
 
+  test "foreign_currency traz a moeda original quando != da conta; null em BRL" do
+    txn(status: "pending", original_description: "Claude",
+        source_metadata: { "id" => "u1", "currencyCode" => "USD" })
+    txn(status: "pending", original_description: "Padaria",
+        source_metadata: { "id" => "b1", "currencyCode" => "BRL" })
+
+    get "/api/v1/transactions"
+    rows = JSON.parse(response.body)["transactions"]
+    assert_equal "USD", rows.find { |r| r["original_description"] == "Claude" }["foreign_currency"]
+    assert_nil rows.find { |r| r["original_description"] == "Padaria" }["foreign_currency"]
+  end
+
   test "lista pendentes por default, escopado no workspace, com pending_count" do
     p1 = txn(status: "pending", original_description: "Padaria")
     txn(status: "consolidated")

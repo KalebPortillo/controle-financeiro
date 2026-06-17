@@ -282,6 +282,15 @@ class Api::V1::TransactionsController < ApplicationController
     }
   end
 
+  # Código da moeda ORIGINAL quando a compra foi em moeda diferente da conta
+  # (ex.: "USD"); nil quando foi na própria moeda. O amount_cents já está
+  # convertido pra moeda da conta (BRL); isso é só pra sinalizar no card.
+  def foreign_currency_for(t)
+    code = t.source_metadata&.dig("currencyCode")
+    base = t.account&.currency.presence || "BRL"
+    code if code.present? && code.to_s.upcase != base.to_s.upcase
+  end
+
   # Data da compra (YYYY-MM-DD) extraída do raw do Pluggy; nil quando ausente
   # (conta corrente, OFX, manual) ou timestamp inválido.
   def purchase_date_for(t)
@@ -310,6 +319,9 @@ class Api::V1::TransactionsController < ApplicationController
       direction:            t.direction,
       amount_cents:         t.amount_cents,
       currency:             t.currency,
+      # Moeda original quando a compra foi em outra moeda (chip "USD" no card);
+      # null em compra na moeda da conta. amount_cents já vem convertido.
+      foreign_currency:     foreign_currency_for(t),
       occurred_at:          t.occurred_at.iso8601,
       original_description: t.original_description,
       improved_title:       t.improved_title,

@@ -174,8 +174,11 @@ Formato uniforme:
   account_institution_name, account_brand, account_last_digits, direction,
   amount_cents, currency, occurred_at, original_description, improved_title,
   ai_confidence, ai_suggestion, ai_status, status, source, installment_number,
-  installment_total, installment_group_id, purchase_date, lock_version, tags,
-  effective_amount_cents, refund`. Fonte do gasto (RF2.7): `account_kind`
+  installment_total, installment_group_id, purchase_date, foreign_currency,
+  lock_version, tags, effective_amount_cents, refund`. `amount_cents`/`currency`
+  já vêm na MOEDA DA CONTA (BRL): compra em moeda estrangeira usa o valor
+  convertido pelo banco (`amountInAccountCurrency` do Pluggy); `foreign_currency`
+  traz a moeda original (ex.: "USD") só pra sinalizar no card, null em BRL. Fonte do gasto (RF2.7): `account_kind`
   (checking/credit_card), `account_institution_name` (nome real do banco/conector —
   ex.: "Nubank"), `account_brand` (bandeira do cartão), `account_last_digits`
   (4 últimos, só cartão). `installment_*` o parcelamento (RF9.4); `purchase_date`

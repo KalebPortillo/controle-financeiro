@@ -52,6 +52,9 @@ export type InboxTransaction = {
   direction: 'debit' | 'credit'
   amount_cents: number
   currency: string
+  // Moeda original quando a compra foi em outra moeda (ex.: 'USD'); null em BRL.
+  // O amount_cents já vem convertido pra moeda da conta.
+  foreign_currency: string | null
   occurred_at: string
   original_description: string
   improved_title: string | null

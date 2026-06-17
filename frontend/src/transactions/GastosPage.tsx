@@ -137,8 +137,6 @@ export function GastosPage() {
                       <InstallmentBadge number={t.installment_number} total={t.installment_total} />
                     </>
                   )}
-                  <span className="text-border">·</span>
-                  <span>{formatDate(t.occurred_at)}</span>
                 </div>
                 {originalToShow(t) && (
                   <div className="text-[11px] text-muted-foreground/70 font-mono truncate mt-0.5" data-testid={`original-${t.id}`}>
@@ -162,6 +160,9 @@ export function GastosPage() {
                 {t.tags.length > 2 && <span className="text-[11px] text-muted-foreground">+{t.tags.length - 2}</span>}
               </div>
               <div className="text-right whitespace-nowrap">
+                <div className="text-[11px] text-muted-foreground tabular-nums mb-0.5" data-testid={`date-${t.id}`}>
+                  {formatDate(t.occurred_at)}
+                </div>
                 <Money cents={signedCents(t)} signed className="font-semibold" />
               </div>
             </button>

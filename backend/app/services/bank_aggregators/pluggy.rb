@@ -56,6 +56,16 @@ module BankAggregators
       }
     end
 
+    # Força uma nova sincronização do item com a instituição (PATCH /items/{id}).
+    # Sem credentials no corpo, o Pluggy usa as armazenadas (consentimento Open
+    # Finance válido — sem MFA). O item vai pra UPDATING e o resultado chega
+    # depois via webhook (item/updated / transactions/created). Devolve { id, status }.
+    def update_item(item_id:)
+      payload = request(Net::HTTP::Patch, "/items/#{item_id}",
+                        body: {}, authenticated: true, retry_on_401: true)
+      { id: payload["id"], status: payload["status"] }
+    end
+
     # Lista accounts de um item (item = conexão Pluggy com banco).
     # Cada item: { id:, type:, name:, number?:, balance?:, currency_code? }.
     def list_accounts(item_id:)

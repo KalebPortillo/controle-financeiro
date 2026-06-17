@@ -20,6 +20,28 @@ namespace :pluggy do
     end
   end
 
+  # Força o Pluggy a re-buscar no banco (PATCH /items) as conexões conectadas —
+  # útil pra "puxar agora" sem esperar a cadência de auto-update do Pluggy. O
+  # resultado (gastos novos) chega depois via webhook → sync → notificação.
+  #
+  # Uso: bin/rails pluggy:refresh_items
+  desc "Dispara uma re-sincronização no Pluggy (PATCH /items) das conexões conectadas"
+  task refresh_items: :environment do
+    provider = BankAggregators::Pluggy.new(
+      client_id:     ENV.fetch("PLUGGY_CLIENT_ID"),
+      client_secret: ENV.fetch("PLUGGY_CLIENT_SECRET")
+    )
+
+    conns = BankConnection.where(provider: "pluggy", status: "connected")
+    conns.find_each do |c|
+      result = provider.update_item(item_id: c.external_connection_id)
+      puts "item #{c.external_connection_id[0, 8]}… → #{result[:status]}"
+    rescue BankAggregators::Error => e
+      puts "item #{c.external_connection_id[0, 8]}… ERRO: #{e.message}"
+    end
+    puts "[pluggy:refresh_items] disparados=#{conns.count}"
+  end
+
   # Cria um item sandbox novo no Pluggy (connector 2 + user-ok/password-ok)
   # e imprime os IDs (item, accounts) pra atualizar a constante
   # `SANDBOX_ITEM_ID` em test/services/bank_aggregators/pluggy_test.rb e

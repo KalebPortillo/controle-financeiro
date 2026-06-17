@@ -180,4 +180,19 @@ class BankAggregators::PluggyTest < ActiveSupport::TestCase
     assert_equal({ "X-Webhook-Secret" => "sek" }, posted["headers"])
     assert_equal({ id: "wh9", event: "transactions/created", url: "https://a/api/v1/webhooks/pluggy" }, result)
   end
+
+  test "update_item faz PATCH /items/{id} com corpo vazio e devolve id/status" do
+    stub_auth
+    body = nil
+    stub_request(:patch, "https://api.pluggy.ai/items/item-123").to_return do |req|
+      body = req.body
+      { status: 200, body: { id: "item-123", status: "UPDATING" }.to_json,
+        headers: { "Content-Type" => "application/json" } }
+    end
+
+    result = provider.update_item(item_id: "item-123")
+
+    assert_equal "{}", body # usa o consentimento armazenado (sem credentials)
+    assert_equal({ id: "item-123", status: "UPDATING" }, result)
+  end
 end

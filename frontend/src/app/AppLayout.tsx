@@ -8,8 +8,6 @@ import {
   Repeat,
   MoreHorizontal,
   Search,
-  Sun,
-  Moon,
   type LucideIcon,
 } from 'lucide-react'
 import { WalletLogo } from '../components/WalletLogo'
@@ -17,9 +15,11 @@ import { useTheme } from '../components/useTheme'
 import { useSession } from '../auth/useSession'
 import { InboxBadge } from '../transactions/InboxBadge'
 import { GlobalSyncIndicator } from '../bank/GlobalSyncIndicator'
+import { SyncAllButton } from '../bank/SyncAllButton'
 import { NotificationsBell } from '../notifications/NotificationsBell'
 import { useNotificationsChannel } from '../notifications/useNotificationsChannel'
 import { useTransactionsChannel } from '../transactions/useTransactionsChannel'
+import { useBankConnectionsChannel } from '../bank/useBankConnectionsChannel'
 
 type NavItem = {
   id: string
@@ -43,20 +43,25 @@ const NAV_ITEMS: NavItem[] = [
  * (ui_kits/app/Shell.jsx). As telas vivem no <Outlet/>.
  */
 export function AppLayout() {
-  const { theme, toggle } = useTheme()
+  // Aplica o tema (claro/escuro) globalmente no load; o controle de troca vive
+  // na tela "Mais" (DashboardPage), não mais no top bar.
+  useTheme()
   const { data } = useSession()
   const active = data?.workspaces.find((w) => w.id === data.active_workspace_id) ?? data?.workspaces[0]
   // Notificações em tempo real (RF17) — escopadas no workspace ativo.
   useNotificationsChannel(active?.id)
   // Inbox em tempo real (RF2.3) — decisão de outro membro some da minha lista.
   useTransactionsChannel(active?.id)
+  // Status de sync em tempo real (RF21.3) — o indicador/botão no top bar reflete
+  // início e fim da sincronização sem polling, em qualquer tela.
+  useBankConnectionsChannel(active?.id)
 
   return (
     <div className="min-h-screen bg-background text-foreground md:grid md:grid-cols-[256px_1fr]">
       <Sidebar workspaceName={active?.name} userEmail={data?.user.email} />
 
       <div className="flex flex-col min-w-0 min-h-screen">
-        <TopBar theme={theme} onToggleTheme={toggle} />
+        <TopBar />
         <main className="flex-1 overflow-y-auto px-4 md:px-8 py-6 pb-20 md:pb-6">
           <Outlet />
         </main>
@@ -132,7 +137,7 @@ function SidebarItem({ item }: { item: NavItem }) {
   )
 }
 
-function TopBar({ theme, onToggleTheme }: { theme: string; onToggleTheme: () => void }) {
+function TopBar() {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
 
@@ -161,14 +166,7 @@ function TopBar({ theme, onToggleTheme }: { theme: string; onToggleTheme: () => 
       </form>
       <div className="ml-auto flex items-center gap-3">
         <GlobalSyncIndicator />
-        <button
-          onClick={onToggleTheme}
-          aria-label="Alternar tema"
-          data-testid="theme-toggle"
-          className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
+        <SyncAllButton />
         <NotificationsBell />
       </div>
     </header>

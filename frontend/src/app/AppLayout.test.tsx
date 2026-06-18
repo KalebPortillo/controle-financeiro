@@ -5,8 +5,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route, useSearchParams } from 'react-router'
 import { AppLayout } from './AppLayout'
 
-function setupFetch() {
-  globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+type Summary = { total: number; connected: number; syncing: number; error: number }
+const NO_CONNECTIONS: Summary = { total: 0, connected: 0, syncing: 0, error: 0 }
+
+function setupFetch(summary: Summary = NO_CONNECTIONS) {
+  const calls: Array<{ url: string; method: string }> = []
+  globalThis.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+    calls.push({ url, method: init?.method ?? 'GET' })
     if (url === '/api/v1/sessions/current') {
       return {
         ok: true,
@@ -18,15 +23,19 @@ function setupFetch() {
         }),
       } as Response
     }
+    if (url === '/api/v1/bank_connections/sync_all') {
+      return { ok: true, status: 202, json: async () => ({ enqueued: summary.total }) } as Response
+    }
     if (url.startsWith('/api/v1/transactions')) {
       return { ok: true, status: 200, json: async () => ({ transactions: [], pending_count: 0 }) } as Response
     }
-    // GlobalSyncIndicator no topbar busca isso; sem conexões → não renderiza nada.
+    // GlobalSyncIndicator/SyncAllButton no topbar buscam isso; total 0 → não renderizam.
     if (url === '/api/v1/bank_connections') {
-      return { ok: true, status: 200, json: async () => ({ connections: [], summary: { total: 0, connected: 0, syncing: 0, error: 0 } }) } as Response
+      return { ok: true, status: 200, json: async () => ({ connections: [], summary }) } as Response
     }
     throw new Error(`unmocked: ${url}`)
   }) as unknown as typeof fetch
+  return { calls }
 }
 
 function renderShell() {
@@ -85,14 +94,29 @@ describe('<AppLayout />', () => {
     await waitFor(() => expect(screen.getByText('gastos q=amazon')).toBeInTheDocument())
   })
 
-  it('theme toggle flips data-theme on <html>', async () => {
+  it('does not render the theme toggle in the top bar (moved to "Mais")', async () => {
     setupFetch()
     renderShell()
+    await waitFor(() => expect(screen.getByText('Casa do Kaleb')).toBeInTheDocument())
+    expect(screen.queryByTestId('theme-toggle')).not.toBeInTheDocument()
+  })
+
+  it('top bar sync button forces a sync of all connections', async () => {
+    const { calls } = setupFetch({ total: 1, connected: 1, syncing: 0, error: 0 })
+    renderShell()
     const user = userEvent.setup()
-    const before = document.documentElement.getAttribute('data-theme')
-    await user.click(screen.getByTestId('theme-toggle'))
+    await user.click(await screen.findByTestId('sync-all-button'))
     await waitFor(() =>
-      expect(document.documentElement.getAttribute('data-theme')).not.toBe(before)
+      expect(
+        calls.some((c) => c.url === '/api/v1/bank_connections/sync_all' && c.method === 'POST')
+      ).toBe(true)
     )
+  })
+
+  it('hides the sync button when there are no connections', async () => {
+    setupFetch()
+    renderShell()
+    await waitFor(() => expect(screen.getByText('Casa do Kaleb')).toBeInTheDocument())
+    expect(screen.queryByTestId('sync-all-button')).not.toBeInTheDocument()
   })
 })

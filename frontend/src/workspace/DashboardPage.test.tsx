@@ -72,7 +72,24 @@ function renderDashboard() {
 }
 
 describe('<DashboardPage />', () => {
-  beforeEach(() => vi.restoreAllMocks())
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    localStorage.clear()
+    document.documentElement.removeAttribute('data-theme')
+  })
+
+  it('toggles the theme (data-theme on <html>) from the "Mais" page', async () => {
+    setupFetch(buildSession())
+    renderDashboard()
+
+    const toggle = await screen.findByTestId('theme-toggle')
+    const before = document.documentElement.getAttribute('data-theme')
+    const user = userEvent.setup()
+    await user.click(toggle)
+    await waitFor(() =>
+      expect(document.documentElement.getAttribute('data-theme')).not.toBe(before)
+    )
+  })
 
   it('greets the user and shows the active workspace', async () => {
     const session = buildSession()

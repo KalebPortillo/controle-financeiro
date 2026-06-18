@@ -1,4 +1,3 @@
-import { useState, type FormEvent } from 'react'
 import { NavLink, useLocation, useNavigate, Outlet } from 'react-router'
 import {
   Inbox,
@@ -7,7 +6,6 @@ import {
   BarChart3,
   Repeat,
   MoreHorizontal,
-  Search,
   type LucideIcon,
 } from 'lucide-react'
 import { WalletLogo } from '../components/WalletLogo'
@@ -138,36 +136,11 @@ function SidebarItem({ item }: { item: NavItem }) {
 }
 
 function TopBar() {
-  const navigate = useNavigate()
-  const { pathname } = useLocation()
-  const [query, setQuery] = useState('')
-
-  // Context-aware: a busca respeita a seção atual. No inbox, busca no inbox; nas
-  // demais telas, cai nos gastos consolidados. Cada página lê o ?q e filtra a
-  // própria lista; aqui é só o ponto de entrada.
-  const onInbox = pathname.startsWith('/inbox')
-  function submit(e: FormEvent) {
-    e.preventDefault()
-    const base = onInbox ? '/inbox' : '/gastos'
-    const q = query.trim()
-    navigate(q ? `${base}?q=${encodeURIComponent(q)}` : base)
-  }
-
   return (
     <header className="flex items-center gap-4 h-14 px-4 md:px-8 border-b border-border bg-background shrink-0">
       <div className="flex items-center gap-2 md:hidden font-display text-sm font-semibold shrink-0">
         <WalletLogo size={18} />
       </div>
-      <form onSubmit={submit} className="flex flex-1 max-w-xl relative items-center min-w-0">
-        <Search size={14} className="absolute left-3 text-muted-foreground pointer-events-none" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={onInbox ? 'Buscar no inbox…' : 'Buscar gastos, tags, contas…'}
-          data-testid="topbar-search"
-          className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-2 focus:outline-ring/30"
-        />
-      </form>
       <div className="ml-auto flex items-center gap-3">
         <GlobalSyncIndicator />
         <SyncAllButton />

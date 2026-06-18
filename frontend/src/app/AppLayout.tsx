@@ -146,10 +146,10 @@ function TopBar({ theme, onToggleTheme }: { theme: string; onToggleTheme: () => 
 
   return (
     <header className="flex items-center gap-4 h-14 px-4 md:px-8 border-b border-border bg-background shrink-0">
-      <div className="flex items-center gap-2 md:hidden font-display text-sm font-semibold">
+      <div className="flex items-center gap-2 md:hidden font-display text-sm font-semibold shrink-0">
         <WalletLogo size={18} />
       </div>
-      <form onSubmit={submit} className="flex-1 max-w-xl relative items-center hidden sm:flex">
+      <form onSubmit={submit} className="flex flex-1 max-w-xl relative items-center min-w-0">
         <Search size={14} className="absolute left-3 text-muted-foreground pointer-events-none" />
         <input
           value={query}

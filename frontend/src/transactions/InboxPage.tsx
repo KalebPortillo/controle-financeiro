@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
+import { useSearchParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { Check, CheckSquare, Sparkles, Loader2 } from 'lucide-react'
+import { Check, CheckSquare, Sparkles, Loader2, Search, X } from 'lucide-react'
+import { useDebounced } from '../app/useDebounced'
+import { transactionMatchesQuery } from './searchMatch'
 import { Button } from '../components/Button'
 import { Money } from '../components/Money'
 import { TagChip } from '../components/TagChip'
@@ -52,6 +55,24 @@ export function InboxPage() {
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
+  // Busca como estado de URL (?q) — context-aware: aqui filtra o inbox. A inbox
+  // é um conjunto limitado e seu cache (otimista + tempo real) é atrelado ao
+  // inboxKey, então filtramos client-side (sem nova query key) — instantâneo.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const q = searchParams.get('q') ?? ''
+  const debouncedQ = useDebounced(q, 200)
+  const searching = debouncedQ.trim().length > 0
+  const setQuery = (value: string) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (value) next.set('q', value)
+        else next.delete('q')
+        return next
+      },
+      { replace: true },
+    )
+
   // Overlays como estado de URL (?tx, ?group) → back do navegador fecha o sheet.
   const { get, push, close } = useOverlay()
   const activeId = get('tx')
@@ -62,8 +83,13 @@ export function InboxPage() {
   const groupSheetOpen = activeGroupId != null && activeId == null
 
   const transactions = useMemo(() => data?.transactions ?? [], [data?.transactions])
-  // Memoizado: só recalcula quando a lista muda, não a cada render (seleção, etc.).
-  const items = useMemo(() => buildInboxItems(transactions), [transactions])
+  // Aplica a busca (?q) sobre os pendentes carregados antes de agrupar parcelas.
+  const visible = useMemo(
+    () => (searching ? transactions.filter((t) => transactionMatchesQuery(t, debouncedQ)) : transactions),
+    [transactions, searching, debouncedQ],
+  )
+  // Memoizado: só recalcula quando a lista (filtrada) muda, não a cada render.
+  const items = useMemo(() => buildInboxItems(visible), [visible])
   const active = transactions.find((t) => t.id === activeId) ?? null
   const activeGroup =
     items.find(
@@ -163,6 +189,30 @@ export function InboxPage() {
         )}
       </div>
 
+      {transactions.length > 0 && (
+        <div className="relative flex items-center mb-4">
+          <Search size={14} className="absolute left-3 text-muted-foreground pointer-events-none" />
+          <input
+            value={q}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar no inbox por título, descrição ou tag…"
+            data-testid="inbox-search"
+            aria-label="Buscar no inbox"
+            className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-2 focus:outline-ring/30"
+          />
+          {q && (
+            <button
+              onClick={() => setQuery('')}
+              aria-label="Limpar busca"
+              data-testid="inbox-search-clear"
+              className="absolute right-2 h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      )}
+
       {analyzing && (
         <div className="mb-4 space-y-1" data-testid="analysis-progress">
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -208,8 +258,13 @@ export function InboxPage() {
           Nada pendente. Tudo revisado.
         </p>
       )}
+      {!isLoading && transactions.length > 0 && visible.length === 0 && (
+        <p className="text-sm text-muted-foreground" data-testid="inbox-search-empty">
+          Nenhum pendente encontrado para “{debouncedQ}”.
+        </p>
+      )}
 
-      {transactions.length > 0 && (
+      {visible.length > 0 && (
         <div className="border border-border rounded-lg overflow-hidden">
           <div className="hidden md:grid grid-cols-[32px_1fr_150px_110px] gap-3 px-4 py-2 text-[11px] uppercase tracking-wider font-medium text-muted-foreground border-b border-border">
             <span />

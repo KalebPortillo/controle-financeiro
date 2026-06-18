@@ -139,14 +139,18 @@ function SidebarItem({ item }: { item: NavItem }) {
 
 function TopBar() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const [query, setQuery] = useState('')
 
-  // Atalho global: digitar + Enter leva à busca em Gastos (?q). A busca completa
-  // (lista própria de resultados) vive na página; aqui é só o ponto de entrada.
+  // Context-aware: a busca respeita a seção atual. No inbox, busca no inbox; nas
+  // demais telas, cai nos gastos consolidados. Cada página lê o ?q e filtra a
+  // própria lista; aqui é só o ponto de entrada.
+  const onInbox = pathname.startsWith('/inbox')
   function submit(e: FormEvent) {
     e.preventDefault()
+    const base = onInbox ? '/inbox' : '/gastos'
     const q = query.trim()
-    navigate(q ? `/gastos?q=${encodeURIComponent(q)}` : '/gastos')
+    navigate(q ? `${base}?q=${encodeURIComponent(q)}` : base)
   }
 
   return (
@@ -159,7 +163,7 @@ function TopBar() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar gastos, tags, contas…"
+          placeholder={onInbox ? 'Buscar no inbox…' : 'Buscar gastos, tags, contas…'}
           data-testid="topbar-search"
           className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-2 focus:outline-ring/30"
         />

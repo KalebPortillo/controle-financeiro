@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { ChevronLeft, ChevronRight, Plus, Search, X } from 'lucide-react'
+import { useDebounced } from '../app/useDebounced'
 import { Money } from '../components/Money'
 import { Button } from '../components/Button'
 import { TagChip } from '../components/TagChip'
@@ -37,17 +38,6 @@ function formatDate(iso: string): string {
 
 function signedCents(t: InboxTransaction): number {
   return t.direction === 'debit' ? -t.amount_cents : t.amount_cents
-}
-
-// Atrasa o valor pra não disparar uma busca por tecla (a URL atualiza na hora;
-// só o fetch espera o usuário parar de digitar).
-function useDebounced<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay)
-    return () => clearTimeout(t)
-  }, [value, delay])
-  return debounced
 }
 
 /**

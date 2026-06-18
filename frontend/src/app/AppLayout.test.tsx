@@ -38,18 +38,16 @@ function setupFetch(summary: Summary = NO_CONNECTIONS) {
   return { calls }
 }
 
-function renderShell() {
+function renderShell(initialEntry = '/') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={['/']}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route element={<AppLayout />}>
             <Route path="/" element={<div>conteúdo</div>} />
-            <Route
-              path="/gastos"
-              element={<GastosRouteProbe />}
-            />
+            <Route path="/gastos" element={<RouteProbe section="gastos" />} />
+            <Route path="/inbox" element={<RouteProbe section="inbox" />} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -57,10 +55,10 @@ function renderShell() {
   )
 }
 
-// Sonda: mostra o ?q da URL pra assertar a navegação da busca da TopBar.
-function GastosRouteProbe() {
+// Sonda: mostra a seção + ?q da URL pra assertar a navegação da busca da TopBar.
+function RouteProbe({ section }: { section: string }) {
   const [params] = useSearchParams()
-  return <div>gastos q={params.get('q')}</div>
+  return <div>{section} q={params.get('q')}</div>
 }
 
 describe('<AppLayout />', () => {
@@ -86,12 +84,20 @@ describe('<AppLayout />', () => {
     expect(orcamentos.tagName).not.toBe('A') // não navegável
   })
 
-  it('topbar search navigates to /gastos with the typed query', async () => {
+  it('topbar search defaults to /gastos with the typed query', async () => {
     setupFetch()
     renderShell()
     const user = userEvent.setup()
     await user.type(screen.getByTestId('topbar-search'), 'amazon{Enter}')
     await waitFor(() => expect(screen.getByText('gastos q=amazon')).toBeInTheDocument())
+  })
+
+  it('topbar search is context-aware: stays in the inbox when on /inbox', async () => {
+    setupFetch()
+    renderShell('/inbox')
+    const user = userEvent.setup()
+    await user.type(screen.getByTestId('topbar-search'), 'amazon{Enter}')
+    await waitFor(() => expect(screen.getByText('inbox q=amazon')).toBeInTheDocument())
   })
 
   it('does not render the theme toggle in the top bar (moved to "Mais")', async () => {

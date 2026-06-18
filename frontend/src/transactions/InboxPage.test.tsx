@@ -85,6 +85,45 @@ describe('<InboxPage />', () => {
     expect(screen.getByTestId('inbox-row-t1')).toBeInTheDocument()
   })
 
+  it('filters the inbox client-side by the search query', async () => {
+    setupFetch({
+      '/api/v1/transactions?status=pending': {
+        status: 200,
+        body: {
+          transactions: [
+            tx({ id: 't1', original_description: 'PADARIA CENTRAL' }),
+            tx({ id: 't2', improved_title: 'Amazon Prime', original_description: 'AMZN MKTP' }),
+          ],
+          pending_count: 2,
+        },
+      },
+    })
+    renderInbox()
+    await screen.findByTestId('inbox-row-t1')
+
+    const user = userEvent.setup()
+    await user.type(screen.getByTestId('inbox-search'), 'amazon')
+
+    await waitFor(() => expect(screen.queryByTestId('inbox-row-t1')).not.toBeInTheDocument())
+    expect(screen.getByTestId('inbox-row-t2')).toBeInTheDocument()
+  })
+
+  it('shows a no-results message when the inbox search matches nothing', async () => {
+    setupFetch({
+      '/api/v1/transactions?status=pending': {
+        status: 200,
+        body: { transactions: [tx({ id: 't1', original_description: 'PADARIA CENTRAL' })], pending_count: 1 },
+      },
+    })
+    renderInbox()
+    await screen.findByTestId('inbox-row-t1')
+
+    const user = userEvent.setup()
+    await user.type(screen.getByTestId('inbox-search'), 'zzzzz')
+
+    await waitFor(() => expect(screen.getByTestId('inbox-search-empty')).toBeInTheDocument())
+  })
+
   it('shows the original bank description when the AI changed the title', async () => {
     setupFetch({
       '/api/v1/transactions?status=pending': {

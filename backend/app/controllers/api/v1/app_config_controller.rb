@@ -11,13 +11,18 @@ class Api::V1::AppConfigController < ApplicationController
   end
 
   # Lógica pura (env → config), extraída pra ser testável sem stubar Rails.env.
+  # Staging usa as MESMAS credenciais Pluggy de produção (secrets-common
+  # compartilhado), então também conecta bancos REAIS — só dev/test ficam presos
+  # ao conector sandbox.
+  REAL_BANK_ENVS = %w[production staging].freeze
+
   def self.config_for(env)
-    production = env.to_s == "production"
+    real_banks = REAL_BANK_ENVS.include?(env.to_s)
     {
       environment: env.to_s,
       pluggy: {
-        include_sandbox: !production,
-        connector_ids:   production ? nil : SANDBOX_CONNECTOR_IDS
+        include_sandbox: !real_banks,
+        connector_ids:   real_banks ? nil : SANDBOX_CONNECTOR_IDS
       }
     }
   end

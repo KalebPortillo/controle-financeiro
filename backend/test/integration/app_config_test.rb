@@ -14,12 +14,14 @@ class AppConfigTest < ActionDispatch::IntegrationTest
     assert_equal [ 2 ], body.dig("pluggy", "connector_ids")
   end
 
-  test "config_for(staging): sandbox ligado + whitelist de conectores de teste" do
+  test "config_for(staging): igual a produção — bancos reais, sem sandbox" do
+    # Staging usa as MESMAS credenciais Pluggy de produção (secrets-common
+    # compartilhado), então conecta contas REAIS pra teste, como produção.
     cfg = Api::V1::AppConfigController.config_for("staging")
 
     assert_equal "staging", cfg[:environment]
-    assert_equal true,  cfg[:pluggy][:include_sandbox]
-    assert_equal [ 2 ], cfg[:pluggy][:connector_ids]
+    assert_equal false, cfg[:pluggy][:include_sandbox]
+    assert_nil cfg[:pluggy][:connector_ids]
   end
 
   test "config_for(production): sem sandbox e sem whitelist (só bancos reais)" do

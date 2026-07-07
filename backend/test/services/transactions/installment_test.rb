@@ -55,39 +55,36 @@ class Transactions::InstallmentTest < ActiveSupport::TestCase
     assert_match(/\A[0-9a-f-]{36}\z/, a)
   end
 
-  # purchaseDate é o identificador de fato da compra no Pluggy (idêntico em todas
-  # as parcelas reais). Quando presente, ele manda — distingue compras diferentes
-  # no mesmo estabelecimento+total, que antes colidiam pelo descritor.
-  def raw_cc(purchase_date:, number:, total:, card: "5190")
-    { "creditCardMetadata" => {
-      "purchaseDate" => purchase_date, "cardNumber" => card,
-      "installmentNumber" => number, "totalInstallments" => total
-    } }
+  # A data da COMPRA é retro-calculada da parcela (occurred − (número−1) meses),
+  # NÃO lida do `purchaseDate`: o Pluggy emite purchaseDate SINTÉTICO (= data da
+  # fatura) nas parcelas futuras/projetadas, o que fragmentava a compra em vários
+  # grupos. Retro-calcular cola todas as parcelas e distingue compras por data+total.
+  test "group_id cola parcelas da mesma compra (occurred+número → mesma data)" do
+    a = Transactions::Installment.group_id(account_id: "acc-1", description: "LOJA 7/10", total: 10,
+                                           number: 7, occurred: Date.new(2026, 4, 13))
+    b = Transactions::Installment.group_id(account_id: "acc-1", description: "LOJA 8/10", total: 10,
+                                           number: 8, occurred: Date.new(2026, 5, 13))
+    assert_equal a, b, "parcelas 7 e 8 da mesma compra (out/2025) → mesmo group_id"
   end
 
-  test "group_id usa purchaseDate quando presente (parcelas da mesma compra colam)" do
-    p1 = raw_cc(purchase_date: "2025-10-13T15:00:47.001Z", number: 7, total: 10)
-    p2 = raw_cc(purchase_date: "2025-10-13T15:00:47.001Z", number: 8, total: 10)
-    a = Transactions::Installment.group_id(account_id: "acc-1", description: "LOJA 7/10", total: 10, raw: p1)
-    b = Transactions::Installment.group_id(account_id: "acc-1", description: "LOJA 8/10", total: 10, raw: p2)
-    assert_equal a, b
+  # Regressão do bug real (Vivoeasyanual): a parcela canônica traz purchaseDate
+  # real e as projetadas trazem purchaseDate sintético; mesmo assim colam, porque
+  # o anchor ignora purchaseDate e usa occurred+número.
+  test "group_id cola parcela canônica e projetada da mesma compra" do
+    canonical = Transactions::Installment.group_id(account_id: "acc-1", description: "LITE VIVO 1/12",
+                                                   total: 12, number: 1, occurred: Date.new(2026, 6, 9))
+    projected = Transactions::Installment.group_id(account_id: "acc-1", description: "LITE VIVO 2/12",
+                                                   total: 12, number: 2, occurred: Date.new(2026, 7, 9))
+    assert_equal canonical, projected, "1/12 e 2/12 (jun/2026) → mesmo group_id"
   end
 
-  test "group_id separa compras distintas no mesmo lugar+total por purchaseDate" do
+  test "group_id separa compras distintas no mesmo lugar+total por data de compra" do
     same_desc = "SAO JORGE SHOPPING 8/10"
     a = Transactions::Installment.group_id(account_id: "acc-1", description: same_desc, total: 10,
-                                           raw: raw_cc(purchase_date: "2025-09-25T13:05:38.001Z", number: 8, total: 10))
+                                           number: 8, occurred: Date.new(2026, 4, 25))
     b = Transactions::Installment.group_id(account_id: "acc-1", description: same_desc, total: 10,
-                                           raw: raw_cc(purchase_date: "2025-09-29T18:39:58.001Z", number: 8, total: 10))
-    assert_not_equal a, b, "mesmo descritor+total mas purchaseDate diferente → grupos diferentes"
-  end
-
-  test "group_id sem purchaseDate cai no descritor (mesma chave de antes)" do
-    legacy = Transactions::Installment.group_id(account_id: "acc-1", description: "GELADEIRA 3/12", total: 12)
-    with_raw_no_purchase = Transactions::Installment.group_id(
-      account_id: "acc-1", description: "GELADEIRA 3/12", total: 12, raw: { "creditCardMetadata" => { "cardNumber" => "5190" } }
-    )
-    assert_equal legacy, with_raw_no_purchase
+                                           number: 8, occurred: Date.new(2026, 4, 29))
+    assert_not_equal a, b, "compras 4 dias distintas → grupos diferentes"
   end
 
   test "projected?: purchaseDate sintético (meia-noite = própria data) sem MCC" do

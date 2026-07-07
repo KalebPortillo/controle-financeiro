@@ -21,16 +21,31 @@ class Transactions::RegroupInstallmentsTest < ActiveSupport::TestCase
            source_metadata: cc(purchase_date: purchase_date, number: number, total: total, mcc: mcc))
   end
 
-  test "separa compras distintas no mesmo lugar+total que colidiam num grupo só" do
-    # Duas compras 10x no mesmo estabelecimento, purchaseDate diferente, mesmo
-    # group_id legado.
-    a = parcel(desc: "SAO JORGE 8/10", number: 8, total: 10, purchase_date: "2025-09-25T13:05:38.001Z", occurred: Date.new(2026, 4, 3))
-    b = parcel(desc: "SAO JORGE 8/10", number: 8, total: 10, purchase_date: "2025-09-29T18:39:58.001Z", occurred: Date.new(2026, 4, 3))
+  test "separa compras distintas no mesmo lugar+total por data de compra" do
+    # Duas compras 10x no mesmo estabelecimento, em DIAS de compra diferentes
+    # (refletidos na data de fatura da parcela), mesmo group_id legado.
+    a = parcel(desc: "SAO JORGE 8/10", number: 8, total: 10, purchase_date: "2025-09-25T13:05:38.001Z", occurred: Date.new(2026, 4, 25))
+    b = parcel(desc: "SAO JORGE 8/10", number: 8, total: 10, purchase_date: "2025-09-29T18:39:58.001Z", occurred: Date.new(2026, 4, 29))
 
     result = Transactions::RegroupInstallments.call(scope: @ws.transactions)
 
     assert_equal 2, result[:regrouped]
     assert_not_equal a.reload.installment_group_id, b.reload.installment_group_id
+  end
+
+  test "cola parcelas com purchaseDate sintético (projetadas) da mesma compra" do
+    # Bug real (Vivoeasyanual): a canônica (1/12) traz purchaseDate real e as
+    # projetadas (2/12, 3/12) trazem purchaseDate sintético = data da fatura, o
+    # que fragmentava a compra em grupos distintos. Regroup deve uni-las.
+    p1 = parcel(desc: "LITE VIVO 1/12", number: 1, total: 12, purchase_date: "2026-06-09T12:46:58.001Z", occurred: Date.new(2026, 6, 9), group: "g1")
+    p2 = parcel(desc: "LITE VIVO 2/12", number: 2, total: 12, mcc: nil, purchase_date: "2026-07-09T00:00:00.001Z", occurred: Date.new(2026, 7, 9), group: "g2")
+    p3 = parcel(desc: "LITE VIVO 3/12", number: 3, total: 12, mcc: nil, purchase_date: "2026-08-09T00:00:00.001Z", occurred: Date.new(2026, 8, 9), group: "g3")
+
+    result = Transactions::RegroupInstallments.call(scope: @ws.transactions)
+
+    ids = [ p1, p2, p3 ].map { |p| p.reload.installment_group_id }.uniq
+    assert_equal 1, ids.size, "as 3 parcelas devem cair num único grupo"
+    assert_equal 0, result[:rejected], "números distintos → nenhuma é duplicata projetada"
   end
 
   test "mantém parcelas da mesma compra no mesmo grupo" do

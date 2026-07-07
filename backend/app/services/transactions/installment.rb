@@ -18,22 +18,30 @@ module Transactions
       from_metadata(raw) || from_description(description)
     end
 
-    # group_id determinístico das parcelas da mesma compra. O Pluggy não expõe um
-    # id de compra, mas o `creditCardMetadata.purchaseDate` (timestamp da compra
-    # original) é idêntico em todas as parcelas reais — é o identificador de fato.
-    # Quando presente, a chave é conta+cartão+purchaseDate+total, o que distingue
-    # compras diferentes no MESMO estabelecimento e total (que colidiam pelo
-    # descritor). Sem purchaseDate (OFX/manual), cai no descritor normalizado.
-    def group_id(account_id:, description:, total:, raw: nil)
-      meta = raw["creditCardMetadata"] if raw.is_a?(Hash)
-      purchase = meta["purchaseDate"].presence if meta.is_a?(Hash)
-      key =
-        if purchase
-          "#{account_id}:#{meta['cardNumber']}:#{purchase}:#{total}"
-        else
-          "#{account_id}:#{Recurrences::Descriptor.normalize(description)}:#{total}"
-        end
+    # group_id determinístico das parcelas da mesma compra. A chave é
+    # conta+descritor+DATA_DA_COMPRA+total. A data da compra é RETRO-CALCULADA da
+    # parcela (`occurred` − (`number`−1) meses), não lida do
+    # `creditCardMetadata.purchaseDate`: o Pluggy emite purchaseDate SINTÉTICO (= a
+    # data da fatura) nas parcelas futuras/projetadas E varia o cardNumber entre a
+    # canônica e as projetadas, o que fragmentava uma compra em vários grupos.
+    # Retro-calcular cola todas as parcelas (todas apontam pro mesmo mês/dia de
+    # compra) e ainda distingue compras diferentes no mesmo lugar+total pela data.
+    # Sem number/occurred (OFX/manual), cai no descritor normalizado.
+    def group_id(account_id:, description:, total:, number: nil, occurred: nil)
+      desc   = Recurrences::Descriptor.normalize(description)
+      anchor = purchase_anchor(number: number, occurred: occurred)
+      key    = anchor ? "#{account_id}:#{desc}:#{anchor}:#{total}" : "#{account_id}:#{desc}:#{total}"
       Digest::UUID.uuid_v5(NAMESPACE, key)
+    end
+
+    # Data (ISO) da compra retro-calculada da parcela: a parcela N faturada em
+    # `occurred` veio de uma compra ~(N−1) meses antes. Independe do purchaseDate.
+    def purchase_anchor(number:, occurred:)
+      return unless number && occurred
+
+      (occurred.to_date << (number.to_i - 1)).iso8601
+    rescue ArgumentError, Date::Error, TypeError, NoMethodError
+      nil
     end
 
     # Parcela "projetada" do Pluggy: quando não há a compra real no extrato, ele

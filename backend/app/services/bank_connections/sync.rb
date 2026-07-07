@@ -163,7 +163,8 @@ module BankConnections
       end
 
       group_id = installment && Transactions::Installment.group_id(
-        account_id: account.id, description: t[:description], total: installment.total, raw: t[:raw]
+        account_id: account.id, description: t[:description], total: installment.total,
+        number: installment.number, occurred: occurred
       )
       # RF9.4.2: herança das parcelas do mesmo parcelamento (título/tags +
       # auto-consolidação quando o usuário já revisou a compra).

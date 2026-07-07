@@ -24,7 +24,8 @@ module Transactions
           account_id:  t.account_id,
           description: t.original_description,
           total:       t.installment_total,
-          raw:         t.source_metadata
+          number:      t.installment_number,
+          occurred:    t.occurred_at
         )
         next if new_id == t.installment_group_id
 

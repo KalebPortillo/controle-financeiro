@@ -66,6 +66,11 @@ module BankConnections
       # RF9.1: detecção de recorrentes ao fim do sync (fora do onboarding).
       maybe_kickoff_recurrence_detection
 
+      # RF23: liga IOF de compra internacional ao gasto de origem. Idempotente;
+      # só quando houve transação nova (o IOF pode chegar num sync posterior à
+      # compra — aí é o sync do IOF que dispara o vínculo).
+      TransactionLinks::DetectIof.call(workspace: @connection.workspace) if created.positive?
+
       # RF17: avisa que chegaram gastos novos na inbox (fora do onboarding).
       notify_new_inbox_items(created)
 

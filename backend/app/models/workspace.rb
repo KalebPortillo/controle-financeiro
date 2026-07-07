@@ -10,6 +10,7 @@ class Workspace < ApplicationRecord
   has_many :notifications, dependent: :destroy
   has_many :internal_transfers, dependent: :destroy
   has_many :transactions, dependent: :destroy
+  has_many :transaction_links, dependent: :destroy
   has_many :recurrences, dependent: :destroy
   has_many :tags, dependent: :destroy
   has_many :suggested_tags, dependent: :destroy

@@ -33,6 +33,13 @@ class Transaction < ApplicationRecord
   has_one :transfer_as_credit, class_name: "InternalTransfer",
                                foreign_key: :credit_transaction_id, dependent: :destroy
 
+  # RF23 — transações relacionadas. Como origem (primary): recebe N satélites
+  # (IOF, tarifa…). Como satélite (related): pertence a um gasto por tipo.
+  has_many :related_links, class_name: "TransactionLink",
+                           foreign_key: :primary_transaction_id, dependent: :destroy
+  has_one  :link_as_related, class_name: "TransactionLink",
+                             foreign_key: :related_transaction_id, dependent: :destroy
+
   validates :direction,            presence: true, inclusion: { in: DIRECTIONS }
   validates :amount_cents,         presence: true, numericality: { greater_than: 0, only_integer: true }
   validates :occurred_at,          presence: true

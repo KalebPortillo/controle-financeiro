@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_17_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_07_170000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -281,6 +281,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_17_120000) do
     t.index ["transaction_id"], name: "index_transaction_edits_on_transaction_id"
   end
 
+  create_table "transaction_links", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "confidence", precision: 3, scale: 2
+    t.uuid "confirmed_by_membership_id"
+    t.datetime "created_at", null: false
+    t.string "origin", default: "automatic", null: false
+    t.uuid "primary_transaction_id", null: false
+    t.uuid "related_transaction_id", null: false
+    t.string "relation_type", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "workspace_id", null: false
+    t.index ["confirmed_by_membership_id"], name: "index_transaction_links_on_confirmed_by_membership_id"
+    t.index ["primary_transaction_id"], name: "index_transaction_links_on_primary_transaction_id"
+    t.index ["related_transaction_id", "relation_type"], name: "index_transaction_links_on_related_and_type", unique: true
+    t.index ["related_transaction_id"], name: "index_transaction_links_on_related_transaction_id"
+    t.index ["workspace_id"], name: "index_transaction_links_on_workspace_id"
+    t.check_constraint "origin::text = ANY (ARRAY['automatic'::character varying, 'manual'::character varying]::text[])", name: "transaction_links_origin_check"
+    t.check_constraint "relation_type::text = ANY (ARRAY['iof'::character varying, 'fee'::character varying, 'interest'::character varying, 'adjustment'::character varying]::text[])", name: "transaction_links_relation_type_check"
+  end
+
   create_table "transaction_refunds", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "confirmed_at", null: false
     t.uuid "confirmed_by_membership_id", null: false
@@ -416,6 +435,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_17_120000) do
   add_foreign_key "tags", "workspaces"
   add_foreign_key "transaction_edits", "transactions"
   add_foreign_key "transaction_edits", "workspace_memberships", column: "edited_by_membership_id"
+  add_foreign_key "transaction_links", "transactions", column: "primary_transaction_id"
+  add_foreign_key "transaction_links", "transactions", column: "related_transaction_id"
+  add_foreign_key "transaction_links", "workspace_memberships", column: "confirmed_by_membership_id"
+  add_foreign_key "transaction_links", "workspaces"
   add_foreign_key "transaction_refunds", "transactions", column: "refund_transaction_id"
   add_foreign_key "transaction_refunds", "transactions", column: "refunded_transaction_id"
   add_foreign_key "transaction_refunds", "workspace_memberships", column: "confirmed_by_membership_id"

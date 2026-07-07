@@ -15,7 +15,8 @@ class Api::V1::TransactionsController < ApplicationController
 
     # Preload do que o serialize toca por transação (conta, tags, estornos) —
     # sem isso a listagem faz ~3 queries por item.
-    transactions = scope.includes(:account, :tags, refunds_received: :refund_transaction)
+    transactions = scope.includes(:account, :tags, refunds_received: :refund_transaction,
+                                   related_links: :related_transaction, link_as_related: :primary_transaction)
                         .order(occurred_at: :desc, created_at: :desc)
 
     render json: {
@@ -337,7 +338,33 @@ class Api::V1::TransactionsController < ApplicationController
       tags:                 t.tags.sort_by(&:name).map { |tag| { id: tag.id, name: tag.name, color: tag.color, icon: tag.icon } },
       # RF10 — valor efetivo (desconta estornos) + resumo dos estornos recebidos.
       effective_amount_cents: t.effective_amount_cents,
-      refund:                 serialize_refund(t)
+      refund:                 serialize_refund(t),
+      # RF23 — transações relacionadas (IOF/tarifa…): satélites deste gasto e/ou
+      # o gasto de origem quando esta é o satélite.
+      related:                serialize_related(t)
+    }
+  end
+
+  # RF23 — vínculos desta transação. Como origem: lista os satélites (role
+  # "satellite"). Como satélite: aponta o gasto de origem (role "origin").
+  def serialize_related(t)
+    items =
+      t.related_links.map { |l| related_item(l, l.related_transaction, "satellite", l.id) } +
+      Array(t.link_as_related).map { |l| related_item(l, l.primary_transaction, "origin", l.id) }
+    items.presence
+  end
+
+  def related_item(link, other, role, link_id)
+    {
+      link_id:       link_id,
+      relation_type: link.relation_type,
+      role:          role,
+      transaction_id: other.id,
+      title:         other.improved_title.presence || other.original_description,
+      direction:     other.direction,
+      amount_cents:  other.amount_cents,
+      occurred_at:   other.occurred_at.iso8601,
+      status:        other.status
     }
   end
 

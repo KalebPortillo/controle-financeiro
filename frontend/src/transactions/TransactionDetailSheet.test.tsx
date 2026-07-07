@@ -14,7 +14,7 @@ function tx(o: Partial<InboxTransaction> = {}): InboxTransaction {
     occurred_at: '2026-06-04', original_description: 'GELADEIRA', improved_title: 'Geladeira',
     ai_confidence: null, ai_suggestion: null, ai_status: 'analyzed', status: 'pending',
     source: 'automatic_sync', lock_version: 0, tags: [], effective_amount_cents: 10000,
-    refund: null, ...o,
+    refund: null, related: null, ...o,
   }
 }
 

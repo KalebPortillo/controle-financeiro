@@ -26,7 +26,7 @@ function tx(o: Partial<InboxTransaction> = {}): InboxTransaction {
     amount_cents: 5000, currency: 'BRL', occurred_at: '2026-06-04',
     original_description: 'ESTORNO LOJA', improved_title: null, ai_confidence: null,
     ai_suggestion: null, ai_status: 'analyzed', status: 'pending', source: 'automatic_sync', lock_version: 0,
-    tags: [], effective_amount_cents: 5000, refund: null, ...o,
+    tags: [], effective_amount_cents: 5000, refund: null, related: null, ...o,
   }
 }
 
@@ -44,7 +44,7 @@ describe('<RefundSection />', () => {
 
   it('renders nothing for a debit with no refund', () => {
     setupFetch({})
-    const { container } = renderSection(tx({ direction: 'debit', refund: null }))
+    const { container } = renderSection(tx({ direction: 'debit', refund: null, related: null }))
     expect(container).toBeEmptyDOMElement()
   })
 

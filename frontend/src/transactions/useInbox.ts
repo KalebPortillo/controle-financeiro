@@ -31,6 +31,20 @@ export type RefundInfo = {
   }>
 } | null
 
+// RF23 — transação relacionada (IOF/tarifa…): um satélite deste gasto (role
+// 'satellite') ou o gasto de origem quando ESTE é o satélite (role 'origin').
+export type RelatedItem = {
+  link_id: string
+  relation_type: 'iof' | 'fee' | 'interest' | 'adjustment'
+  role: 'satellite' | 'origin'
+  transaction_id: string
+  title: string
+  direction: 'debit' | 'credit'
+  amount_cents: number
+  occurred_at: string
+  status: string
+}
+
 export type InboxTransaction = {
   id: string
   account_id: string
@@ -69,6 +83,8 @@ export type InboxTransaction = {
   // RF10 — valor efetivo (amount menos estornos) + resumo dos estornos.
   effective_amount_cents: number
   refund: RefundInfo
+  // RF23 — transações relacionadas (IOF/tarifa…); null quando não há vínculo.
+  related: RelatedItem[] | null
 }
 
 export type InboxPayload = {

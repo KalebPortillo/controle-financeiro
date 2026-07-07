@@ -8,6 +8,7 @@ import { Money } from '../components/Money'
 import { TagEditor } from './TagEditor'
 import { GhostTagChips } from './GhostTagChips'
 import { RefundSection } from './RefundSection'
+import { RelatedSection } from './RelatedSection'
 import {
   useConsolidate,
   useReject,
@@ -243,6 +244,9 @@ function SheetInner({
 
         {/* RF10 — vincular/exibir estorno. */}
         <RefundSection transaction={t} />
+
+        {/* RF23 — transações relacionadas (IOF/tarifa…). */}
+        <RelatedSection transaction={t} />
 
         <ActivityTimeline transactionId={t.id} aiSuggestion={t.ai_suggestion} />
 

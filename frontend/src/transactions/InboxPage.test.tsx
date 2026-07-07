@@ -52,7 +52,7 @@ function tx(overrides: Partial<InboxTransaction> = {}): InboxTransaction {
     lock_version: 0,
     tags: [],
     effective_amount_cents: 2500,
-    refund: null,
+    refund: null, related: null,
     ...overrides,
   }
 }

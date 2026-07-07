@@ -46,7 +46,7 @@ function tx(o: Partial<InboxTransaction> = {}): InboxTransaction {
     lock_version: 1,
     tags: [],
     effective_amount_cents: 31240,
-    refund: null,
+    refund: null, related: null,
     ...o,
   }
 }

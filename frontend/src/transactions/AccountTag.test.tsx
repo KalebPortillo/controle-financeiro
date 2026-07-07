@@ -11,7 +11,7 @@ function src(o: Partial<InboxTransaction> = {}): InboxTransaction {
     installment_group_id: null, purchase_date: null, foreign_currency: null, direction: 'debit', amount_cents: 1, currency: 'BRL',
     occurred_at: '2026-06-01', original_description: 'X', improved_title: null,
     ai_confidence: null, ai_suggestion: null, ai_status: 'analyzed', status: 'pending',
-    source: 'automatic_sync', lock_version: 0, tags: [], effective_amount_cents: 1, refund: null, ...o,
+    source: 'automatic_sync', lock_version: 0, tags: [], effective_amount_cents: 1, refund: null, related: null, ...o,
   }
 }
 

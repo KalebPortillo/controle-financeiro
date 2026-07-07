@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
-import { SESSION_KEY, type OnboardingStatus } from '../auth/useSession'
+import { SESSION_KEY, type OnboardingStatus, type SessionPayload } from '../auth/useSession'
 
 // Estado de FLUXO do onboarding (RF22). As sugestões de tags/categorias NÃO
 // vivem aqui — vêm dos catálogos (useSuggestedTags / useSuggestedCategories).
@@ -44,7 +44,14 @@ function makeMutation(path: string, body?: unknown) {
       mutationFn: () => apiFetch<OnboardingState>(path, { method: 'POST', body }),
       onSuccess: (data) => {
         qc.setQueryData(ONBOARDING_KEY, data)
-        // Sessão também tem onboarding resumido → invalidar pra próximo redirect
+        // A sessão carrega um resumo do onboarding e o RequireAuth decide o
+        // redirect a partir DELE. Invalidar sozinho refetcha async: enquanto o
+        // fetch não volta, o RequireAuth ainda lê o status velho (ativo), joga
+        // pra /onboarding e mostra o passo 1 (o loop do "Concluir"/"Pular").
+        // Por isso patchamos o resumo na hora, além de invalidar por garantia.
+        qc.setQueryData<SessionPayload | null>(SESSION_KEY, (old) =>
+          old ? { ...old, onboarding: { status: data.status, current_step: data.current_step } } : old,
+        )
         qc.invalidateQueries({ queryKey: SESSION_KEY })
       },
     })

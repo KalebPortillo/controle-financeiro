@@ -13,9 +13,21 @@ module Notifications
       when "sync_failed"      then sync_failed(payload)
       when "inbox_new"        then inbox_new(payload)
       when "recurrent_missed" then recurrent_missed(payload)
+      when "budget_warning"   then budget_warning(payload)
+      when "budget_exceeded"  then budget_exceeded(payload)
       else
         "Novo aviso no controle financeiro."
       end
+    end
+
+    def budget_warning(payload)
+      "Orçamento \"#{payload['budget_name']}\" em #{payload['pct']}% do teto " \
+        "(#{Brl.format(payload['spent_cents'])} de #{Brl.format(payload['limit_cents'])})."
+    end
+
+    def budget_exceeded(payload)
+      "Orçamento \"#{payload['budget_name']}\" estourou: #{Brl.format(payload['spent_cents'])} " \
+        "de #{Brl.format(payload['limit_cents'])} (#{payload['pct']}%)."
     end
 
     def sync_failed(payload)

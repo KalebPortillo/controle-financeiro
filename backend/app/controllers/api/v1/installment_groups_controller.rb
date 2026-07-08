@@ -24,6 +24,7 @@ class Api::V1::InstallmentGroupsController < ApplicationController
   # pendentes do grupo de uma vez (RF9.4 — item agregado do inbox).
   def consolidate
     apply_status("consolidated", consolidated_at: Time.current)
+    Budgets::CheckAlerts.call(workspace: current_workspace)
   end
 
   # POST /api/v1/installment_groups/:id/reject — rejeita todas as pendentes.

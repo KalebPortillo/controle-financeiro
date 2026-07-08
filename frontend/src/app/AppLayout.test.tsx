@@ -68,12 +68,14 @@ describe('<AppLayout />', () => {
     await waitFor(() => expect(screen.getByText('Casa do Kaleb')).toBeInTheDocument())
   })
 
-  it('marks not-yet-built screens as "em breve"', async () => {
+  it('all nav screens are built and navigable (no "em breve" placeholder)', async () => {
     setupFetch()
     renderShell()
+    // Orçamentos (RF8) foi a última tela pendente — agora é link navegável.
     const orcamentos = screen.getByTestId('nav-orcamentos')
-    expect(orcamentos).toHaveTextContent('em breve')
-    expect(orcamentos.tagName).not.toBe('A') // não navegável
+    expect(orcamentos).not.toHaveTextContent('em breve')
+    expect(orcamentos.closest('a')).not.toBeNull()
+    expect(screen.queryByText('em breve')).not.toBeInTheDocument()
   })
 
   it('does not render the theme toggle in the top bar (moved to "Mais")', async () => {

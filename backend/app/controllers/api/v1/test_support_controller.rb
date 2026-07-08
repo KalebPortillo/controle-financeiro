@@ -17,6 +17,7 @@ class Api::V1::TestSupportController < ApplicationController
     case params[:scenario]
     when "related_inbox" then render json: seed_related_inbox
     when "link_manual"   then render json: seed_link_manual
+    when "budget_setup"  then render json: seed_budget_setup
     else render json: { error: { code: "unknown_scenario", message: params[:scenario] } },
                 status: :unprocessable_entity
     end
@@ -51,6 +52,17 @@ class Api::V1::TestSupportController < ApplicationController
     orphan  = tx(account:, cents: 120, desc: "TARIFA", status: "consolidated",
                  occurred: Date.new(2026, 6, 3))
     { account_id: account.id, origin_id: origin.id, orphan_id: orphan.id }
+  end
+
+  # RF8 — uma tag + um gasto consolidado no mês corrente com essa tag, pro E2E
+  # criar um orçamento e ver o progresso refletir o gasto semeado.
+  def seed_budget_setup
+    account = credit_card_account
+    tag     = current_workspace.tags.create!(name: "Mercado E2E")
+    gasto   = tx(account:, cents: 40_000, desc: "SUPERMERCADO", status: "consolidated",
+                 occurred: Date.current)
+    gasto.tags = [ tag ]
+    { account_id: account.id, tag_id: tag.id, tag_name: tag.name, spent_cents: 40_000 }
   end
 
   def credit_card_account

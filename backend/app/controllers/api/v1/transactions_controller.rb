@@ -43,6 +43,7 @@ class Api::V1::TransactionsController < ApplicationController
     )
     transaction.save!
     apply_tags(transaction, params[:tag_ids]) if params.key?(:tag_ids)
+    Budgets::CheckAlerts.call(workspace: current_workspace) # entrada manual já consolida
     render json: { transaction: serialize(transaction) }, status: :created
   rescue ArgumentError => e
     # Date.parse inválida — ParameterMissing e RecordInvalid sobem pro rescue_from.
@@ -166,7 +167,9 @@ class Api::V1::TransactionsController < ApplicationController
   # POST /api/v1/transactions/bulk_consolidate { ids: [...] } — aceita várias
   # pendentes de uma vez (RF2.3). Uma query (update_all) no lugar de N requests.
   def bulk_consolidate
-    render json: { count: bulk_apply_status!("consolidated", consolidated_at: Time.current) }
+    count = bulk_apply_status!("consolidated", consolidated_at: Time.current)
+    Budgets::CheckAlerts.call(workspace: current_workspace) if count.positive?
+    render json: { count: count }
   end
 
   # POST /api/v1/transactions/bulk_reject { ids: [...] } — rejeita várias de uma vez.
@@ -205,6 +208,7 @@ class Api::V1::TransactionsController < ApplicationController
     return render_already_decided(@transaction) unless @transaction.pending?
 
     @transaction.update!(status: target, timestamp_attr => Time.current)
+    Budgets::CheckAlerts.call(workspace: current_workspace) if target == "consolidated"
     render json: { transaction: serialize(@transaction) }
   rescue ActiveRecord::StaleObjectError
     render_already_decided(@transaction.reload)

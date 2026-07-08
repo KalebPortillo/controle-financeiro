@@ -141,7 +141,13 @@ O prompt enviado à IA é **compacto** (só os campos acima extraídos do JSONB 
 - **RF7.3** Diferenciação clara entre entrada e saída em relatórios.
 - **RF7.4** Marcação de receitas previstas/recorrentes (ex.: salário mensal).
 
-### RF8. Orçamentos
+### RF8. Orçamentos — implementado (2026-07-08)
+Teto mensal por tag/categoria/composto com progresso (gasto vs teto, %, projeção
+por ritmo), alerta visual (verde/âmbar/vermelho) + notificação in-app/Telegram ao
+cruzar o threshold (80%) e o teto (100%). Tela `/orcamentos` (lista + wizard de 2
+passos). Backend: `budgets`/`budget_composite_tags`, `Budgets::Progress`,
+`Budgets::CheckAlerts` (dedup por mês) disparado ao consolidar. Detalhe/histórico
+multi-mês ficou como follow-up.
 - **RF8.1** Orçamento mensal por **tag** (ex.: R$ 800 em "Mercado").
 - **RF8.2** Orçamento mensal por **categoria** (agrega todas as tags da categoria).
 - **RF8.3** Orçamentos compostos (combinação livre de tags em um único teto), além de tag/categoria.

@@ -1,4 +1,4 @@
-import { Inbox, CircleAlert, Repeat, Bell, type LucideIcon } from 'lucide-react'
+import { Inbox, CircleAlert, Repeat, Bell, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { useOverlay } from '../app/useOverlay'
 import { Sheet } from '../components/Sheet'
 import {
@@ -13,12 +13,20 @@ const KIND_ICON: Partial<Record<NotificationKind, LucideIcon>> = {
   inbox_new: Inbox,
   sync_failed: CircleAlert,
   recurrent_missed: Repeat,
+  budget_warning: TriangleAlert,
+  budget_exceeded: TriangleAlert,
 }
 
 const KIND_ROUTE: Partial<Record<NotificationKind, string>> = {
   inbox_new: '/inbox',
   sync_failed: '/contas',
   recurrent_missed: '/recorrentes',
+  budget_warning: '/orcamentos',
+  budget_exceeded: '/orcamentos',
+}
+
+function brl(cents: unknown): string {
+  return (Number(cents ?? 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 function title(n: AppNotification): string {
@@ -32,6 +40,10 @@ function title(n: AppNotification): string {
       return `Falha na sincronização do ${String(p.institution_label ?? 'banco')}`
     case 'recurrent_missed':
       return `Recorrente atrasada: ${String(p.descriptor_pattern ?? '')}`
+    case 'budget_warning':
+      return `Orçamento "${String(p.budget_name ?? '')}" em ${Number(p.pct ?? 0)}% do teto`
+    case 'budget_exceeded':
+      return `Orçamento "${String(p.budget_name ?? '')}" estourou`
     default:
       return 'Novo aviso'
   }
@@ -46,6 +58,9 @@ function description(n: AppNotification): string | null {
       const days = Number(p.days_overdue ?? 0)
       return days === 1 ? '1 dia de atraso' : `${days} dias de atraso`
     }
+    case 'budget_warning':
+    case 'budget_exceeded':
+      return `${brl(p.spent_cents)} de ${brl(p.limit_cents)}`
     default:
       return null
   }

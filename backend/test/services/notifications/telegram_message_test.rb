@@ -69,5 +69,21 @@ module Notifications
 
       assert_match(/R\$ 1\.234,56/, TelegramMessage.call(n))
     end
+
+    test "budget_warning com nome e percentual" do
+      n = build(:notification, kind: "budget_warning", payload: {
+        "budget_name" => "Mercado", "pct" => 85, "spent_cents" => 85_000, "limit_cents" => 100_000
+      })
+      msg = TelegramMessage.call(n)
+      assert_match(/Orçamento "Mercado" em 85% do teto/, msg)
+      assert_match(/R\$ 850,00 de R\$ 1\.000,00/, msg)
+    end
+
+    test "budget_exceeded" do
+      n = build(:notification, kind: "budget_exceeded", payload: {
+        "budget_name" => "Lazer", "pct" => 130, "spent_cents" => 130_000, "limit_cents" => 100_000
+      })
+      assert_match(/Orçamento "Lazer" estourou: R\$ 1\.300,00 de R\$ 1\.000,00 \(130%\)/, TelegramMessage.call(n))
+    end
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_07_170000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_08_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -118,6 +118,35 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_07_170000) do
     t.index ["workspace_id"], name: "index_bank_connections_on_workspace_id"
     t.check_constraint "provider::text = ANY (ARRAY['pluggy'::character varying, 'manual'::character varying]::text[])", name: "bank_connections_provider_check"
     t.check_constraint "status::text = ANY (ARRAY['connected'::character varying, 'syncing'::character varying, 'expired'::character varying, 'error'::character varying, 'disconnected'::character varying]::text[])", name: "bank_connections_status_check"
+  end
+
+  create_table "budget_composite_tags", id: false, force: :cascade do |t|
+    t.uuid "budget_id", null: false
+    t.uuid "tag_id", null: false
+    t.index ["budget_id", "tag_id"], name: "index_budget_composite_tags_on_budget_id_and_tag_id", unique: true
+    t.index ["budget_id"], name: "index_budget_composite_tags_on_budget_id"
+    t.index ["tag_id"], name: "index_budget_composite_tags_on_tag_id"
+  end
+
+  create_table "budgets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.integer "alert_threshold_pct", limit: 2, default: 80, null: false
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: true, null: false
+    t.date "ends_on"
+    t.string "kind", null: false
+    t.integer "monthly_limit_cents", null: false
+    t.string "name", null: false
+    t.date "starts_on"
+    t.uuid "target_category_id"
+    t.uuid "target_tag_id"
+    t.datetime "updated_at", null: false
+    t.uuid "workspace_id", null: false
+    t.index ["target_category_id"], name: "index_budgets_on_target_category_id"
+    t.index ["target_tag_id"], name: "index_budgets_on_target_tag_id"
+    t.index ["workspace_id"], name: "index_budgets_on_workspace_id"
+    t.check_constraint "kind::text = 'tag'::text AND target_tag_id IS NOT NULL AND target_category_id IS NULL OR kind::text = 'category'::text AND target_category_id IS NOT NULL AND target_tag_id IS NULL OR kind::text = 'composite'::text AND target_tag_id IS NULL AND target_category_id IS NULL", name: "budgets_kind_target_check"
+    t.check_constraint "kind::text = ANY (ARRAY['tag'::character varying, 'category'::character varying, 'composite'::character varying]::text[])", name: "budgets_kind_check"
+    t.check_constraint "monthly_limit_cents > 0", name: "budgets_limit_positive_check"
   end
 
   create_table "categories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -414,6 +443,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_07_170000) do
   add_foreign_key "bank_connection_syncs", "bank_connections"
   add_foreign_key "bank_connections", "workspace_memberships", column: "owner_membership_id", on_delete: :nullify
   add_foreign_key "bank_connections", "workspaces"
+  add_foreign_key "budget_composite_tags", "budgets"
+  add_foreign_key "budget_composite_tags", "tags"
+  add_foreign_key "budgets", "categories", column: "target_category_id"
+  add_foreign_key "budgets", "tags", column: "target_tag_id"
+  add_foreign_key "budgets", "workspaces"
   add_foreign_key "categories", "workspaces"
   add_foreign_key "category_tag_suggestions", "categories"
   add_foreign_key "category_tag_suggestions", "tags"

@@ -33,7 +33,7 @@ export async function goto(page: Page, path: string) {
  */
 export async function seed(
   context: BrowserContext,
-  scenario: 'related_inbox' | 'link_manual',
+  scenario: 'related_inbox' | 'link_manual' | 'budget_setup',
 ): Promise<Record<string, string>> {
   const res = await context.request.post('/api/v1/test_support/seed', { data: { scenario } })
   if (!res.ok()) {

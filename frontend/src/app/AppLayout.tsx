@@ -29,7 +29,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { id: 'inbox', label: 'Inbox', Icon: Inbox, to: '/inbox' },
   { id: 'gastos', label: 'Gastos', Icon: Wallet, to: '/gastos' },
-  { id: 'orcamentos', label: 'Orçamentos', Icon: PieChart },
+  { id: 'orcamentos', label: 'Orçamentos', Icon: PieChart, to: '/orcamentos' },
   { id: 'recorrentes', label: 'Recorrentes', Icon: Repeat, to: '/recorrentes' },
   { id: 'relatorios', label: 'Relatórios', Icon: BarChart3, to: '/relatorios' },
   { id: 'mais', label: 'Mais', Icon: MoreHorizontal, to: '/mais' },

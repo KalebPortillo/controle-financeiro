@@ -9,6 +9,7 @@ import { TagEditor } from './TagEditor'
 import { GhostTagChips } from './GhostTagChips'
 import { RefundSection } from './RefundSection'
 import { RelatedSection } from './RelatedSection'
+import { LinkOriginSection } from './LinkOriginSection'
 import { signedCents, displayTitle } from './display'
 import {
   useConsolidate,
@@ -36,14 +37,17 @@ export function TransactionDetailSheet({
   open,
   onClose,
   onBackToGroup,
+  backLabel = 'Parcelamento',
   mode = 'inbox',
 }: {
   transaction: InboxTransaction | null
   open: boolean
   onClose: () => void
-  // Quando a parcela foi aberta a partir do sheet do parcelamento, mostra um
-  // "← Parcelamento" pra voltar pro grupo (além do back do navegador).
+  // Quando a parcela foi aberta a partir do sheet do parcelamento (ou do grupo de
+  // relacionadas), mostra um "← <backLabel>" pra voltar pro grupo (além do back
+  // do navegador).
   onBackToGroup?: () => void
+  backLabel?: string
   mode?: 'inbox' | 'consolidated'
 }) {
   const consolidate = useConsolidate()
@@ -76,20 +80,21 @@ export function TransactionDetailSheet({
 
   return (
     <Sheet open={open} onClose={onClose} width={460}>
-      {t && <SheetInner t={t} mode={mode} busy={busy} onClose={onClose} onBackToGroup={onBackToGroup} onAccept={accept} onReject={doReject}
+      {t && <SheetInner t={t} mode={mode} busy={busy} onClose={onClose} onBackToGroup={onBackToGroup} backLabel={backLabel} onAccept={accept} onReject={doReject}
                         onUpdate={update.mutate} onRemove={() => remove.mutate(t.id, { onSuccess: onClose })} />}
     </Sheet>
   )
 }
 
 function SheetInner({
-  t, mode, busy, onClose, onBackToGroup, onAccept, onReject, onUpdate, onRemove,
+  t, mode, busy, onClose, onBackToGroup, backLabel, onAccept, onReject, onUpdate, onRemove,
 }: {
   t: InboxTransaction
   mode: 'inbox' | 'consolidated'
   busy: boolean
   onClose: () => void
   onBackToGroup?: () => void
+  backLabel: string
   onAccept: () => void
   onReject: () => void
   onUpdate: ReturnType<typeof useUpdateTransaction>['mutate']
@@ -146,7 +151,7 @@ function SheetInner({
             className="inline-flex items-center gap-1 mb-2.5 text-xs text-muted-foreground hover:text-foreground"
             data-testid="back-to-group"
           >
-            <ArrowLeft size={13} /> Parcelamento
+            <ArrowLeft size={13} /> {backLabel}
           </button>
         )}
         <div className="flex items-start gap-2.5">
@@ -244,6 +249,9 @@ function SheetInner({
 
         {/* RF23 — transações relacionadas (IOF/tarifa…). */}
         <RelatedSection transaction={t} />
+
+        {/* RF23 F3 — vincular manualmente a um gasto de origem (satélite órfão). */}
+        <LinkOriginSection transaction={t} />
 
         <ActivityTimeline transactionId={t.id} aiSuggestion={t.ai_suggestion} />
 

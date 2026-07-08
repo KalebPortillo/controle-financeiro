@@ -2,14 +2,8 @@ import { Link2, X } from 'lucide-react'
 import { Money } from '../components/Money'
 import { useOverlay } from '../app/useOverlay'
 import { useUnlinkTransaction } from './useTransactionLinks'
-import type { InboxTransaction, RelatedItem } from './useInbox'
-
-const REL_LABEL: Record<RelatedItem['relation_type'], string> = {
-  iof: 'IOF',
-  fee: 'Tarifa',
-  interest: 'Juros',
-  adjustment: 'Ajuste',
-}
+import { RELATION_LABEL } from './relationType'
+import type { InboxTransaction } from './useInbox'
 
 /**
  * RF23 — transações relacionadas no detalhe: os satélites de um gasto (IOF,
@@ -34,7 +28,7 @@ export function RelatedSection({ transaction: t }: { transaction: InboxTransacti
           >
             <Link2 size={13} className="text-muted-foreground shrink-0" />
             <span className="truncate">
-              {item.role === 'origin' ? `Origem · ${item.title}` : REL_LABEL[item.relation_type]}
+              {item.role === 'origin' ? `Origem · ${item.title}` : RELATION_LABEL[item.relation_type]}
             </span>
             <Money cents={item.amount_cents} className="text-sm shrink-0" />
           </button>

@@ -27,6 +27,8 @@ import { buildInboxItems } from './inboxItems'
 import { useOverlay } from '../app/useOverlay'
 import { InstallmentGroupRow } from './InstallmentGroupRow'
 import { InstallmentGroupSheet } from './InstallmentGroupSheet'
+import { RelatedGroupRow } from './RelatedGroupRow'
+import { RelatedGroupSheet } from './RelatedGroupSheet'
 import { useAnalysisProgress } from './useAnalysisProgress'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
 import { SwipeableRow } from './SwipeableRow'
@@ -69,10 +71,13 @@ export function InboxPage() {
   const { get, push, close } = useOverlay()
   const activeId = get('tx')
   const activeGroupId = get('group')
+  const activeRelId = get('rel')
   const sheetOpen = activeId != null
   // O sheet do grupo fica escondido enquanto uma parcela está aberta, mas o
   // ?group continua na URL pra que o back volte pro parcelamento.
   const groupSheetOpen = activeGroupId != null && activeId == null
+  // Idem para o grupo de relacionadas (RF23 F2): ?rel escondido sob ?tx.
+  const relSheetOpen = activeRelId != null && activeId == null
 
   const transactions = useMemo(() => data?.transactions ?? [], [data?.transactions])
   // Aplica a busca (?q) sobre os pendentes carregados antes de agrupar parcelas.
@@ -87,6 +92,11 @@ export function InboxPage() {
     items.find(
       (i): i is Extract<typeof i, { kind: 'installment' }> =>
         i.kind === 'installment' && i.groupId === activeGroupId
+    ) ?? null
+  const activeRelated =
+    items.find(
+      (i): i is Extract<typeof i, { kind: 'related' }> =>
+        i.kind === 'related' && i.key === activeRelId
     ) ?? null
 
   // Estável (deps vazias) pra permitir memoizar as linhas — só muda o item tocado.
@@ -116,6 +126,9 @@ export function InboxPage() {
   // Abrir uma parcela a partir do grupo: empurra ?tx mantendo o ?group, pra que
   // o back (ou "← Parcelamento") volte pro sheet do grupo.
   const openParcelFromGroup = (t: InboxTransaction) => push((p) => p.set('tx', t.id))
+  // RF23 F2 — sheet do grupo de relacionadas + abrir um membro mantendo o ?rel.
+  const openRelated = (key: string) => push((p) => p.set('rel', key))
+  const openMemberFromRelated = (t: InboxTransaction) => push((p) => p.set('tx', t.id))
 
   // Ações em massa: um único request (bulk), não N. A remoção da inbox é otimista.
   const bulkAccept = async () => {
@@ -276,6 +289,16 @@ export function InboxPage() {
                 onAcceptGroup={() => consolidateGroup.mutate(item.groupId)}
                 onOpenGroup={() => openGroup(item.groupId)}
               />
+            ) : item.kind === 'related' ? (
+              <RelatedGroupRow
+                key={`rel-${item.key}`}
+                item={item}
+                selected={item.memberIds.every((id) => selected.has(id))}
+                active={relSheetOpen && item.key === activeRelId}
+                onToggleGroup={() => toggleGroup(item.memberIds)}
+                onAcceptGroup={() => bulkConsolidate.mutate(item.memberIds)}
+                onOpenGroup={() => openRelated(item.key)}
+              />
             ) : (
               <SwipeableRow
                 key={item.transaction.id}
@@ -334,7 +357,8 @@ export function InboxPage() {
         transaction={active}
         open={sheetOpen}
         onClose={() => close('tx')}
-        onBackToGroup={activeGroupId != null ? () => close('tx') : undefined}
+        onBackToGroup={activeGroupId != null || activeRelId != null ? () => close('tx') : undefined}
+        backLabel={activeRelId != null ? 'Relacionadas' : 'Parcelamento'}
       />
 
       <InstallmentGroupSheet
@@ -344,6 +368,15 @@ export function InboxPage() {
         onOpenParcel={openParcelFromGroup}
         onAcceptGroup={() => activeGroup && consolidateGroup.mutate(activeGroup.groupId)}
         onRejectGroup={() => activeGroup && rejectGroup.mutate(activeGroup.groupId)}
+      />
+
+      <RelatedGroupSheet
+        item={activeRelated}
+        open={relSheetOpen}
+        onClose={() => close('rel')}
+        onOpenMember={openMemberFromRelated}
+        onAcceptGroup={() => activeRelated && bulkConsolidate.mutate(activeRelated.memberIds)}
+        onRejectGroup={() => activeRelated && bulkReject.mutate(activeRelated.memberIds)}
       />
     </div>
   )

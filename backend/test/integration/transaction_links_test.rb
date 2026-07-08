@@ -61,4 +61,63 @@ class TransactionLinksTest < ActionDispatch::IntegrationTest
     assert_response :not_found
     assert TransactionLink.exists?(link.id), "link de outro workspace não é apagado"
   end
+
+  # --- RF23 Fase 3: vínculo manual ------------------------------------------
+
+  test "POST /transactions/:id/link vincula manualmente o satélite à origem" do
+    origin    = txn(improved_title: "Assinatura", amount_cents: 5000)
+    satellite = txn(original_description: "TARIFA", amount_cents: 120)
+
+    post "/api/v1/transactions/#{satellite.id}/link",
+         params: { origin_id: origin.id, relation_type: "fee" }
+    assert_response :created
+
+    link = satellite.reload.link_as_related
+    assert_equal origin, link.primary_transaction
+    assert_equal "fee",  link.relation_type
+    assert_equal "manual", link.origin
+    assert_equal @membership, link.confirmed_by_membership
+
+    # o serializer do satélite passa a apontar a origem
+    body = JSON.parse(response.body)["transaction"]
+    assert_equal "origin", body["related"].first["role"]
+    assert_equal origin.id, body["related"].first["transaction_id"]
+  end
+
+  test "POST link com origem já vinculada devolve 422" do
+    origin1   = txn(amount_cents: 5000)
+    origin2   = txn(amount_cents: 7000)
+    satellite = txn(amount_cents: 120)
+    post "/api/v1/transactions/#{satellite.id}/link", params: { origin_id: origin1.id, relation_type: "fee" }
+    assert_response :created
+
+    post "/api/v1/transactions/#{satellite.id}/link", params: { origin_id: origin2.id, relation_type: "fee" }
+    assert_response :unprocessable_entity
+    assert_equal "invalid_link", JSON.parse(response.body).dig("error", "code")
+  end
+
+  test "GET /transactions/:id/link_candidates lista origens da mesma conta" do
+    satellite = txn(original_description: "TARIFA", amount_cents: 120)
+    origin    = txn(improved_title: "Figma", amount_cents: 5000)
+    other_acc = create(:account, workspace: @workspace)
+    _other    = txn(account: other_acc, amount_cents: 9000)
+
+    get "/api/v1/transactions/#{satellite.id}/link_candidates"
+    assert_response :success
+    ids = JSON.parse(response.body)["link_candidates"].map { |t| t["id"] }
+    assert_includes ids, origin.id
+    assert_not_includes ids, satellite.id
+    assert_not_includes ids, _other.id
+  end
+
+  test "link_candidates de outro workspace não vaza" do
+    satellite = txn(amount_cents: 120)
+    other = create(:workspace)
+    other_acc = create(:account, workspace: other)
+    foreign = create(:transaction, workspace: other, account: other_acc, amount_cents: 5000)
+
+    get "/api/v1/transactions/#{satellite.id}/link_candidates", params: { q: "" }
+    ids = JSON.parse(response.body)["link_candidates"].map { |t| t["id"] }
+    assert_not_includes ids, foreign.id
+  end
 end

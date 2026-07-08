@@ -1,7 +1,19 @@
 # RF23 — Transações relacionadas (IOF, tarifas, estornos)
 
-Status: **planejado** (2026-07-06). Spec de design — não é a migration/código final.
+Status: **Fases 1–3 implementadas** (F1 em prod v0.24.0; F2+F3 2026-07-07).
 Complementa PRD, `modelo-de-dados.md` e `contratos-api.md`.
+
+- **Fase 1** — tabela + `TransactionLinks::DetectIof` (auto no sync) + `related` no
+  serializer + seção "Relacionadas" no detalhe + `DELETE /transaction_links/:id` +
+  backfill `transaction_links:detect_iof`. **Em prod.**
+- **Fase 2** — agrupamento no inbox: âncora + satélites presentes viram um item
+  único (`buildInboxItems` kind `related`; `RelatedGroupRow`/`RelatedGroupSheet`;
+  overlay `?rel`). Aceitar/rejeitar o conjunto via bulk. Falta membro → não agrupa
+  (cai na seção "Relacionadas").
+- **Fase 3** — vínculo manual: `POST /transactions/:id/link { origin_id,
+  relation_type }` (:id = satélite) + `GET .../link_candidates?q=`
+  (`TransactionLinks::OriginCandidates`) + `LinkOriginSection` no detalhe. Sem
+  detecção automática de tarifa/juros (não há âncora no extrato) — só manual.
 
 ## Problema
 

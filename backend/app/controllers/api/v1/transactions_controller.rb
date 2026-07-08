@@ -1,7 +1,7 @@
 class Api::V1::TransactionsController < ApplicationController
   before_action :require_authentication!
   before_action :set_transaction, only: [ :update, :destroy, :consolidate, :reject, :edits, :source,
-                                          :refund_candidates, :link_refund ]
+                                          :refund_candidates, :link_refund, :link_candidates, :link ]
 
   # GET /api/v1/transactions — listagem por status (inbox = pending), com filtros.
   def index
@@ -111,6 +111,30 @@ class Api::V1::TransactionsController < ApplicationController
     render json: { transaction: serialize(@transaction.reload) }, status: :created
   rescue ActiveRecord::RecordInvalid => e
     render json: { error: { code: "invalid_refund", message: e.message } }, status: :unprocessable_entity
+  end
+
+  # GET /api/v1/transactions/:id/link_candidates?q= — gastos de origem que :id
+  # (satélite órfão: tarifa/juros/ajuste) pode estar relacionado a (RF23 F3).
+  def link_candidates
+    candidates = TransactionLinks::OriginCandidates.call(related: @transaction, q: params[:q])
+    render json: { link_candidates: candidates.map { |t| serialize(t) } }
+  end
+
+  # POST /api/v1/transactions/:id/link { origin_id, relation_type } — vincula
+  # manualmente :id (satélite) ao gasto de origem informado (RF23 F3). Confirmação
+  # humana. :id é o related; origin_id é o primary.
+  def link
+    origin = current_workspace.transactions.find(params.require(:origin_id))
+    TransactionLinks::Create.call(
+      workspace:     current_workspace,
+      primary:       origin,
+      related:       @transaction,
+      relation_type: params.require(:relation_type),
+      membership:    current_membership
+    )
+    render json: { transaction: serialize(@transaction.reload) }, status: :created
+  rescue ActiveRecord::RecordInvalid => e
+    render json: { error: { code: "invalid_link", message: e.message } }, status: :unprocessable_entity
   end
 
   # POST /api/v1/transactions/reanalyze — RF3.5 botão "Reanalisar com IA".

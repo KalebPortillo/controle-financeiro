@@ -71,6 +71,8 @@ Rails.application.routes.draw do
           get  "source"            # RF2.7 — payload cru do Pluggy ("mais detalhes")
           get  "refund_candidates" # RF10.1
           post "link_refund"       # RF10.2
+          get  "link_candidates"   # RF23 F3 — origens p/ vínculo manual
+          post "link"              # RF23 F3 — vincular satélite a um gasto de origem
         end
         collection do
           post "reanalyze"

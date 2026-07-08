@@ -8,6 +8,7 @@ import { ApiError } from '../api/client'
 import {
   useRecurrences,
   useUpdateRecurrence,
+  useRecurrenceTransactions,
   CADENCE_LABELS,
   type Recurrence,
   type RecurrenceUpdate,
@@ -96,7 +97,9 @@ function RecurrenceRow({ recurrence: r, onOpen }: { recurrence: Recurrence; onOp
 
 function RecurrenceDetail({ recurrence: r, onClose }: { recurrence: Recurrence; onClose: () => void }) {
   const update = useUpdateRecurrence()
+  const { data: transactions, isLoading } = useRecurrenceTransactions(r.id)
   const [tolerance, setTolerance] = useState(String(r.amount_tolerance_pct))
+  const [showSettings, setShowSettings] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const run = async (patch: RecurrenceUpdate) => {
@@ -115,68 +118,99 @@ function RecurrenceDetail({ recurrence: r, onClose }: { recurrence: Recurrence; 
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-semibold">{r.descriptor_pattern}</h2>
           <SourceBadge source={r.source} />
+          {r.status === 'paused' && <Badge variant="outline">pausada</Badge>}
         </div>
         <p className="text-sm text-muted-foreground">
           {CADENCE_LABELS[r.cadence]} · próximo {formatDate(r.next_expected_at)}
+          {r.expected_amount_cents != null && (
+            <> · ~<Money cents={r.expected_amount_cents} className="text-sm" /></>
+          )}
         </p>
       </div>
 
-      <label className="block space-y-1">
+      {/* Histórico de gastos desta recorrência — conteúdo principal do detalhe. */}
+      <section className="space-y-2">
         <span className="text-[11px] uppercase tracking-wider font-medium text-muted-foreground">
-          Tolerância de valor (%)
+          Gastos desta recorrência
         </span>
-        <Input
-          type="number"
-          inputMode="numeric"
-          value={tolerance}
-          onChange={(e) => setTolerance(e.target.value)}
-          data-testid="recurrence-tolerance"
-        />
-      </label>
-
-      {error && (
-        <p className="text-xs text-destructive" role="alert">
-          {error}
-        </p>
-      )}
-
-      <div className="flex flex-col gap-2">
-        <Button
-          onClick={() => run({ amount_tolerance_pct: Number(tolerance) })}
-          disabled={update.isPending}
-          data-testid="recurrence-save"
-        >
-          Salvar
-        </Button>
-        {r.status === 'active' && (
-          <Button
-            variant="outline"
-            onClick={() => run({ status: 'paused' })}
-            disabled={update.isPending}
-            data-testid="recurrence-pause"
-          >
-            Pausar
-          </Button>
+        {isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
+        {!isLoading && (transactions?.length ?? 0) === 0 && (
+          <p className="text-sm text-muted-foreground" data-testid="recurrence-tx-empty">
+            Nenhum gasto consolidado ainda.
+          </p>
         )}
-        {r.status === 'paused' && (
-          <Button
-            variant="outline"
-            onClick={() => run({ status: 'active' })}
-            disabled={update.isPending}
-            data-testid="recurrence-resume"
-          >
-            Retomar
-          </Button>
+        {(transactions?.length ?? 0) > 0 && (
+          <ul className="border border-border rounded-md overflow-hidden" data-testid="recurrence-transactions">
+            {transactions!.map((t) => (
+              <li key={t.id} className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-border last:border-b-0">
+                <span className="min-w-0">
+                  <span className="block text-[13px] truncate">{t.title}</span>
+                  <span className="block text-[11px] text-muted-foreground tabular-nums">{formatDate(t.occurred_at)}</span>
+                </span>
+                <Money cents={t.amount_cents} className="text-[13px] shrink-0" />
+              </li>
+            ))}
+          </ul>
         )}
-        <Button
-          variant="destructive"
-          onClick={() => run({ status: 'cancelled' })}
-          disabled={update.isPending}
-          data-testid="recurrence-cancel"
+      </section>
+
+      {/* Ajustes (secundário): tolerância + pausar/cancelar. */}
+      <section className="border-t border-border pt-4">
+        <button
+          type="button"
+          onClick={() => setShowSettings((v) => !v)}
+          className="text-xs text-muted-foreground hover:text-foreground"
+          data-testid="recurrence-settings-toggle"
         >
-          Cancelar
-        </Button>
-      </div>
+          {showSettings ? 'Ocultar ajustes' : 'Ajustes (tolerância, pausar, cancelar)'}
+        </button>
+
+        {showSettings && (
+          <div className="mt-3 space-y-4" data-testid="recurrence-settings">
+            <label className="block space-y-1">
+              <span className="text-[11px] uppercase tracking-wider font-medium text-muted-foreground">
+                Tolerância de valor (%)
+              </span>
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={tolerance}
+                onChange={(e) => setTolerance(e.target.value)}
+                data-testid="recurrence-tolerance"
+              />
+              <span className="block text-[11px] text-muted-foreground">
+                Variação de valor aceita ao casar novos gastos com esta recorrência —
+                usada pra avisar quando a cobrança não chega no prazo.
+              </span>
+            </label>
+
+            {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
+
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={() => run({ amount_tolerance_pct: Number(tolerance) })}
+                disabled={update.isPending}
+                data-testid="recurrence-save"
+              >
+                Salvar
+              </Button>
+              {r.status === 'active' && (
+                <Button variant="outline" onClick={() => run({ status: 'paused' })} disabled={update.isPending} data-testid="recurrence-pause">
+                  Pausar
+                </Button>
+              )}
+              {r.status === 'paused' && (
+                <Button variant="outline" onClick={() => run({ status: 'active' })} disabled={update.isPending} data-testid="recurrence-resume">
+                  Retomar
+                </Button>
+              )}
+              <Button variant="destructive" onClick={() => run({ status: 'cancelled' })} disabled={update.isPending} data-testid="recurrence-cancel">
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   )
 }

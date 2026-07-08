@@ -27,6 +27,34 @@ class RecurrencesTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
+  test "GET /recurrences/:id/transactions lista os gastos consolidados casando o padrão" do
+    rec = create(:recurrence, workspace: @workspace, account: @account, descriptor_pattern: "NETFLIX")
+    t1 = create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+                status: "consolidated", original_description: "NETFLIX 4821",
+                occurred_at: Date.new(2026, 5, 10), improved_title: "Netflix")
+    _t2 = create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+                 status: "consolidated", original_description: "NETFLIX 9931", occurred_at: Date.new(2026, 6, 10))
+    _other = create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+                    status: "consolidated", original_description: "SPOTIFY", occurred_at: Date.new(2026, 6, 1))
+    _pending = create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+                      status: "pending", original_description: "NETFLIX 0001", occurred_at: Date.new(2026, 6, 20))
+
+    get "/api/v1/recurrences/#{rec.id}/transactions"
+    assert_response :ok
+    txs = JSON.parse(response.body)["transactions"]
+    assert_equal 2, txs.size
+    assert_equal "2026-06-10", txs.first["occurred_at"], "mais recente primeiro"
+    assert_equal t1.id, txs.last["id"]
+    assert_equal "Netflix", txs.last["title"]
+  end
+
+  test "GET /recurrences/:id/transactions não vaza de outro workspace" do
+    other = create(:workspace)
+    rec = create(:recurrence, workspace: other, account: create(:account, workspace: other))
+    get "/api/v1/recurrences/#{rec.id}/transactions"
+    assert_response :not_found
+  end
+
   test "POST /recurrences cria manual (source forçado para manual)" do
     assert_difference -> { @workspace.recurrences.count }, 1 do
       post "/api/v1/recurrences",

@@ -73,14 +73,39 @@ describe('<RecorrentesPage />', () => {
     await waitFor(() => expect(screen.getByTestId('recurrences-empty')).toBeInTheDocument())
   })
 
-  it('pauses an active recurrence from the detail sheet', async () => {
-    const { fetchMock } = setupFetch({
+  const TX_RESPONSE = {
+    'GET /api/v1/recurrences/r1/transactions': {
+      status: 200,
+      body: { transactions: [
+        { id: 't1', title: 'Netflix', amount_cents: 5590, occurred_at: '2026-06-10' },
+        { id: 't2', title: 'Netflix', amount_cents: 5590, occurred_at: '2026-05-10' },
+      ] },
+    },
+  }
+
+  it('shows the related recurring expenses when opening the detail', async () => {
+    setupFetch({
       'GET /api/v1/recurrences': { status: 200, body: { recurrences: [rec()] } },
-      'PATCH /api/v1/recurrences/r1': { status: 200, body: { recurrence: rec({ status: 'paused' }) } },
+      ...TX_RESPONSE,
     })
     renderPage()
     const user = userEvent.setup()
     await user.click(await screen.findByTestId('recurrence-row-r1'))
+    const list = await screen.findByTestId('recurrence-transactions')
+    expect(list).toHaveTextContent('Netflix')
+    expect(list).toHaveTextContent('10/06/2026')
+  })
+
+  it('pauses an active recurrence from the detail sheet', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/recurrences': { status: 200, body: { recurrences: [rec()] } },
+      'PATCH /api/v1/recurrences/r1': { status: 200, body: { recurrence: rec({ status: 'paused' }) } },
+      ...TX_RESPONSE,
+    })
+    renderPage()
+    const user = userEvent.setup()
+    await user.click(await screen.findByTestId('recurrence-row-r1'))
+    await user.click(await screen.findByTestId('recurrence-settings-toggle'))
     await user.click(await screen.findByTestId('recurrence-pause'))
     await waitFor(() => {
       const call = fetchMock.mock.calls.find(
@@ -94,10 +119,12 @@ describe('<RecorrentesPage />', () => {
     const { fetchMock } = setupFetch({
       'GET /api/v1/recurrences': { status: 200, body: { recurrences: [rec()] } },
       'PATCH /api/v1/recurrences/r1': { status: 200, body: { recurrence: rec({ amount_tolerance_pct: 25 }) } },
+      ...TX_RESPONSE,
     })
     renderPage()
     const user = userEvent.setup()
     await user.click(await screen.findByTestId('recurrence-row-r1'))
+    await user.click(await screen.findByTestId('recurrence-settings-toggle'))
     const input = await screen.findByTestId('recurrence-tolerance')
     await user.clear(input)
     await user.type(input, '25')
@@ -114,10 +141,12 @@ describe('<RecorrentesPage />', () => {
     const { fetchMock } = setupFetch({
       'GET /api/v1/recurrences': { status: 200, body: { recurrences: [rec()] } },
       'PATCH /api/v1/recurrences/r1': { status: 200, body: { recurrence: rec({ status: 'cancelled' }) } },
+      ...TX_RESPONSE,
     })
     renderPage()
     const user = userEvent.setup()
     await user.click(await screen.findByTestId('recurrence-row-r1'))
+    await user.click(await screen.findByTestId('recurrence-settings-toggle'))
     await user.click(await screen.findByTestId('recurrence-cancel'))
     await waitFor(() => {
       const call = fetchMock.mock.calls.find(

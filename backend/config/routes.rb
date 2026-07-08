@@ -136,7 +136,10 @@ Rails.application.routes.draw do
       # Recurrences (RF9) — recorrentes detectadas + cadastradas manualmente.
       resources :recurrences, only: [ :index, :create, :update, :destroy ] do
         collection { get "upcoming" }   # RF9.3 — vencimentos previstos
-        member     { get "missed" }     # RF9.6 — não chegou no prazo
+        member do
+          get "missed"          # RF9.6 — não chegou no prazo
+          get "transactions"    # RF9 — histórico de gastos desta recorrência
+        end
       end
 
       # Faturas do cartão (RF9.5) — derivadas, sem entidade física.

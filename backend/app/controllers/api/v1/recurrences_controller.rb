@@ -1,6 +1,6 @@
 class Api::V1::RecurrencesController < ApplicationController
   before_action :require_authentication!
-  before_action :set_recurrence, only: [ :update, :destroy, :missed ]
+  before_action :set_recurrence, only: [ :update, :destroy, :missed, :transactions ]
 
   # GET /api/v1/recurrences — recorrentes do workspace (detectadas + manuais).
   def index
@@ -29,6 +29,21 @@ class Api::V1::RecurrencesController < ApplicationController
       next_expected_at: @recurrence.next_expected_at&.iso8601,
       days_overdue:     @recurrence.days_overdue,
       last_seen_at:     @recurrence.last_seen_at&.iso8601
+    }
+  end
+
+  # GET /api/v1/recurrences/:id/transactions — os gastos (consolidados) já
+  # lançados desta recorrência, mais recentes primeiro (RF9 — histórico).
+  def transactions
+    render json: {
+      transactions: @recurrence.occurrences.first(24).map do |t|
+        {
+          id:           t.id,
+          title:        t.improved_title.presence || t.original_description,
+          amount_cents: t.amount_cents,
+          occurred_at:  t.occurred_at.iso8601
+        }
+      end
     }
   end
 

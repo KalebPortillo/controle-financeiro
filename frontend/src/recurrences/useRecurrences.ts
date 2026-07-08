@@ -34,6 +34,25 @@ export function useRecurrences() {
   })
 }
 
+// Gasto (consolidado) já lançado desta recorrência — histórico do detalhe.
+export type RecurrenceTransaction = {
+  id: string
+  title: string
+  amount_cents: number
+  occurred_at: string
+}
+
+// GET /api/v1/recurrences/:id/transactions. Lazy: só busca quando o detalhe abre.
+export function useRecurrenceTransactions(id: string | null) {
+  return useQuery({
+    queryKey: id ? (['recurrences', id, 'transactions'] as const) : (['recurrences', 'none'] as const),
+    enabled: !!id,
+    queryFn: () =>
+      apiFetch<{ transactions: RecurrenceTransaction[] }>(`/api/v1/recurrences/${id}/transactions`)
+        .then((r) => r.transactions),
+  })
+}
+
 export type RecurrenceUpdate = Partial<
   Pick<
     Recurrence,

@@ -49,12 +49,19 @@ class Recurrence < ApplicationRecord
     (today - next_expected_at).to_i
   end
 
+  # Gastos (consolidados) já lançados desta recorrência, mais recentes primeiro —
+  # o histórico que o usuário vê no detalhe (RF9).
+  def occurrences
+    matching_transactions.sort_by(&:occurred_at).reverse
+  end
+
   private
 
   # Débitos consolidados desta conta cujo descritor normalizado bate com o
   # padrão. Filtro em Ruby (volume pessoal) — normalização não é trivial em SQL.
   def matching_transactions
-    account.transactions.consolidated.where(direction: "debit").select do |t|
+    account.transactions.consolidated.where(direction: "debit")
+           .includes(:tags).select do |t|
       Recurrences::Descriptor.normalize(t.original_description) == descriptor_pattern
     end
   end

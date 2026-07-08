@@ -75,4 +75,7 @@ group :test do
   gem "vcr"
   # Code coverage report
   gem "simplecov", require: false
+  # Re-tenta testes que falham por erro TRANSITÓRIO em CI (só exceções listadas,
+  # não assert failures) — quarentena da flake de Active Storage em paralelo.
+  gem "minitest-retry", require: false
 end

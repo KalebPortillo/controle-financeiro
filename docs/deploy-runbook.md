@@ -65,6 +65,46 @@ Configurado em `.github/workflows/deploy.yml`. Sequência por job:
 
 ---
 
+## Checklist pré-deploy (antes de taggar prod)
+
+Rodar SEMPRE — a ideia é o deploy virar um loop com critério de saída explícito
+(ver [[../.claude/skills/ship]] e a skill `/ship`), não uma sequência manual.
+
+1. **Gate verde local**: `bin/rails test` + `rubocop` + `brakeman` (backend);
+   `npm run typecheck && npm run lint && npm run test:run && npm run build` (frontend).
+2. **Migrations?** Rodam no boot via `db:prepare` (entrypoint). Se houver migration
+   destrutiva/irreversível, revisar à parte — o boot não pede confirmação.
+3. **Backfill retroativo?** Decisão explícita: a mudança altera dados JÁ importados?
+   - **Sim** → há rake task idempotente? (padrão `namespace:task`, ex.
+     `installments:regroup`, `transaction_links:detect_iof`). Rodar em prod PÓS-deploy
+     via `ssh oracle-app-box docker exec <rails> bin/rails <task>` e conferir amostra.
+   - **Não** (só UI/endpoint sob demanda, ex. RF23 F2/F3) → registrar "sem backfill"
+     no resumo pro usuário, pra não gerar expectativa de dado retroativo.
+4. **O que testar em staging?** Gerar a lista de smoke tests da feature JUNTO do
+   deploy (a skill `/ship` monta isso), pra o usuário não ter que perguntar depois.
+5. **Versão**: `vMAJOR.MINOR.PATCH` — feature nova = bump minor; fix isolado = patch.
+6. **Pós-deploy prod**: `bin/sentry-triage --since <hora>` (ver [[sentry-triage]]).
+
+---
+
+## Loops recorrentes (proativos)
+
+Trabalho repetitivo e bem-definido que NÃO precisa de prompt a cada vez — bons
+candidatos a rodar como loop agendado (`/schedule` no Claude Code, ou `cron`).
+Não são criados sozinhos: peça pra ligar o que quiser.
+
+| loop | quando | o quê | por quê |
+|---|---|---|---|
+| **Triagem Sentry pós-deploy** | após cada `deploy-production: success` | `bin/sentry-triage --since <hora do deploy>` (só triagem, sem fix) | pega regressão nova cedo — ver [[sentry-triage]] |
+| **CVE check semanal** | 1×/semana | backend `bundle exec bundle-audit check --update`; frontend `npm audit --production` | o gate `bundler-audit` do CI já travou deploy 2× (oauth2, concurrent-ruby…). Antecipar o bump evita descobrir no meio de um deploy |
+| **Sync/health canário** | se algo parecer parado | conferir o `BankConnections::ScheduledSyncJob` horário + `/up` | o pull automático é silencioso; um canário evita "por que não sincronizou?" |
+
+Regra do artigo de loops: **não rode rotina mais vezes que o necessário** e
+prefira reagir a evento (deploy concluído) a poll cego. Poll de CI/deploy usa
+intervalo curto (~270s, cache quente); idle usa intervalo longo (20–30 min).
+
+---
+
 ## Lições aprendidas (e o porquê de cada linha esquisita)
 
 ### 1. Tailscale OAuth: scope `auth_keys`, não `oauth_keys`
@@ -322,6 +362,31 @@ curl -sI https://wallet-staging.portilho.cc/apple-touch-icon.png | grep -iE 'cf-
 iOS extra: o ícone da homescreen é cacheado **no device** — depois do deploy é preciso
 **remover e re-adicionar** o atalho. E o iOS não lida bem com SVG `sizes:any` no
 manifest (pode escolhê-lo no lugar do PNG) — mantenha só PNG nos `icons` do manifest.
+
+### 20. Flake de Active Storage em CI paralelo (deploy trava sem ser bug)
+
+Os testes rodam em paralelo (`parallelize(workers: :number_of_processors)` no
+`test_helper.rb`). O único teste que faz `file.attach` (`Imports::ProcessTest`,
+RF20) falha **esporadicamente** com:
+
+```
+NoMethodError: undefined method 'attachment_reflections' for nil
+```
+
+É uma **corrida de teardown do Active Storage** entre workers, NÃO um bug — o mesmo
+commit passa no re-run. Como o job `test` é gate do `deploy-production`, isso já
+travou tag de prod (ex.: v0.25.0).
+
+**Mitigação (commit desta lição)**: `minitest-retry` re-tenta **só** essa exceção
+transitória (`exceptions_to_retry: [NoMethodError]`, `retry_count: 2`) e **só em CI**
+(`ENV["CI"]`). Não re-tenta `Minitest::Assertion` → regressão real continua vermelha.
+
+**Se travar mesmo assim** (re-tentou 2× e a corrida persistiu):
+```bash
+gh run rerun <run_id> --failed   # re-roda só os jobs que falharam
+```
+Não é o código — é só re-rodar. Se a flake ficar frequente, o próximo passo é
+isolar o teste de Active Storage do pool paralelo (não vale a pena enquanto rara).
 
 ---
 

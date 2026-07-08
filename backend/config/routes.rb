@@ -24,6 +24,10 @@ Rails.application.routes.draw do
       # E2E do CI roda com RAILS_ENV=test em localhost, então continua valendo.
       post "auth/test_sign_in", to: "sessions#test_sign_in" if Rails.env.local?
 
+      # Seed de dados pro E2E (Playwright) — cenários com metadata específica
+      # (IOF, moeda estrangeira). SÓ dev/test, nunca staging/prod (dados reais).
+      post "test_support/seed", to: "test_support#seed" if Rails.env.local?
+
       # Auth (Google OAuth via OmniAuth). O `auth/:provider` (request-phase)
       # é montado pelo middleware OmniAuth::Builder; aqui declaramos o
       # callback e a rota de failure.

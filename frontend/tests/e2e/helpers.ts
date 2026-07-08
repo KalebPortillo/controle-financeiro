@@ -25,3 +25,19 @@ export async function signIn(
 export async function goto(page: Page, path: string) {
   await page.goto(path, { waitUntil: 'networkidle' })
 }
+
+/**
+ * Semeia um cenário de dados no workspace atual (RF23). A rota
+ * POST /api/v1/test_support/seed só existe em dev/test (gate Rails.env.local?).
+ * Devolve os ids criados pros seletores do teste.
+ */
+export async function seed(
+  context: BrowserContext,
+  scenario: 'related_inbox' | 'link_manual',
+): Promise<Record<string, string>> {
+  const res = await context.request.post('/api/v1/test_support/seed', { data: { scenario } })
+  if (!res.ok()) {
+    throw new Error(`seed ${scenario} failed: HTTP ${res.status()} — ${await res.text()}`)
+  }
+  return res.json()
+}

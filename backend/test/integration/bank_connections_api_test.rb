@@ -32,6 +32,16 @@ class BankConnectionsApiTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
+  test "POST /bank_connections/connect_token vira 502 amigável quando o Pluggy falha" do
+    stub_request(:post, "https://api.pluggy.ai/connect_token").to_return(status: 500, body: "boom")
+
+    post "/api/v1/bank_connections/connect_token", as: :json
+    assert_response :bad_gateway
+    body = JSON.parse(response.body)
+    assert_equal "provider_error", body.dig("error", "code")
+    assert_no_match(/boom|HTTP 500/, body.dig("error", "message"), "não vaza detalhe técnico")
+  end
+
   # --- create -----------------------------------------------------------
 
   test "POST /bank_connections persiste conexão + accounts do item" do

@@ -133,6 +133,17 @@ class BankConnectionsManagementTest < ActionDispatch::IntegrationTest
     assert_equal "rc-tok", JSON.parse(response.body)["connect_token"]
   end
 
+  test "POST /bank_connections/:id/reconnect vira 502 amigável quando o Pluggy falha" do
+    c = connection(external_connection_id: "item-rc-err")
+    stub_request(:post, "https://api.pluggy.ai/auth")
+      .to_return(status: 200, body: { apiKey: "k" }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "https://api.pluggy.ai/connect_token").to_return(status: 503, body: "down")
+
+    post "/api/v1/bank_connections/#{c.id}/reconnect"
+    assert_response :bad_gateway
+    assert_equal "provider_error", JSON.parse(response.body).dig("error", "code")
+  end
+
   # --- destroy ----------------------------------------------------------
 
   test "DELETE /bank_connections/:id remove a conexão" do

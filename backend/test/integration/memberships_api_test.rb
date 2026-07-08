@@ -127,4 +127,34 @@ class MembershipsApiTest < ActionDispatch::IntegrationTest
     assert_response :not_found
     assert WorkspaceMembership.exists?(partner_membership.id)
   end
+
+  # ---- role enforcement (RF16) -----------------------------------------
+
+  test "POST /memberships by a viewer is forbidden" do
+    viewer = create(:user)
+    workspace = create(:workspace)
+    create(:workspace_membership, user: viewer, workspace: workspace, role: "viewer")
+    create(:user, email: "invitee@example.com")
+
+    sign_in_as(viewer)
+    assert_no_difference "WorkspaceMembership.count" do
+      post "/api/v1/workspaces/#{workspace.id}/memberships",
+           params: { email: "invitee@example.com" }, as: :json
+    end
+    assert_response :forbidden
+    assert_equal "forbidden", JSON.parse(response.body).dig("error", "code")
+  end
+
+  test "DELETE /memberships/:id by a viewer is forbidden" do
+    viewer  = create(:user)
+    partner = create(:user)
+    workspace = create(:workspace)
+    create(:workspace_membership, user: viewer, workspace: workspace, role: "viewer")
+    partner_membership = create(:workspace_membership, user: partner, workspace: workspace)
+
+    sign_in_as(viewer)
+    delete "/api/v1/workspaces/#{workspace.id}/memberships/#{partner_membership.id}"
+    assert_response :forbidden
+    assert WorkspaceMembership.exists?(partner_membership.id)
+  end
 end

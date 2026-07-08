@@ -2,6 +2,10 @@ class Api::V1::BankConnectionsController < ApplicationController
   before_action :require_authentication!
   before_action :set_connection, only: [ :show, :sync, :reconnect, :destroy, :sync_history ]
 
+  # Falha do agregador (Pluggy fora do ar, credencial inválida, token expirado)
+  # vira 502 amigável — antes `connect_token`/`reconnect` estouravam 500 cru.
+  rescue_from BankAggregators::Error, with: :render_provider_error
+
   # GET /api/v1/bank_connections — lista + summary agregado (RF21).
   def index
     connections = current_workspace.bank_connections.includes(:accounts).order(:created_at)
@@ -73,12 +77,21 @@ class Api::V1::BankConnectionsController < ApplicationController
     # Sync inicial assíncrono (RF1.4) — puxa as transações pra inbox.
     BankConnections::SyncJob.perform_later(connection.id)
     render json: { bank_connection: serialize(connection) }, status: :created
-  rescue BankAggregators::Error => e
-    render json: { error: { code: "provider_error", message: e.message } },
-           status: :bad_gateway
   end
 
   private
+
+  # Handler único do erro de provider (connect_token, reconnect, create). Mensagem
+  # amigável pro usuário; o detalhe técnico vai pro log (Sentry), não pro cliente.
+  def render_provider_error(error)
+    Rails.logger.error("[Pluggy] #{error.class}: #{error.message}")
+    render json: {
+      error: {
+        code:    "provider_error",
+        message: "Não foi possível falar com o banco agora. Tente de novo em instantes."
+      }
+    }, status: :bad_gateway
+  end
 
   # Escopado por workspace — conexão de outro workspace dá 404 (RecordNotFound).
   def set_connection

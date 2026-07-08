@@ -29,6 +29,22 @@ class AuthFlowTest < ActionDispatch::IntegrationTest
     assert_equal "New User's workspace",  body.dig("workspaces", 0, "name")
   end
 
+  test "session cookie is persistent (has an expiry), so the user stays logged in" do
+    OmniAuth.config.mock_auth[:google_oauth2] = OmniAuth::AuthHash.new(
+      provider: "google_oauth2",
+      uid: "google-persist",
+      info: { email: "persist@example.com", name: "Persist", image: nil }
+    )
+    get "/api/v1/auth/google_oauth2/callback"
+
+    set_cookie = Array(response.headers["Set-Cookie"]).join("\n")
+    session_line = set_cookie.lines.find { |l| l.include?("_controle_financeiro_session") }
+    assert session_line, "esperava o cookie de sessão no Set-Cookie"
+    # Cookie persistente = tem expires/max-age (não é cookie de sessão de browser).
+    assert_match(/expires=|max-age=/i, session_line,
+                 "cookie de sessão deve ter validade (expire_after) pra não deslogar toda hora")
+  end
+
   test "google callback for existing user does not create a duplicate" do
     existing = create(:user, google_uid: "google-existing", email: "anna@example.com")
 

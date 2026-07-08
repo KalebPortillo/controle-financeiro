@@ -1,6 +1,7 @@
 class Api::V1::MembershipsController < ApplicationController
   before_action :require_authentication!
   before_action :set_workspace
+  before_action :require_editor!, only: [ :create, :destroy ]
   before_action :set_membership, only: [ :destroy ]
 
   def index
@@ -44,6 +45,17 @@ class Api::V1::MembershipsController < ApplicationController
 
   def set_membership
     @membership = @workspace.memberships.find(params[:id])
+  end
+
+  # RF16 — gerenciar membros (convidar/remover) é só pra editor. Viewer enxerga
+  # a lista (index) mas não altera. Não-membro nem chega aqui (set_workspace 404).
+  def require_editor!
+    membership = @workspace.memberships.find_by(user_id: current_user.id)
+    return if membership&.role == "editor"
+
+    render json: {
+      error: { code: "forbidden", message: "Apenas editores podem gerenciar membros." }
+    }, status: :forbidden
   end
 
   def serialize(membership)

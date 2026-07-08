@@ -308,6 +308,15 @@ class Api::V1::TransactionsController < ApplicationController
   # Data da compra (YYYY-MM-DD) extraída do raw do Pluggy; nil quando ausente
   # (conta corrente, OFX, manual) ou timestamp inválido.
   def purchase_date_for(t)
+    # Parcela: usa a data da compra RETRO-CALCULADA (occurred − (número−1) meses),
+    # nunca o purchaseDate do Pluggy — que nas parcelas projetadas é SINTÉTICO (= a
+    # data da fatura de cada parcela, no futuro). Isso mantém a data exibida = data
+    # da compra (passado), coerente com o group_id. Ver Transactions::Installment.
+    if t.installment_number && t.installment_total
+      anchor = Transactions::Installment.purchase_anchor(number: t.installment_number, occurred: t.occurred_at)
+      return anchor if anchor
+    end
+
     raw = t.source_metadata&.dig("creditCardMetadata", "purchaseDate")
     return nil if raw.blank?
 

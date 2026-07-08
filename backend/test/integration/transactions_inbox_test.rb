@@ -67,6 +67,19 @@ class TransactionsInboxTest < ActionDispatch::IntegrationTest
     assert_nil t["purchase_date"]
   end
 
+  test "purchase_date de parcela usa a compra retro-calculada, não o purchaseDate sintético/futuro" do
+    # Parcela 3/6 faturada em jul/2026 com purchaseDate SINTÉTICO (= a própria
+    # fatura, no futuro). purchase_date deve ser a compra: jul − 2 meses = mai/2026.
+    txn(status: "pending", original_description: "Principiaes 3/6",
+        installment_number: 3, installment_total: 6, occurred_at: Date.new(2026, 7, 29),
+        source_metadata: { "id" => "pr3", "creditCardMetadata" => {
+          "purchaseDate" => "2026-07-29T00:00:00.001Z", "installmentNumber" => 3, "totalInstallments" => 6 } })
+
+    get "/api/v1/transactions"
+    t = JSON.parse(response.body)["transactions"].first
+    assert_equal "2026-05-29", t["purchase_date"], "data da compra, não a fatura futura"
+  end
+
   test "foreign_currency traz a moeda original quando != da conta; null em BRL" do
     txn(status: "pending", original_description: "Claude",
         source_metadata: { "id" => "u1", "currencyCode" => "USD" })

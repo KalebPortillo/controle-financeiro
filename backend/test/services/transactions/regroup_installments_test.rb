@@ -21,11 +21,11 @@ class Transactions::RegroupInstallmentsTest < ActiveSupport::TestCase
            source_metadata: cc(purchase_date: purchase_date, number: number, total: total, mcc: mcc))
   end
 
-  test "separa compras distintas no mesmo lugar+total por data de compra" do
-    # Duas compras 10x no mesmo estabelecimento, em DIAS de compra diferentes
-    # (refletidos na data de fatura da parcela), mesmo group_id legado.
+  test "separa compras distintas no mesmo lugar+total por MÊS de compra" do
+    # Duas compras 10x no mesmo estabelecimento, em MESES de compra diferentes
+    # (set/2025 vs out/2025), mesmo group_id legado. O anchor por mês as separa.
     a = parcel(desc: "SAO JORGE 8/10", number: 8, total: 10, purchase_date: "2025-09-25T13:05:38.001Z", occurred: Date.new(2026, 4, 25))
-    b = parcel(desc: "SAO JORGE 8/10", number: 8, total: 10, purchase_date: "2025-09-29T18:39:58.001Z", occurred: Date.new(2026, 4, 29))
+    b = parcel(desc: "SAO JORGE 8/10", number: 8, total: 10, purchase_date: "2025-10-25T18:39:58.001Z", occurred: Date.new(2026, 5, 25))
 
     result = Transactions::RegroupInstallments.call(scope: @ws.transactions)
 

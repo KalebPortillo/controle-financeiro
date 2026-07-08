@@ -78,13 +78,27 @@ class Transactions::InstallmentTest < ActiveSupport::TestCase
     assert_equal canonical, projected, "1/12 e 2/12 (jun/2026) → mesmo group_id"
   end
 
-  test "group_id separa compras distintas no mesmo lugar+total por data de compra" do
+  # Bug real (Steam 1/3): a 1ª parcela posta na DATA DA COMPRA (dia 08) e as demais
+  # no DIA DA FATURA (dia 07). Retro-cálculo por DIA daria 08-07 vs 07-07 e separaria
+  # a parcela 1 — por isso a chave usa só o MÊS.
+  test "group_id cola parcelas mesmo com dia do mês diferente entre elas" do
+    p1 = Transactions::Installment.group_id(account_id: "acc-1", description: "STEAM 1/3", total: 3,
+                                            number: 1, occurred: Date.new(2026, 7, 8))
+    p2 = Transactions::Installment.group_id(account_id: "acc-1", description: "STEAM 2/3", total: 3,
+                                            number: 2, occurred: Date.new(2026, 8, 7))
+    p3 = Transactions::Installment.group_id(account_id: "acc-1", description: "STEAM 3/3", total: 3,
+                                            number: 3, occurred: Date.new(2026, 9, 7))
+    assert_equal p1, p2, "1/3 (dia 08) e 2/3 (dia 07) → mesmo grupo"
+    assert_equal p1, p3
+  end
+
+  test "group_id separa compras de MESES de compra diferentes no mesmo lugar+total" do
     same_desc = "SAO JORGE SHOPPING 8/10"
     a = Transactions::Installment.group_id(account_id: "acc-1", description: same_desc, total: 10,
-                                           number: 8, occurred: Date.new(2026, 4, 25))
+                                           number: 8, occurred: Date.new(2026, 4, 25)) # compra set/2025
     b = Transactions::Installment.group_id(account_id: "acc-1", description: same_desc, total: 10,
-                                           number: 8, occurred: Date.new(2026, 4, 29))
-    assert_not_equal a, b, "compras 4 dias distintas → grupos diferentes"
+                                           number: 8, occurred: Date.new(2026, 5, 25)) # compra out/2025
+    assert_not_equal a, b, "compras em meses distintos → grupos diferentes"
   end
 
   test "projected?: purchaseDate sintético (meia-noite = própria data) sem MCC" do

@@ -19,18 +19,22 @@ module Transactions
     end
 
     # group_id determinístico das parcelas da mesma compra. A chave é
-    # conta+descritor+DATA_DA_COMPRA+total. A data da compra é RETRO-CALCULADA da
-    # parcela (`occurred` − (`number`−1) meses), não lida do
+    # conta+descritor+MÊS_DA_COMPRA+total. O mês da compra é RETRO-CALCULADO da
+    # parcela (`occurred` − (`number`−1) meses), não lido do
     # `creditCardMetadata.purchaseDate`: o Pluggy emite purchaseDate SINTÉTICO (= a
     # data da fatura) nas parcelas futuras/projetadas E varia o cardNumber entre a
     # canônica e as projetadas, o que fragmentava uma compra em vários grupos.
-    # Retro-calcular cola todas as parcelas (todas apontam pro mesmo mês/dia de
-    # compra) e ainda distingue compras diferentes no mesmo lugar+total pela data.
-    # Sem number/occurred (OFX/manual), cai no descritor normalizado.
+    #
+    # Usamos só o MÊS (não o dia) porque a 1ª parcela costuma postar na DATA DA
+    # COMPRA e as demais no DIA DA FATURA — dias diferentes que quebrariam o
+    # agrupamento se a chave usasse o dia (bug real "Steam 1/3" separada de 2/3).
+    # Trade-off aceito: duas compras no MESMO lugar, MESMO total e MESMO mês
+    # agrupam como uma (raro; a granularidade de dia pegava esse caso mas quebrava
+    # o comum). Sem number/occurred (OFX/manual), cai no descritor normalizado.
     def group_id(account_id:, description:, total:, number: nil, occurred: nil)
-      desc   = Recurrences::Descriptor.normalize(description)
-      anchor = purchase_anchor(number: number, occurred: occurred)
-      key    = anchor ? "#{account_id}:#{desc}:#{anchor}:#{total}" : "#{account_id}:#{desc}:#{total}"
+      desc  = Recurrences::Descriptor.normalize(description)
+      month = purchase_anchor(number: number, occurred: occurred)&.slice(0, 7) # "YYYY-MM"
+      key   = month ? "#{account_id}:#{desc}:#{month}:#{total}" : "#{account_id}:#{desc}:#{total}"
       Digest::UUID.uuid_v5(NAMESPACE, key)
     end
 

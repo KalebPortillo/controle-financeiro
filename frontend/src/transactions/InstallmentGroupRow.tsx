@@ -6,16 +6,12 @@ import { AiConfidenceBadge, NotAnalyzedBadge } from './AiConfidenceBadge'
 import { CurrencyChip } from './CurrencyChip'
 import { SwipeableRow } from './SwipeableRow'
 import type { InboxItem } from './inboxItems'
+import { formatDayMonth, displayTitle } from './display'
 
 type InstallmentItem = Extract<InboxItem, { kind: 'installment' }>
 
 function signed(direction: string, cents: number): number {
   return direction === 'debit' ? -cents : cents
-}
-
-function formatDate(iso: string): string {
-  const [, m, d] = iso.split('-')
-  return `${d}/${m}`
 }
 
 /**
@@ -35,7 +31,7 @@ export function InstallmentGroupRow({
   onOpenGroup: () => void
 }) {
   const { representative: rep, parcels, total, groupId, purchaseDate } = item
-  const title = rep.improved_title || rep.original_description
+  const title = displayTitle(rep)
   const hasTitle = Boolean(rep.improved_title)
 
   return (
@@ -118,7 +114,7 @@ export function InstallmentGroupRow({
         {/* data da compra + total das parcelas presentes */}
         <div className="text-right whitespace-nowrap">
           <div className="text-[11px] text-muted-foreground tabular-nums mb-0.5" data-testid={`group-date-${groupId}`}>
-            {formatDate(purchaseDate)}
+            {formatDayMonth(purchaseDate)}
           </div>
           <span data-testid={`group-total-${groupId}`}>
             <Money cents={signed(rep.direction, total)} signed className="font-semibold" />

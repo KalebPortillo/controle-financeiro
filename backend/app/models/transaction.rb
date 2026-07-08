@@ -118,6 +118,19 @@ class Transaction < ApplicationRecord
     transfer_as_debit.present? || transfer_as_credit.present?
   end
 
+  # RF14 — moeda estrangeira da compra: o `currencyCode` do Pluggy quando difere
+  # da moeda da conta; nil em compra na própria moeda (o amount_cents já vem
+  # convertido). Fonte única — serializer e detecção de IOF (RF23) consomem daqui.
+  def foreign_currency
+    code = source_metadata&.dig("currencyCode")
+    base = account&.currency.presence || "BRL"
+    code if code.present? && code.to_s.upcase != base.to_s.upcase
+  end
+
+  def foreign?
+    foreign_currency.present?
+  end
+
   private
 
   def broadcast_status_change

@@ -14,13 +14,15 @@ Rails.application.routes.draw do
       # Config pública (runtime) lida pelo frontend no boot — ex.: sandbox do
       # Pluggy ligado fora de produção. Decisão por RAILS_ENV, não por build.
       get "app_config", to: "app_config#show"
-      # Sentry probe: rota só existe fora de produção para evitar spam de quota.
-      get "test_error", to: "errors#trigger" unless Rails.env.production?
+      # Sentry probe: rota só existe em dev/test (evita spam de quota e não
+      # expõe em STAGING, que é público e agora tem dados reais).
+      get "test_error", to: "errors#trigger" if Rails.env.local?
 
-      # E2E auth bypass — só em non-production. Permite Playwright pular o
-      # handshake Google e logar direto via `Users::CreateWithPersonalWorkspace`
-      # (mesmo caminho do callback OAuth real).
-      post "auth/test_sign_in", to: "sessions#test_sign_in" unless Rails.env.production?
+      # E2E auth bypass — SÓ em dev/test (Rails.env.local?), nunca em staging nem
+      # produção. Permite ao Playwright pular o handshake Google e logar via
+      # `Users::CreateWithPersonalWorkspace` (mesmo caminho do callback OAuth). O
+      # E2E do CI roda com RAILS_ENV=test em localhost, então continua valendo.
+      post "auth/test_sign_in", to: "sessions#test_sign_in" if Rails.env.local?
 
       # Auth (Google OAuth via OmniAuth). O `auth/:provider` (request-phase)
       # é montado pelo middleware OmniAuth::Builder; aqui declaramos o

@@ -9,13 +9,10 @@ import { AccountTag } from './AccountTag'
 import { InstallmentBadge } from './InstallmentBadge'
 import { useUpdateInstallmentGroup, type InboxTransaction } from './useInbox'
 import type { InboxItem } from './inboxItems'
+import { formatDayMonth, displayTitle } from './display'
 
 type InstallmentItem = Extract<InboxItem, { kind: 'installment' }>
 
-function formatDate(iso: string): string {
-  const [, m, d] = iso.split('-')
-  return `${d}/${m}`
-}
 function signed(direction: string, cents: number): number {
   return direction === 'debit' ? -cents : cents
 }
@@ -89,7 +86,7 @@ function Inner({
               </span>
             </div>
             <div className="font-display text-lg font-semibold tracking-tight truncate">
-              {rep.improved_title || rep.original_description}
+              {displayTitle(rep)}
             </div>
           </div>
           <button
@@ -150,7 +147,7 @@ function Inner({
                     {p.original_description}
                   </span>
                   <span className="block text-[11px] text-muted-foreground truncate">
-                    {formatDate(p.occurred_at)} · {STATUS_LABEL[p.status] ?? p.status}
+                    {formatDayMonth(p.occurred_at)} · {STATUS_LABEL[p.status] ?? p.status}
                   </span>
                 </span>
                 <Money cents={signed(p.direction, p.amount_cents)} signed className="text-[13px]" />

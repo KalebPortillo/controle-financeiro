@@ -65,7 +65,8 @@ module TransactionLinks
       scope.where(direction: "debit", account_id: iof.account_id)
            .where(occurred_at: (iof.occurred_at - WINDOW_BEFORE)..(iof.occurred_at + WINDOW_AFTER))
            .where.not(id: iof.id)
-           .select { |t| foreign?(t) && !iof_debit?(t) }
+           .includes(:account) # foreign? lê account.currency — preload evita N+1
+           .select { |t| t.foreign? && !iof_debit?(t) }
     end
 
     # --- classificação --------------------------------------------------------
@@ -79,12 +80,6 @@ module TransactionLinks
 
       t.original_description.to_s.downcase.include?("iof") ||
         t.source_metadata&.dig("creditCardMetadata", "feeTypeAdditionalInfo") == "IOF_COMPRA_INTERNACIONAL"
-    end
-
-    def foreign?(t)
-      code = t.source_metadata&.dig("currencyCode")
-      base = t.account&.currency.presence || "BRL"
-      code.present? && code.to_s.upcase != base.to_s.upcase
     end
 
     # Comerciante entre aspas em `IOF de "Loja"` (minúsculo, sem pontuação).

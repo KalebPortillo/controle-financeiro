@@ -7,6 +7,19 @@ class TransactionTest < ActiveSupport::TestCase
     assert build(:transaction).valid?
   end
 
+  test "foreign_currency: código do Pluggy quando difere da moeda da conta" do
+    acc = create(:account, currency: "BRL")
+    usd = build(:transaction, account: acc, source_metadata: { "currencyCode" => "USD" })
+    brl = build(:transaction, account: acc, source_metadata: { "currencyCode" => "BRL" })
+    none = build(:transaction, account: acc, source_metadata: { "id" => "x" })
+
+    assert_equal "USD", usd.foreign_currency
+    assert usd.foreign?
+    assert_nil brl.foreign_currency
+    assert_not brl.foreign?
+    assert_nil none.foreign_currency
+  end
+
   test "muda de status → broadcasta no TransactionsChannel do workspace (tempo real)" do
     tx = create(:transaction, status: "pending")
 

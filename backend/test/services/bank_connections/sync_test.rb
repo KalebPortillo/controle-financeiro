@@ -417,4 +417,27 @@ class BankConnections::SyncTest < ActiveSupport::TestCase
     end
     assert_equal 1, connection.workspace.notifications.where(kind: "inbox_new").count
   end
+
+  # RF23 — o sync liga o IOF à compra estrangeira de origem (DetectIof no fim).
+  test "vincula IOF de compra internacional ao gasto de origem" do
+    connection, account = setup_connection_with_account(kind: "credit_card")
+    provider = FakeProvider.new(by_account: {
+      "acc-1" => [
+        # Compra em USD: amount em USD, convertido pra R$65,27 (currencyCode != BRL).
+        txn("buy-1", -20.0, "STORE US", date: "2026-03-10", type: "DEBIT", currency_code: "USD", amount_in_account_currency: -65.27),
+        # IOF: R$65,27 × 3,5% = R$2,28 (por centavo), poucos dias depois.
+        txn("iof-1", -2.28, "IOF de compra internacional", date: "2026-03-12", type: "DEBIT")
+      ]
+    })
+
+    assert_difference -> { TransactionLink.count }, 1 do
+      BankConnections::Sync.call(connection: connection, provider: provider)
+    end
+
+    buy  = account.transactions.find_by!(external_transaction_id: "buy-1")
+    iof  = account.transactions.find_by!(external_transaction_id: "iof-1")
+    link = iof.link_as_related
+    assert_equal "iof", link.relation_type
+    assert_equal buy, link.primary_transaction
+  end
 end

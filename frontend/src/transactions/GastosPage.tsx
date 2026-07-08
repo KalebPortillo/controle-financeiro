@@ -8,7 +8,8 @@ import { TagChip } from '../components/TagChip'
 import { AccountTag } from './AccountTag'
 import { InstallmentBadge } from './InstallmentBadge'
 import { CurrencyChip } from './CurrencyChip'
-import { useConsolidated, originalToShow, type InboxTransaction } from './useInbox'
+import { useConsolidated, originalToShow } from './useInbox'
+import { formatDayMonth, signedCents, displayTitle } from './display'
 import { useOverlay } from '../app/useOverlay'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
 import { ManualEntrySheet } from './ManualEntrySheet'
@@ -31,14 +32,6 @@ function periodLabel(period: string): string {
   return `${MONTHS[m - 1]} · ${y}`
 }
 
-function formatDate(iso: string): string {
-  const [, m, d] = iso.split('-')
-  return `${d}/${m}`
-}
-
-function signedCents(t: InboxTransaction): number {
-  return t.direction === 'debit' ? -t.amount_cents : t.amount_cents
-}
 
 /**
  * Gastos consolidados (RF4) — o que foi aceito da inbox, por mês. Totais de
@@ -181,7 +174,7 @@ export function GastosPage() {
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 truncate">
                   <span className="text-[13px] font-medium truncate">
-                    {t.improved_title || t.original_description}
+                    {displayTitle(t)}
                   </span>
                   <CurrencyChip currency={t.foreign_currency} />
                 </div>
@@ -217,7 +210,7 @@ export function GastosPage() {
               </div>
               <div className="text-right whitespace-nowrap">
                 <div className="text-[11px] text-muted-foreground tabular-nums mb-0.5" data-testid={`date-${t.id}`}>
-                  {formatDate(t.occurred_at)}
+                  {formatDayMonth(t.occurred_at)}
                 </div>
                 <Money cents={signedCents(t)} signed className="font-semibold" />
               </div>

@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Check, CheckSquare, Sparkles, Loader2, Search, X } from 'lucide-react'
 import { useDebounced } from '../app/useDebounced'
 import { transactionMatchesQuery } from './searchMatch'
+import { formatDayMonth, signedCents } from './display'
 import { Button } from '../components/Button'
 import { Money } from '../components/Money'
 import { TagChip } from '../components/TagChip'
@@ -30,15 +31,6 @@ import { useAnalysisProgress } from './useAnalysisProgress'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
 import { SwipeableRow } from './SwipeableRow'
 import { Alert } from '../components/Alert'
-
-function formatDate(iso: string): string {
-  const [, m, d] = iso.split('-')
-  return `${d}/${m}`
-}
-
-function signedCents(t: InboxTransaction): number {
-  return t.direction === 'debit' ? -t.amount_cents : t.amount_cents
-}
 
 /**
  * Inbox (RF2) — tabela densa das transações pendentes (status pending) no padrão
@@ -433,7 +425,7 @@ const RowContent = memo(function RowContent({
 
       <div className="text-right whitespace-nowrap">
         <div className="text-[11px] text-muted-foreground tabular-nums mb-0.5" data-testid={`date-${t.id}`}>
-          {formatDate(t.occurred_at)}
+          {formatDayMonth(t.occurred_at)}
         </div>
         <Money cents={signedCents(t)} signed className="font-semibold" />
       </div>

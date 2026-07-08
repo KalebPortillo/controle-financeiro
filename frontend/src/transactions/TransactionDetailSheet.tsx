@@ -9,6 +9,7 @@ import { TagEditor } from './TagEditor'
 import { GhostTagChips } from './GhostTagChips'
 import { RefundSection } from './RefundSection'
 import { RelatedSection } from './RelatedSection'
+import { signedCents, displayTitle } from './display'
 import {
   useConsolidate,
   useReject,
@@ -22,10 +23,6 @@ import {
   type TransactionEdit,
   type AiSuggestion,
 } from './useInbox'
-
-function signedCents(t: InboxTransaction): number {
-  return t.direction === 'debit' ? -t.amount_cents : t.amount_cents
-}
 
 /**
  * Detail sheet (RF2.3) — drawer direito pra revisar/editar uma transação da
@@ -155,7 +152,7 @@ function SheetInner({
         <div className="flex items-start gap-2.5">
           <div className="flex-1 min-w-0">
             <div className="font-display text-lg font-semibold tracking-tight mb-1 truncate">
-              {t.improved_title || t.original_description}
+              {displayTitle(t)}
             </div>
             <div className="text-xs text-muted-foreground">
               Descrição bruta: <span className="font-mono">{t.original_description}</span>

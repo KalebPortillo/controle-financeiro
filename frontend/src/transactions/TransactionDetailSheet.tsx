@@ -10,6 +10,7 @@ import { GhostTagChips } from './GhostTagChips'
 import { RefundSection } from './RefundSection'
 import { RelatedSection } from './RelatedSection'
 import { LinkOriginSection } from './LinkOriginSection'
+import { AggregatorAdjustmentBadge } from './AggregatorAdjustmentBadge'
 import { signedCents, displayTitle } from './display'
 import {
   useConsolidate,
@@ -162,6 +163,14 @@ function SheetInner({
             <div className="text-xs text-muted-foreground">
               Descrição bruta: <span className="font-mono">{t.original_description}</span>
             </div>
+            {t.aggregator_adjustment && (
+              <div className="mt-2">
+                <AggregatorAdjustmentBadge show />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Linha de ajuste do agregador pra fechar o saldo — não é uma compra sua.
+                </p>
+              </div>
+            )}
           </div>
           <button
             onClick={onClose}

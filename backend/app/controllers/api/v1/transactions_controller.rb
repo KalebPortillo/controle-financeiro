@@ -345,6 +345,8 @@ class Api::V1::TransactionsController < ApplicationController
       # Moeda original quando a compra foi em outra moeda (chip "USD" no card);
       # null em compra na moeda da conta. amount_cents já vem convertido.
       foreign_currency:     t.foreign_currency,
+      # RF2.7 — linha de ajuste do agregador (Pluggy), não é compra real.
+      aggregator_adjustment: t.aggregator_adjustment?,
       occurred_at:          t.occurred_at.iso8601,
       original_description: t.original_description,
       improved_title:       t.improved_title,

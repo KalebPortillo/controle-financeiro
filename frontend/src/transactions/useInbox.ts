@@ -69,6 +69,9 @@ export type InboxTransaction = {
   // Moeda original quando a compra foi em outra moeda (ex.: 'USD'); null em BRL.
   // O amount_cents já vem convertido pra moeda da conta.
   foreign_currency: string | null
+  // RF2.7 — linha de ajuste injetada pelo agregador (Pluggy) pra reconciliar
+  // saldo; não é compra real. Opcional só pra não quebrar fixtures antigas.
+  aggregator_adjustment?: boolean
   occurred_at: string
   original_description: string
   improved_title: string | null

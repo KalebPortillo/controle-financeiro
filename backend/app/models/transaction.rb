@@ -131,6 +131,12 @@ class Transaction < ApplicationRecord
     foreign_currency.present?
   end
 
+  # RF2.7 — linha de "ajuste" injetada pelo agregador (Pluggy) pra reconciliar o
+  # saldo; não é uma compra real. Sinalizada no inbox.
+  def aggregator_adjustment?
+    Transactions::AggregatorAdjustment.match?(description: original_description, source_metadata: source_metadata)
+  end
+
   private
 
   def broadcast_status_change

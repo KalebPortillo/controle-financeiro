@@ -12,6 +12,7 @@ import { AccountTag } from './AccountTag'
 import { InstallmentBadge } from './InstallmentBadge'
 import { AiConfidenceBadge, NotAnalyzedBadge } from './AiConfidenceBadge'
 import { CurrencyChip } from './CurrencyChip'
+import { AggregatorAdjustmentBadge } from './AggregatorAdjustmentBadge'
 import {
   useInbox,
   useConsolidate,
@@ -424,6 +425,7 @@ const RowContent = memo(function RowContent({
           {t.ai_confidence && <AiConfidenceBadge confidence={t.ai_confidence} />}
           {t.ai_status === 'failed' && <NotAnalyzedBadge id={t.id} />}
           <CurrencyChip currency={t.foreign_currency} />
+          <AggregatorAdjustmentBadge show={t.aggregator_adjustment} />
         </div>
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
           <AccountTag t={t} />

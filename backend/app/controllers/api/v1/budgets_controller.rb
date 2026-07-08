@@ -1,6 +1,6 @@
 class Api::V1::BudgetsController < ApplicationController
   before_action :require_authentication!
-  before_action :set_budget, only: [ :update, :destroy ]
+  before_action :set_budget, only: [ :show, :update, :destroy ]
 
   # GET /api/v1/budgets?period=current_month — lista os orçamentos com o progresso
   # calculado no período (RF8). Default: mês corrente.
@@ -14,6 +14,17 @@ class Api::V1::BudgetsController < ApplicationController
     render json: {
       period:  { from: from.iso8601, to: to.iso8601 },
       budgets: budgets.map { |b| serialize(b, from, to, overlap.include?(b.id)) }
+    }
+  end
+
+  # GET /api/v1/budgets/:id — detalhe: progresso do mês, histórico multi-mês e as
+  # transações consolidadas que compõem o gasto do mês corrente (RF8 detalhe).
+  def show
+    from, to = resolve_period(params[:period])
+    render json: {
+      budget:       serialize(@budget, from, to, false),
+      history:      Budgets::History.call(budget: @budget).map { |e| history_entry(e) },
+      transactions: composing_transactions(@budget, from, to)
     }
   end
 
@@ -75,6 +86,31 @@ class Api::V1::BudgetsController < ApplicationController
 
       others = enabled.any? { |o| o.id != b.id && mine.intersect?(tag_sets[o.id]) }
       acc << b.id if others
+    end
+  end
+
+  def history_entry(e)
+    { month: e.month, spent_cents: e.spent_cents, limit_cents: e.limit_cents,
+      pct: e.pct, status: e.status }
+  end
+
+  # Débitos consolidados (sem transferências) que compõem o gasto do orçamento no
+  # período — cada transação uma vez, mais recentes primeiro.
+  def composing_transactions(budget, from, to)
+    tag_ids = budget.tracked_tag_ids
+    return [] if tag_ids.empty?
+
+    ids = current_workspace.transactions.not_internal_transfer
+                           .where(status: "consolidated", direction: "debit", occurred_at: from..to)
+                           .joins(:transaction_tags).where(transaction_tags: { tag_id: tag_ids })
+                           .select(:id).distinct
+    current_workspace.transactions.where(id: ids).order(occurred_at: :desc).map do |t|
+      {
+        id:           t.id,
+        title:        t.improved_title.presence || t.original_description,
+        amount_cents: t.amount_cents,
+        occurred_at:  t.occurred_at.iso8601
+      }
     end
   end
 

@@ -62,6 +62,23 @@ class BudgetsTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "show returns progress, multi-month history and composing transactions" do
+    budget = create(:budget, workspace: @ws, target_tag: @tag, monthly_limit_cents: 80_000)
+    t = create(:transaction, workspace: @ws, account: @acc, direction: "debit",
+               amount_cents: 30_000, status: "consolidated", occurred_at: Date.current, improved_title: "Feira")
+    t.tags = [ @tag ]
+
+    get "/api/v1/budgets/#{budget.id}"
+    assert_response :success
+    body = JSON.parse(response.body)
+
+    assert_equal 30_000, body.dig("budget", "progress", "spent_cents")
+    assert_equal 6, body["history"].size
+    assert_equal body["history"].last["month"], Date.current.strftime("%Y-%m")
+    titles = body["transactions"].map { |x| x["title"] }
+    assert_includes titles, "Feira"
+  end
+
   test "flags overlap between budgets sharing a tag" do
     cat = create(:category, workspace: @ws, tags: [ @tag ])
     create(:budget, workspace: @ws, target_tag: @tag, name: "por tag")

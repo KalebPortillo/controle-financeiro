@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { X, Tag as TagIcon, Folder, Layers, Trash2, Check, ArrowLeft } from 'lucide-react'
+import { X, Tag as TagIcon, Folder, Layers, Check, ArrowLeft } from 'lucide-react'
 import { Sheet } from '../components/Sheet'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { useTags } from '../transactions/useTags'
 import { useCategories } from '../transactions/useCategories'
 import {
-  useCreateBudget, useUpdateBudget, useDeleteBudget,
+  useCreateBudget, useUpdateBudget,
   type Budget, type BudgetKind, type BudgetInput,
 } from './useBudgets'
 
@@ -48,7 +48,6 @@ function Inner({ existing, onClose }: { existing: Budget | null; onClose: () => 
   const categories = useCategories().data?.categories ?? []
   const create = useCreateBudget()
   const update = useUpdateBudget()
-  const remove = useDeleteBudget()
 
   const [step, setStep] = useState<1 | 2>(existing ? 2 : 1)
   const [kind, setKind] = useState<BudgetKind>(existing?.kind ?? 'tag')
@@ -69,7 +68,7 @@ function Inner({ existing, onClose }: { existing: Budget | null; onClose: () => 
 
   const limitCents = reaisToCents(limit)
   const canSave = name.trim().length > 0 && Number.isFinite(limitCents) && limitCents > 0 && !!targetChosen
-  const busy = create.isPending || update.isPending || remove.isPending
+  const busy = create.isPending || update.isPending
 
   const toggleComposite = (id: string) =>
     setCompositeIds((prev) => {
@@ -184,17 +183,6 @@ function Inner({ existing, onClose }: { existing: Budget | null; onClose: () => 
               <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} className="accent-[var(--accent)]" data-testid="budget-enabled" />
               Orçamento ativo
             </label>
-
-            {existing && (
-              <button
-                onClick={() => remove.mutate(existing.id, { onSuccess: onClose })}
-                disabled={busy}
-                className="inline-flex items-center gap-1.5 text-sm text-destructive hover:underline mt-2 self-start"
-                data-testid="budget-delete"
-              >
-                <Trash2 size={12} /> Excluir orçamento
-              </button>
-            )}
           </>
         )}
       </div>

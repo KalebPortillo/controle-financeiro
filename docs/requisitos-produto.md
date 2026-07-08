@@ -146,8 +146,9 @@ Teto mensal por tag/categoria/composto com progresso (gasto vs teto, %, projeç�
 por ritmo), alerta visual (verde/âmbar/vermelho) + notificação in-app/Telegram ao
 cruzar o threshold (80%) e o teto (100%). Tela `/orcamentos` (lista + wizard de 2
 passos). Backend: `budgets`/`budget_composite_tags`, `Budgets::Progress`,
-`Budgets::CheckAlerts` (dedup por mês) disparado ao consolidar. Detalhe/histórico
-multi-mês ficou como follow-up.
+`Budgets::CheckAlerts` (dedup por mês) disparado ao consolidar. Tela de detalhe
+(`GET /budgets/:id`): histórico dos últimos 6 meses + transações consolidadas que
+compõem o gasto do mês + editar/excluir.
 - **RF8.1** Orçamento mensal por **tag** (ex.: R$ 800 em "Mercado").
 - **RF8.2** Orçamento mensal por **categoria** (agrega todas as tags da categoria).
 - **RF8.3** Orçamentos compostos (combinação livre de tags em um único teto), além de tag/categoria.

@@ -29,4 +29,10 @@ test('cria orçamento por tag e vê o progresso do mês', async ({ page, context
   const card = page.locator('[data-testid^="budget-card-"]').filter({ hasText: 'Orçamento Mercado' })
   await expect(card).toBeVisible()
   await expect(card).toContainText('50%')
+
+  // Abrir o detalhe: histórico multi-mês + a transação que compõe o gasto.
+  await card.click()
+  await expect(page.getByTestId('budget-history')).toBeVisible()
+  await expect(page.getByTestId('budget-transactions')).toContainText('SUPERMERCADO')
+  await expect(page.getByTestId('budget-detail-edit')).toBeVisible()
 })

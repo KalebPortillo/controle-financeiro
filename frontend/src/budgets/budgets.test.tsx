@@ -28,6 +28,16 @@ beforeEach(() => {
       posted = JSON.parse(opts.body as string)
       return Promise.resolve({ ok: true, status: 201, json: async () => ({ budget: budget() }) } as Response)
     }
+    if (/\/api\/v1\/budgets\/[^/?]+/.test(u)) {
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({
+        budget: budget(),
+        history: [
+          { month: '2026-05', spent_cents: 30_000, limit_cents: 80_000, pct: 38, status: 'ok' },
+          { month: '2026-06', spent_cents: 42_300, limit_cents: 80_000, pct: 53, status: 'ok' },
+        ],
+        transactions: [{ id: 'x1', title: 'Feira', amount_cents: 42_300, occurred_at: '2026-06-10' }],
+      }) } as Response)
+    }
     if (u.includes('/api/v1/budgets')) return Promise.resolve({ ok: true, status: 200, json: async () => ({ period: { from: '2026-06-01', to: '2026-06-30' }, budgets: budgetsData }) } as Response)
     if (u.includes('/api/v1/tags')) return Promise.resolve({ ok: true, status: 200, json: async () => ({ tags: [{ id: 't1', name: 'Mercado', color: null, icon: null, usage_count: 3 }] }) } as Response)
     if (u.includes('/api/v1/categories')) return Promise.resolve({ ok: true, status: 200, json: async () => ({ categories: [], ai_error: null }) } as Response)
@@ -66,6 +76,17 @@ describe('BudgetsPage', () => {
     budgetsData = []
     renderPage()
     expect(await screen.findByTestId('budgets-empty')).toBeInTheDocument()
+  })
+
+  it('clicking a card opens the detail with history and transactions', async () => {
+    renderPage()
+    await userEvent.click(await screen.findByTestId('budget-card-b1'))
+    expect(await screen.findByTestId('budget-history')).toBeInTheDocument()
+    const tx = await screen.findByTestId('budget-transactions')
+    expect(tx).toHaveTextContent('Feira')
+    // botões de editar/excluir no rodapé do detalhe
+    expect(screen.getByTestId('budget-detail-edit')).toBeInTheDocument()
+    expect(screen.getByTestId('budget-detail-delete')).toBeInTheDocument()
   })
 
   it('wizard: pick a tag, set limit, save → POSTs the right body', async () => {

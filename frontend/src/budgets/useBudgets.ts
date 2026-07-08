@@ -34,13 +34,34 @@ export type Budget = {
 
 export type BudgetsPayload = { period: { from: string; to: string }; budgets: Budget[] }
 
+export type BudgetHistoryEntry = {
+  month: string // 'YYYY-MM'
+  spent_cents: number
+  limit_cents: number
+  pct: number
+  status: BudgetStatus
+}
+export type BudgetComposingTx = { id: string; title: string; amount_cents: number; occurred_at: string }
+export type BudgetDetail = { budget: Budget; history: BudgetHistoryEntry[]; transactions: BudgetComposingTx[] }
+
 export const budgetsKey = ['budgets'] as const
+export const budgetKey = (id: string) => ['budgets', id] as const
 
 // Lista os orçamentos com o progresso do mês corrente (RF8).
 export function useBudgets() {
   return useQuery({
     queryKey: budgetsKey,
     queryFn: () => apiFetch<BudgetsPayload>('/api/v1/budgets'),
+  })
+}
+
+// Detalhe de um orçamento: progresso + histórico multi-mês + transações que
+// compõem o gasto do mês. Lazy: só busca quando o sheet de detalhe está aberto.
+export function useBudget(id: string | null) {
+  return useQuery({
+    queryKey: id ? budgetKey(id) : ['budgets', 'none'],
+    enabled: !!id,
+    queryFn: () => apiFetch<BudgetDetail>(`/api/v1/budgets/${id}`),
   })
 }
 

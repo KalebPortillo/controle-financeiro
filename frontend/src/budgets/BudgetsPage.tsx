@@ -5,6 +5,7 @@ import { useOverlay } from '../app/useOverlay'
 import { useBudgets, type Budget } from './useBudgets'
 import { BudgetProgressBar } from './BudgetProgressBar'
 import { BudgetWizard } from './BudgetWizard'
+import { BudgetDetailSheet } from './BudgetDetailSheet'
 
 /**
  * Orçamentos (RF8) — lista de tetos mensais com barra de progresso. Cada card
@@ -14,7 +15,12 @@ import { BudgetWizard } from './BudgetWizard'
 export function BudgetsPage() {
   const { data, isLoading } = useBudgets()
   const { get, push, close } = useOverlay()
-  const active = get('budget') // 'new' | <id> | null
+  const budgetParam = get('budget') // 'new' | <id> | null
+  const editing = get('edit') === '1'
+  // Card → detalhe (?budget=id); detalhe "Editar" → wizard (?edit=1); "Novo" →
+  // wizard (?budget=new). Wizard fica por cima do detalhe (like ?tx sobre ?group).
+  const wizardOpen = budgetParam === 'new' || (budgetParam != null && budgetParam !== 'new' && editing)
+  const detailOpen = budgetParam != null && budgetParam !== 'new' && !editing
 
   const budgets = data?.budgets ?? []
 
@@ -52,11 +58,18 @@ export function BudgetsPage() {
         </div>
       )}
 
+      <BudgetDetailSheet
+        open={detailOpen}
+        budgetId={detailOpen ? budgetParam : null}
+        onClose={() => close('budget', 'edit')}
+        onEdit={() => push((p) => p.set('edit', '1'))}
+      />
+
       <BudgetWizard
-        open={active != null}
-        budgetId={active && active !== 'new' ? active : null}
+        open={wizardOpen}
+        budgetId={budgetParam && budgetParam !== 'new' ? budgetParam : null}
         budgets={budgets}
-        onClose={() => close('budget')}
+        onClose={() => close(editing ? 'edit' : 'budget')}
       />
     </div>
   )

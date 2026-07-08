@@ -105,7 +105,7 @@ Rails.application.routes.draw do
       resources :internal_transfers, only: [ :index, :create, :destroy ]
 
       # Orçamentos (RF8) — teto mensal por tag/categoria/composto, com progresso.
-      resources :budgets, only: [ :index, :create, :update, :destroy ]
+      resources :budgets, only: [ :index, :show, :create, :update, :destroy ]
 
       # Importação por arquivo (RF20) — upload CSV/OFX → inbox. Processamento assíncrono.
       resources :imports, only: [ :index, :show, :create ]

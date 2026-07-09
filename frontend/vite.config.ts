@@ -5,6 +5,11 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Id único por build — versiona a URL do service worker (/sw.js?v=…) pra furar
+  // o cache de edge do Cloudflare (que cacheia .js) a cada deploy.
+  define: {
+    __SW_BUILD__: JSON.stringify(Date.now().toString(36)),
+  },
   build: {
     rollupOptions: {
       output: {

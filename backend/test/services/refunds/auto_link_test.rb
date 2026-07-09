@@ -33,6 +33,27 @@ class Refunds::AutoLinkTest < ActiveSupport::TestCase
     assert_equal 0, d.reload.effective_amount_cents
   end
 
+  test "vincula estorno parcial (não-IOF) por código, valor diferente da compra" do
+    purchase = debit(description: "AMAZON RETA PZ7SW7MV3", amount_cents: 103_000)
+    credit(description: "Crédito de AMAZON RETA PZ7SW7MV3", amount_cents: 5918)
+
+    assert_equal 1, Refunds::AutoLink.call(workspace: @workspace)
+    assert_equal 5918, purchase.reload.refunded_amount_cents
+    assert_equal 97_082, purchase.effective_amount_cents
+  end
+
+  test "vincula estorno de IOF ao débito de IOF exato da compra" do
+    purchase = debit(description: "Amazon Reta R98it6de3", amount_cents: 89_054)
+    iof = debit(description: "IOF de compra internacional", amount_cents: 3117)
+    create(:transaction_link, workspace: @workspace, primary_transaction: purchase,
+           related_transaction: iof, relation_type: "iof")
+    credit(description: "IOF de volta de Amazon Reta R98it6de3", amount_cents: 3117)
+
+    assert_equal 1, Refunds::AutoLink.call(workspace: @workspace)
+    assert_equal 0, iof.reload.effective_amount_cents
+    assert_equal 89_054, purchase.reload.effective_amount_cents # a compra não muda
+  end
+
   test "é idempotente — não duplica o vínculo" do
     debit(description: "COMPRA AB12CD34")
     credit(description: "ESTORNO AB12CD34")

@@ -67,6 +67,22 @@ class Refunds::CodeMatchTest < ActiveSupport::TestCase
     assert_nil Refunds::CodeMatch.call(credit: iof_back)
   end
 
+  test "estorno de IOF SEM código casa pelo comerciante (caso hellenika)" do
+    purchase = debit(description: "Sq *Hellenika Cultured", amount_cents: 4233)
+    iof = with_iof(purchase: purchase, iof_cents: 148)
+    iof_back = credit(description: "IOF de volta de Sq *Hellenika Cultured", amount_cents: 148)
+
+    assert_equal iof.id, Refunds::CodeMatch.call(credit: iof_back).id
+  end
+
+  test "estorno de IOF por comerciante exige valor exato do IOF" do
+    purchase = debit(description: "Sq *Hellenika Cultured", amount_cents: 4233)
+    with_iof(purchase: purchase, iof_cents: 148)
+    iof_back = credit(description: "IOF de volta de Sq *Hellenika Cultured", amount_cents: 999)
+
+    assert_nil Refunds::CodeMatch.call(credit: iof_back)
+  end
+
   test "código que casa mais de um gasto → nil (ambíguo)" do
     debit(description: "COMPRA AB12CD34 UM")
     debit(description: "COMPRA AB12CD34 DOIS")

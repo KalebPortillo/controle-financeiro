@@ -4,7 +4,7 @@
  * financeiros têm que ser sempre frescos. Estratégia network-first com fallback
  * pra cache só pra navegações e assets estáticos same-origin.
  */
-const CACHE = 'cf-shell-v2'
+const CACHE = 'cf-shell-v3'
 
 // Caminhos que o SW nunca deve interceptar/cachear — sempre vão direto à rede.
 const BYPASS = [/^\/api\//, /^\/cable/, /^\/up$/]
@@ -36,7 +36,10 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     (async () => {
       try {
-        const res = await fetch(request)
+        // Navegação fura o cache HTTP do navegador (`reload`): garante o shell
+        // sempre fresco, mesmo se um index.html antigo ficou preso no cache.
+        // Assets hasheados são imutáveis — usam o cache normal.
+        const res = await fetch(isNavigation ? new Request(request, { cache: 'reload' }) : request)
         // Guarda uma cópia fresca pra servir offline depois.
         if (res && res.ok && res.type === 'basic') {
           const cache = await caches.open(CACHE)

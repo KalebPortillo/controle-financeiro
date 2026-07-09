@@ -28,8 +28,9 @@ export type RefundInfo = {
     refund_transaction_id: string
     amount_cents: number
     confirmed_at: string
-    // RF10.6 — "automatic" = vinculado pelo match de código exato único.
+    // RF10.6 — "automatic" = vinculado pela heurística; confidence high/medium.
     origin: 'manual' | 'automatic'
+    confidence: 'high' | 'medium' | null
   }>
 } | null
 
@@ -41,8 +42,9 @@ export type RelatedItem = {
   link_kind?: 'link' | 'refund'
   relation_type: 'iof' | 'fee' | 'interest' | 'adjustment' | 'refund'
   role: 'satellite' | 'origin'
-  // Só em refund: manual (confirmado) ou automatic (match de código).
+  // Só em refund: manual (confirmado) ou automatic (heurística).
   origin?: 'manual' | 'automatic'
+  confidence?: 'high' | 'medium' | null
   transaction_id: string
   title: string
   direction: 'debit' | 'credit'

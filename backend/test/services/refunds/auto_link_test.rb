@@ -83,10 +83,10 @@ class Refunds::AutoLinkTest < ActiveSupport::TestCase
     end
   end
 
-  test "não vincula quando o código é ambíguo (mais de um gasto)" do
-    debit(description: "COMPRA AB12CD34 UM")
-    debit(description: "COMPRA AB12CD34 DOIS", amount_cents: 4900)
-    credit(description: "ESTORNO AB12CD34")
+  test "não vincula quando é ambíguo (2 gastos com o nome e sem valor exato)" do
+    debit(description: 'Nike US Stores', amount_cents: 50_000)
+    debit(description: 'Nike US Stores', amount_cents: 60_000)
+    credit(description: 'Estorno de "Nike US Stores"', amount_cents: 44_938)
 
     assert_equal 0, Refunds::AutoLink.call(workspace: @workspace)
     assert_equal 0, TransactionRefund.count

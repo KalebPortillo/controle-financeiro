@@ -1,9 +1,9 @@
 module Refunds
-  # RF10.6 — varre os estornos (créditos) ainda não vinculados e, quando há
-  # match de código exato ÚNICO (Refunds::CodeMatch), aplica o estorno
-  # automaticamente (origin "automatic", sem membership) e notifica. Idempotente:
-  # créditos já vinculados são pulados. Roda no sync (após novos dados) e no
-  # backfill `rails refunds:autolink`.
+  # RF10.6 — varre os estornos (créditos) ainda não vinculados e, quando a
+  # heurística de confiança (Refunds::Match) acha o gasto original, aplica o
+  # estorno automaticamente (origin "automatic", sem membership, com confidence
+  # high/medium) e notifica. Idempotente: créditos já vinculados são pulados.
+  # Roda no sync (após novos dados) e no backfill `rails refunds:autolink`.
   class AutoLink
     def self.call(**kwargs)
       new(**kwargs).call
@@ -20,11 +20,11 @@ module Refunds
     def call
       linked = 0
       unlinked_credits.find_each do |credit|
-        debit = CodeMatch.call(credit: credit)
-        next unless debit
-        next if debit.refunded_amount_cents >= debit.amount_cents # já estornado
+        match = Match.call(credit: credit)
+        next unless match
+        next if match.debit.refunded_amount_cents >= match.debit.amount_cents # já estornado
 
-        link!(credit, debit)
+        link!(credit, match.debit, match.confidence)
         linked += 1
       end
       linked
@@ -36,11 +36,12 @@ module Refunds
       @workspace.transactions.where(direction: "credit").where.missing(:refund_of)
     end
 
-    def link!(credit, debit)
+    def link!(credit, debit, confidence)
       TransactionRefund.create!(
         refund_transaction:   credit,
         refunded_transaction: debit,
         origin:               "automatic",
+        confidence:           confidence.to_s,
         confirmed_at:         Time.current
       )
       notify(credit, debit) if @notify

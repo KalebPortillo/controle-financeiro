@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_09_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_09_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -342,6 +342,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_09_140000) do
   end
 
   create_table "transaction_refunds", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "confidence"
     t.datetime "confirmed_at", null: false
     t.uuid "confirmed_by_membership_id"
     t.datetime "created_at", null: false
@@ -352,6 +353,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_09_140000) do
     t.index ["confirmed_by_membership_id"], name: "index_transaction_refunds_on_confirmed_by_membership_id"
     t.index ["refund_transaction_id"], name: "index_transaction_refunds_on_refund_transaction_id", unique: true
     t.index ["refunded_transaction_id"], name: "index_transaction_refunds_on_refunded_transaction_id"
+    t.check_constraint "confidence IS NULL OR (confidence::text = ANY (ARRAY['high'::character varying, 'medium'::character varying]::text[]))", name: "transaction_refunds_confidence_check"
     t.check_constraint "origin::text = ANY (ARRAY['manual'::character varying, 'automatic'::character varying]::text[])", name: "transaction_refunds_origin_check"
   end
 

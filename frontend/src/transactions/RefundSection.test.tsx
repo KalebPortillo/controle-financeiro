@@ -90,10 +90,19 @@ describe('<RefundSection />', () => {
   it('shows an automatic badge when the refund was auto-linked', () => {
     const debit = tx({
       id: 'd2', direction: 'debit', amount_cents: 10_000, effective_amount_cents: 5_000,
-      refund: { refunded_amount_cents: 5_000, refunds: [{ id: 'r2', refund_transaction_id: 'c2', amount_cents: 5_000, confirmed_at: '2026-06-04', origin: 'automatic' }] },
+      refund: { refunded_amount_cents: 5_000, refunds: [{ id: 'r2', refund_transaction_id: 'c2', amount_cents: 5_000, confirmed_at: '2026-06-04', origin: 'automatic', confidence: 'high' }] },
     })
     renderSection(debit)
-    expect(screen.getByTestId('refund-auto-badge')).toBeInTheDocument()
+    expect(screen.getByTestId('refund-auto-badge')).toHaveTextContent('Vinculado automaticamente pelo estorno')
+  })
+
+  it('flags medium-confidence auto-links to double-check', () => {
+    const debit = tx({
+      id: 'd3', direction: 'debit', amount_cents: 10_000, effective_amount_cents: 5_000,
+      refund: { refunded_amount_cents: 5_000, refunds: [{ id: 'r3', refund_transaction_id: 'c3', amount_cents: 5_000, confirmed_at: '2026-06-04', origin: 'automatic', confidence: 'medium' }] },
+    })
+    renderSection(debit)
+    expect(screen.getByTestId('refund-auto-badge')).toHaveTextContent('confiança média')
   })
 
   // RF10.6 — o crédito de estorno já vinculado mostra a origem + desfazer.

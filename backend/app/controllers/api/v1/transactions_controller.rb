@@ -416,6 +416,7 @@ class Api::V1::TransactionsController < ApplicationController
       link_kind:     "refund",
       relation_type: "refund",
       origin:        refund.origin,
+      confidence:    refund.confidence,
       role:          role,
       transaction_id: other.id,
       title:         other.improved_title.presence || other.original_description,
@@ -435,7 +436,7 @@ class Api::V1::TransactionsController < ApplicationController
       refunds: t.refunds_received.map do |r|
         { id: r.id, refund_transaction_id: r.refund_transaction_id,
           amount_cents: r.refund_transaction.amount_cents, confirmed_at: r.confirmed_at.iso8601,
-          origin: r.origin }
+          origin: r.origin, confidence: r.confidence }
       end
     }
   end

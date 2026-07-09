@@ -34,7 +34,9 @@ function CreditRefundLinker({ credit }: { credit: InboxTransaction }) {
         </div>
         {linkedTo.origin === 'automatic' && (
           <p className="text-xs text-muted-foreground" data-testid="refund-auto-badge">
-            Vinculado automaticamente pelo código do estorno
+            {linkedTo.confidence === 'medium'
+              ? 'Vinculado automaticamente (confiança média — confira)'
+              : 'Vinculado automaticamente pelo estorno'}
           </p>
         )}
         <Button
@@ -104,7 +106,9 @@ function CreditRefundLinker({ credit }: { credit: InboxTransaction }) {
 function DebitRefundSummary({ transaction: t }: { transaction: InboxTransaction }) {
   const unlink = useUnlinkRefund()
   const refund = t.refund!
-  const isAutomatic = refund.refunds.some((r) => r.origin === 'automatic')
+  const automatic = refund.refunds.filter((r) => r.origin === 'automatic')
+  const isAutomatic = automatic.length > 0
+  const anyMedium = automatic.some((r) => r.confidence === 'medium')
 
   return (
     <div className="mt-2 pt-3.5 border-t border-border space-y-1.5" data-testid="refund-summary">
@@ -117,7 +121,9 @@ function DebitRefundSummary({ transaction: t }: { transaction: InboxTransaction 
       </div>
       {isAutomatic && (
         <p className="text-xs text-muted-foreground" data-testid="refund-auto-badge">
-          Vinculado automaticamente pelo código do estorno
+          {anyMedium
+            ? 'Vinculado automaticamente (confiança média — confira)'
+            : 'Vinculado automaticamente pelo estorno'}
         </p>
       )}
       <Button

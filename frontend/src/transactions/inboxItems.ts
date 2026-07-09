@@ -1,4 +1,4 @@
-import type { InboxTransaction } from './useInbox'
+import type { InboxTransaction, RelatedItem } from './useInbox'
 
 // Item da lista do inbox: um gasto avulso, um parcelamento agregado (parcelas do
 // mesmo installment_group_id) ou um gasto + suas relacionadas (IOF/tarifa…, RF23)
@@ -22,7 +22,10 @@ export type InboxItem =
       satellites: InboxTransaction[]
       members: InboxTransaction[] // [anchor, ...satellites]
       memberIds: string[]
-      // Custo combinado assinado (compra + IOF/tarifas), respeitando direção.
+      // Tipo de cada satélite (id → relation_type), incluindo os "netos" que
+      // sobem como irmãos (ex.: estorno de IOF). Usado pelos badges do grupo.
+      satelliteTypes: Map<string, RelatedItem['relation_type']>
+      // Custo combinado assinado (compra + IOF/tarifas − estornos), por direção.
       signedTotalCents: number
     }
 
@@ -50,36 +53,57 @@ export function itemDate(item: InboxItem): string {
  * não vira grupo de relacionadas. Retorna o mapa âncora→satélites e o conjunto de
  * ids consumidos (satélites que não devem renderizar avulsos).
  */
+type Group = { members: InboxTransaction[]; types: Map<string, RelatedItem['relation_type']> }
+
 function resolveRelatedGroups(transactions: InboxTransaction[]) {
   const byId = new Map(transactions.map((t) => [t.id, t]))
-  const anchors = new Map<string, InboxTransaction[]>() // anchorId → satélites
+  const anchors = new Map<string, Group>() // anchorId → membros + tipos
   const consumed = new Set<string>()
+
+  // Estornos (role satellite, relation_type refund) presentes de uma transação.
+  const refundSatsOf = (t: InboxTransaction) =>
+    (t.related ?? [])
+      .filter((r) => r.role === 'satellite' && r.relation_type === 'refund')
+      .map((r) => byId.get(r.transaction_id))
+      .filter((s): s is InboxTransaction => s != null && !isInstallment(s))
 
   for (const t of transactions) {
     if (isInstallment(t)) continue
     const satelliteRefs = (t.related ?? []).filter((r) => r.role === 'satellite')
     if (satelliteRefs.length === 0) continue
 
-    // IOF/tarifa (RF23): tudo-ou-nada — só agrupa com TODOS presentes (e não
-    // parcelas). Estornos (RF10.6): agrupa os que ESTIVEREM presentes (estorno
-    // parcial chega aos poucos), sem exigir todos.
     const linkRefs = satelliteRefs.filter((r) => r.relation_type !== 'refund')
     const refundRefs = satelliteRefs.filter((r) => r.relation_type === 'refund')
-
     const linkSats = linkRefs.map((r) => byId.get(r.transaction_id))
+    // IOF/tarifa (RF23): tudo-ou-nada — só agrupa com TODOS presentes.
     const linksComplete = linkRefs.length > 0 && linkSats.every((s) => s != null && !isInstallment(s))
-    const refundSats = refundRefs
-      .map((r) => byId.get(r.transaction_id))
-      .filter((s): s is InboxTransaction => s != null && !isInstallment(s))
 
-    const present = [
-      ...(linksComplete ? (linkSats as InboxTransaction[]) : []),
-      ...refundSats,
-    ]
-    if (present.length === 0) continue
+    const members: InboxTransaction[] = []
+    const types = new Map<string, RelatedItem['relation_type']>()
+    const add = (s: InboxTransaction, type: RelatedItem['relation_type']) => {
+      if (types.has(s.id)) return
+      members.push(s)
+      types.set(s.id, type)
+    }
 
-    anchors.set(t.id, present)
-    present.forEach((s) => consumed.add(s.id))
+    // Satélites RF23 (se completos) + os estornos DESSES satélites como IRMÃOS
+    // (ex.: estorno de IOF sobe pro grupo da compra, no mesmo nível).
+    if (linksComplete) {
+      linkRefs.forEach((r) => {
+        const sat = byId.get(r.transaction_id)!
+        add(sat, r.relation_type)
+        refundSatsOf(sat).forEach((g) => add(g, 'refund'))
+      })
+    }
+    // Estornos diretos da âncora (RF10.6): presença parcial, sem exigir todos.
+    refundRefs.forEach((r) => {
+      const s = byId.get(r.transaction_id)
+      if (s != null && !isInstallment(s)) add(s, 'refund')
+    })
+
+    if (members.length === 0) continue
+    anchors.set(t.id, { members, types })
+    members.forEach((s) => consumed.add(s.id))
   }
 
   // Um satélite consumido não pode ser âncora de outro grupo (evita corrente).
@@ -103,17 +127,18 @@ export function buildInboxItems(transactions: InboxTransaction[]): InboxItem[] {
     // Satélite já absorvido por um grupo de relacionadas — não renderiza avulso.
     if (consumed.has(t.id) && !anchors.has(t.id)) continue
 
-    // Âncora de relacionadas presente com todos os satélites.
-    const satellites = anchors.get(t.id)
-    if (satellites) {
-      const members = [t, ...satellites]
+    // Âncora de relacionadas presente com seus satélites (e netos-irmãos).
+    const group = anchors.get(t.id)
+    if (group) {
+      const members = [t, ...group.members]
       items.push({
         kind: 'related',
         key: t.id,
         anchor: t,
-        satellites,
+        satellites: group.members,
         members,
         memberIds: members.map((m) => m.id),
+        satelliteTypes: group.types,
         signedTotalCents: members.reduce((sum, m) => sum + signedCents(m), 0),
       })
       continue

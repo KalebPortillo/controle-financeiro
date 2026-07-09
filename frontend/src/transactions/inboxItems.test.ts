@@ -209,4 +209,33 @@ describe('buildInboxItems — estornos aninhados (RF10.6)', () => {
     const singles = items.filter((i) => i.kind === 'single')
     expect(singles).toHaveLength(0)
   })
+
+  it('estorno de IOF entra como IRMÃO no grupo da compra (compra + IOF + estorno de IOF)', () => {
+    // compra → cobrança de IOF (satélite RF23) → estorno de IOF (refund do IOF)
+    const purchase = tx({ id: 'buy', improved_title: 'Amazon', direction: 'debit', amount_cents: 103000,
+      occurred_at: '2026-06-28',
+      related: [rel({ role: 'satellite', relation_type: 'iof', transaction_id: 'iof', amount_cents: 3605 })] })
+    const iofCharge = tx({ id: 'iof', original_description: 'IOF de compra', direction: 'debit', amount_cents: 3605,
+      occurred_at: '2026-06-28',
+      related: [
+        rel({ role: 'origin', relation_type: 'iof', transaction_id: 'buy', amount_cents: 103000 }),
+        rel({ role: 'satellite', relation_type: 'refund', link_kind: 'refund', transaction_id: 'iofback', direction: 'credit', amount_cents: 3605 }),
+      ] })
+    const iofBack = tx({ id: 'iofback', original_description: 'IOF de volta', direction: 'credit', amount_cents: 3605,
+      occurred_at: '2026-06-29',
+      related: [rel({ role: 'origin', relation_type: 'refund', link_kind: 'refund', transaction_id: 'iof', direction: 'debit', amount_cents: 3605 })] })
+
+    const items = buildInboxItems([purchase, iofCharge, iofBack])
+    expect(items).toHaveLength(1)
+    const item = items[0]
+    expect(item.kind).toBe('related')
+    if (item.kind !== 'related') return
+    expect(item.anchor.id).toBe('buy')
+    // os três no mesmo grupo, IOF e estorno de IOF como irmãos
+    expect(item.memberIds.sort()).toEqual(['buy', 'iof', 'iofback'])
+    expect(item.satelliteTypes.get('iof')).toBe('iof')
+    expect(item.satelliteTypes.get('iofback')).toBe('refund')
+    // total: −103000 (compra) −3605 (IOF) +3605 (estorno IOF) = −103000
+    expect(item.signedTotalCents).toBe(-103000)
+  })
 })

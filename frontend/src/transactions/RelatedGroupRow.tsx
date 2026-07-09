@@ -28,14 +28,11 @@ export function RelatedGroupRow({
   onAcceptGroup: () => void
   onOpenGroup: () => void
 }) {
-  const { anchor, satellites, signedTotalCents, key } = item
+  const { anchor, satellites, satelliteTypes, signedTotalCents, key } = item
   const title = displayTitle(anchor)
   const hasTitle = Boolean(anchor.improved_title)
-  // Resumo só dos satélites REALMENTE agrupados (estorno pode entrar sem IOF).
-  const typeById = new Map(
-    (anchor.related ?? []).filter((r) => r.role === 'satellite').map((r) => [r.transaction_id, r.relation_type]),
-  )
-  const summary = satelliteSummary(satellites.flatMap((s) => (typeById.get(s.id) ? [typeById.get(s.id)!] : [])))
+  // Resumo dos satélites realmente agrupados (inclui netos-irmãos, ex.: estorno de IOF).
+  const summary = satelliteSummary(satellites.flatMap((s) => (satelliteTypes.get(s.id) ? [satelliteTypes.get(s.id)!] : [])))
 
   return (
     <SwipeableRow

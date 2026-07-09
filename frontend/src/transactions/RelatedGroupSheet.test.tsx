@@ -33,7 +33,7 @@ function group(): RelatedGroupItem {
   const iof = tx({ id: 'iof1', improved_title: null, original_description: 'IOF', amount_cents: 1235, occurred_at: '2026-06-05' })
   return {
     kind: 'related', key: 'p1', anchor, satellites: [iof], members: [anchor, iof],
-    memberIds: ['p1', 'iof1'], signedTotalCents: -36519,
+    memberIds: ['p1', 'iof1'], satelliteTypes: new Map([['iof1', 'iof']]), signedTotalCents: -36519,
   }
 }
 

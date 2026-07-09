@@ -40,12 +40,14 @@ module Refunds
 
     # Estorno idêntico repetido (mesmo valor+data+descrição) costuma ser duplicata
     # do agregador; auto-vincular os dois dobraria o abatimento — melhor deixar
-    # como sugestão (o usuário decide).
+    # como sugestão (o usuário decide). Irmãos REJEITADOS não contam: quando o
+    # usuário rejeita a duplicata, o estorno que sobra volta a vincular sozinho.
     def duplicate_sibling?(credit)
       @workspace.transactions
                 .where(direction: "credit", amount_cents: credit.amount_cents,
                        occurred_at: credit.occurred_at, original_description: credit.original_description)
                 .where.not(id: credit.id)
+                .where.not(status: "rejected")
                 .exists?
     end
 

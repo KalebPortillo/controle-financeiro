@@ -55,12 +55,9 @@ function Inner({
   onAcceptGroup: () => void
   onRejectGroup: () => void
 }) {
-  const { anchor, satellites, signedTotalCents, key } = item
-  // Tipo de cada satélite, lido dos vínculos da âncora (role satellite).
-  const typeById = new Map(
-    (anchor.related ?? []).filter((r) => r.role === 'satellite').map((r) => [r.transaction_id, r.relation_type]),
-  )
-  // Só os satélites realmente no grupo (estorno pode entrar sem IOF presente).
+  const { anchor, satellites, satelliteTypes, signedTotalCents, key } = item
+  // Tipo de cada satélite do grupo (inclui netos-irmãos, ex.: estorno de IOF).
+  const typeById = satelliteTypes
   const summary = satelliteSummary(satellites.flatMap((s) => (typeById.get(s.id) ? [typeById.get(s.id)!] : [])))
 
   return (

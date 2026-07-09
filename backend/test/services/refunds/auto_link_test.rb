@@ -64,6 +64,16 @@ class Refunds::AutoLinkTest < ActiveSupport::TestCase
     assert_equal 0, TransactionRefund.count
   end
 
+  test "irmão rejeitado não bloqueia: o estorno que sobra vincula sozinho" do
+    debit(description: "AMAZON RETA PZ7SW7MV3", amount_cents: 103_000)
+    credit(description: "Crédito de AMAZON RETA PZ7SW7MV3", amount_cents: 2962,
+           on: Date.new(2026, 6, 28)).update!(status: "rejected", rejected_at: Time.current)
+    survivor = credit(description: "Crédito de AMAZON RETA PZ7SW7MV3", amount_cents: 2962, on: Date.new(2026, 6, 28))
+
+    assert_equal 1, Refunds::AutoLink.call(workspace: @workspace)
+    assert survivor.reload.refund_of.present?
+  end
+
   test "vincula estornos distintos (valores diferentes) do mesmo gasto" do
     debit(description: "AMAZON RETA PZ7SW7MV3", amount_cents: 103_000)
     credit(description: "Crédito de AMAZON RETA PZ7SW7MV3", amount_cents: 5918, on: Date.new(2026, 6, 28))

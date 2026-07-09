@@ -71,6 +71,10 @@ module BankConnections
       # compra — aí é o sync do IOF que dispara o vínculo).
       TransactionLinks::DetectIof.call(workspace: @connection.workspace) if created.positive?
 
+      # RF10.6: auto-vincula estornos ao gasto quando o código bate exato e único.
+      # Idempotente; só quando houve dado novo (o estorno pode chegar depois).
+      Refunds::AutoLink.call(workspace: @connection.workspace) if created.positive?
+
       # RF17: avisa que chegaram gastos novos na inbox (fora do onboarding).
       notify_new_inbox_items(created)
 

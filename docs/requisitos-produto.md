@@ -167,13 +167,15 @@ compõem o gasto do mês + editar/excluir.
   - **RF9.4.3** **Relatórios inalterados**: cada parcela conta uma vez no seu mês de competência — o agrupamento é exibição + edição + herança, não muda a contabilidade.
 - **RF9.5** **Faturas futuras do cartão**: visão do total previsto da fatura aberta + faturas dos próximos meses (compostas pelos parcelamentos já em curso + recorrentes detectadas).
 - **RF9.6** Aviso quando uma recorrente esperada não chegou no prazo (ex.: assinatura cancelada?).
+- **RF9.7** **Marcar gasto como recorrente + curadoria do grupo**: a partir de um gasto consolidado (detalhe do gasto ou botão "Nova recorrência" na tela Recorrentes), o usuário marca a transação como recorrente e o app **semeia a recorrência** (descritor normalizado + palpite de cadência/valor) e **agrupa automaticamente** os gastos parecidos (mesmo casamento por descritor da RF9.1). Quando o padrão captura um gasto avulso indevido, o usuário **remove o item do grupo** (exclusão persistente por transação); itens removidos ficam listados como "Removidos do grupo" e podem ser **restaurados**. A exclusão é por transação, não vira regra — gastos futuros do mesmo descritor continuam entrando sozinhos.
 
 ### RF10. Estornos e reembolsos
 - **RF10.1** Quando uma transação de **crédito** chega na inbox e parece ser estorno (mesmo estabelecimento + valor compatível com um gasto recente), o sistema **sugere** o vínculo mas **sempre pede confirmação** antes de aplicar.
 - **RF10.2** O usuário aprova o vínculo sugerido, escolhe outro gasto manualmente, ou marca como entrada solta (não é estorno).
 - **RF10.3** Estornos vinculados **reduzem ou zeram o valor consolidado** do gasto original, mantendo trilha visível ("estornado em DD/MM, valor -R$ X").
 - **RF10.4** Possível encadear: gasto editado → estornado → novo gasto relacionado. Histórico de alterações (RF4.3) cobre.
-- **RF10.5** Sem auto-vínculo no MVP — todo vínculo passa por aprovação humana. Se a sugestão da AI se mostrar confiável com o tempo, podemos revisitar essa regra em versão futura.
+- **RF10.5** Vínculo por **sugestão** (valor + recência) sempre passa por aprovação humana. **Exceção (revisado 2026-07-09)**: quando há **match de código exato único** no nome (RF10.6), o vínculo é aplicado automaticamente — é o único caso de auto-vínculo, justificado pela alta confiança; todo o resto continua exigindo confirmação.
+- **RF10.6** **Auto-vínculo por código exato**: muitos estornos (e alguns de IOF) trazem no nome o **mesmo código/referência** do gasto original. Ao chegar um estorno, o sistema extrai o código distintivo (token alfanumérico com dígito) e cruza com os candidatos por valor+recência. Se **exatamente um** gasto casa o código, **aplica o estorno automaticamente** (`origin: automatic`, sem confirmação), reduz o valor consolidado (RF10.3), **notifica** (in-app + Telegram) e deixa **desfazer** fácil (selo "vinculado automaticamente"). Se o código casa **mais de um** gasto ou o nome é **genérico**, fica **desagrupado** e vira apenas **sugestão** no detalhe. Roda no sync (após dados novos) e via backfill `rails refunds:autolink`. Idempotente.
 
 ### RF11. Transferências internas
 - **RF11.1** Detecção automática de transferências entre contas do mesmo workspace (saída de uma conta + entrada de mesmo valor em outra conta nossa em janela curta).

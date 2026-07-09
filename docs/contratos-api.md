@@ -230,8 +230,9 @@ Formato uniforme:
 ### Refunds (RF10) — ✅ implementado
 - `GET  /api/v1/transactions/:id/refund_candidates` — débitos candidatos a estorno de `:id` (credit): valor dentro de ±10%, janela de 90 dias, ainda não totalmente estornados; até 10, ordenados por proximidade de valor e recência.
 - `POST /api/v1/transactions/:id/link_refund` — body: `{ refunded_transaction_id }`. `:id` deve ser credit. 422 se direções inconsistentes; 404 débito de outro workspace.
-- `DELETE /api/v1/transaction_refunds/:id` — desfaz vínculo.
-- O serializer de transação expõe `effective_amount_cents` (amount − Σ estornos, floor 0) e um bloco `refund` no gasto estornado. Nos relatórios (overview), o gasto desconta estornos e o crédito-estorno não conta como receita.
+- `DELETE /api/v1/transaction_refunds/:id` — desfaz vínculo (manual ou automático).
+- **Auto-vínculo por código exato (RF10.6)**: no sync (após dados novos) e no backfill `rails refunds:autolink`, estornos com código exato único são vinculados automaticamente (`origin: "automatic"`), com notificação `refund_auto_linked` (in-app + Telegram). Sem endpoint próprio — é processo de servidor; desfaz-se pelo `DELETE` acima.
+- O serializer de transação expõe `effective_amount_cents` (amount − Σ estornos, floor 0) e um bloco `refund` no gasto estornado; cada item de `refund.refunds` traz `origin` (`manual`/`automatic`). Nos relatórios (overview), o gasto desconta estornos e o crédito-estorno não conta como receita.
 
 ### Internal Transfers (RF11) — ✅ implementado
 - `GET    /api/v1/internal_transfers` — pares do workspace p/ reconciliação. Cada item: `{ id, manual, detected_at, debit{...}, credit{...} }`.
@@ -309,11 +310,14 @@ das tags consolidadas, excluindo as já existentes (máx 10). Ver tabela
 
 ### Recurrences (RF9)
 - `GET    /api/v1/recurrences`
-- `POST   /api/v1/recurrences` — manual.
+- `POST   /api/v1/recurrences` — manual. Aceita `descriptor_pattern`+`account_id`+cadência OU, com `transaction_id`, **semeia do gasto** (descritor + palpite de cadência/valor). Idempotente: se já existe recorrência pra (conta, descritor), devolve a existente com 200 (RF9.7).
 - `PATCH  /api/v1/recurrences/:id`
 - `DELETE /api/v1/recurrences/:id`
 - `GET    /api/v1/recurrences/upcoming?days=15` — vencimentos previstos (RF9.3).
 - `GET    /api/v1/recurrences/:id/missed` — recorrentes esperadas que não chegaram (RF9.6).
+- `GET    /api/v1/recurrences/:id/transactions` — gastos do grupo, mais recentes primeiro; cada item traz `excluded` (removido do grupo — RF9.7).
+- `POST   /api/v1/recurrences/:id/exclusions` — body `{ transaction_id }`; remove o gasto do grupo (idempotente, 201/200) — RF9.7.
+- `DELETE /api/v1/recurrences/:id/exclusions/:transaction_id` — restaura o gasto ao grupo (RF9.7).
 
 ### Imports (RF20) — ✅ CSV implementado (OFX pendente)
 - `POST   /api/v1/imports` — `multipart/form-data` com `file`, `format`, `account_id` opcional. Resposta 202 com `id` e `status: 'pending'`.

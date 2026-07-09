@@ -28,6 +28,8 @@ export type RefundInfo = {
     refund_transaction_id: string
     amount_cents: number
     confirmed_at: string
+    // RF10.6 — "automatic" = vinculado pelo match de código exato único.
+    origin: 'manual' | 'automatic'
   }>
 } | null
 

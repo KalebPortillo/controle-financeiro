@@ -76,6 +76,7 @@ function CreditRefundLinker({ credit }: { credit: InboxTransaction }) {
 function DebitRefundSummary({ transaction: t }: { transaction: InboxTransaction }) {
   const unlink = useUnlinkRefund()
   const refund = t.refund!
+  const isAutomatic = refund.refunds.some((r) => r.origin === 'automatic')
 
   return (
     <div className="mt-2 pt-3.5 border-t border-border space-y-1.5" data-testid="refund-summary">
@@ -86,6 +87,11 @@ function DebitRefundSummary({ transaction: t }: { transaction: InboxTransaction 
           <Money cents={t.effective_amount_cents} className="text-sm font-medium" />
         </span>
       </div>
+      {isAutomatic && (
+        <p className="text-xs text-muted-foreground" data-testid="refund-auto-badge">
+          Vinculado automaticamente pelo código do estorno
+        </p>
+      )}
       <Button
         variant="ghost"
         size="sm"

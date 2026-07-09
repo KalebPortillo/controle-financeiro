@@ -4,7 +4,7 @@
 # membro, lida pros dois (decisão do modelo de dados pro caso "casal").
 class Notification < ApplicationRecord
   KINDS = %w[inbox_new budget_warning budget_exceeded
-             recurrent_missed sync_failed import_completed].freeze
+             recurrent_missed sync_failed import_completed refund_auto_linked].freeze
 
   belongs_to :workspace
   belongs_to :recipient_membership, class_name: "WorkspaceMembership", optional: true

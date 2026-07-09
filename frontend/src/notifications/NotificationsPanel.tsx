@@ -1,4 +1,4 @@
-import { Inbox, CircleAlert, Repeat, Bell, TriangleAlert, type LucideIcon } from 'lucide-react'
+import { Inbox, CircleAlert, Repeat, Bell, TriangleAlert, Undo2, type LucideIcon } from 'lucide-react'
 import { useOverlay } from '../app/useOverlay'
 import { Sheet } from '../components/Sheet'
 import {
@@ -15,6 +15,7 @@ const KIND_ICON: Partial<Record<NotificationKind, LucideIcon>> = {
   recurrent_missed: Repeat,
   budget_warning: TriangleAlert,
   budget_exceeded: TriangleAlert,
+  refund_auto_linked: Undo2,
 }
 
 const KIND_ROUTE: Partial<Record<NotificationKind, string>> = {
@@ -23,6 +24,7 @@ const KIND_ROUTE: Partial<Record<NotificationKind, string>> = {
   recurrent_missed: '/recorrentes',
   budget_warning: '/orcamentos',
   budget_exceeded: '/orcamentos',
+  refund_auto_linked: '/gastos',
 }
 
 function brl(cents: unknown): string {
@@ -44,6 +46,8 @@ function title(n: AppNotification): string {
       return `Orçamento "${String(p.budget_name ?? '')}" em ${Number(p.pct ?? 0)}% do teto`
     case 'budget_exceeded':
       return `Orçamento "${String(p.budget_name ?? '')}" estourou`
+    case 'refund_auto_linked':
+      return `Estorno vinculado a "${String(p.refunded_title ?? 'um gasto')}"`
     default:
       return 'Novo aviso'
   }
@@ -61,6 +65,8 @@ function description(n: AppNotification): string | null {
     case 'budget_warning':
     case 'budget_exceeded':
       return `${brl(p.spent_cents)} de ${brl(p.limit_cents)}`
+    case 'refund_auto_linked':
+      return `${brl(p.amount_cents)} · desfaça no gasto se não for`
     default:
       return null
   }

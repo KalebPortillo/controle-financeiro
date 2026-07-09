@@ -3,15 +3,24 @@
 # Transaction#effective_amount_cents), nunca mutado em coluna. Todo vínculo
 # passa por confirmação humana (RF10.5), registrada em confirmed_by_membership.
 class TransactionRefund < ApplicationRecord
+  # manual = confirmado por humano (RF10.5); automatic = match de código exato
+  # único no sync/backfill (RF10.6), sem membership.
+  ORIGINS = %w[manual automatic].freeze
+
   belongs_to :refund_transaction,   class_name: "Transaction"
   belongs_to :refunded_transaction, class_name: "Transaction"
-  belongs_to :confirmed_by_membership, class_name: "WorkspaceMembership"
+  belongs_to :confirmed_by_membership, class_name: "WorkspaceMembership", optional: true
 
   # Um crédito estorna no máximo um gasto (também garantido por índice unique).
   validates :refund_transaction_id, uniqueness: true
+  validates :origin, inclusion: { in: ORIGINS }
   validate :refund_is_credit
   validate :refunded_is_debit
   validate :same_workspace
+
+  def automatic?
+    origin == "automatic"
+  end
 
   private
 

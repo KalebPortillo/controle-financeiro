@@ -406,7 +406,8 @@ class Api::V1::TransactionsController < ApplicationController
       refunded_amount_cents: t.refunded_amount_cents,
       refunds: t.refunds_received.map do |r|
         { id: r.id, refund_transaction_id: r.refund_transaction_id,
-          amount_cents: r.refund_transaction.amount_cents, confirmed_at: r.confirmed_at.iso8601 }
+          amount_cents: r.refund_transaction.amount_cents, confirmed_at: r.confirmed_at.iso8601,
+          origin: r.origin }
       end
     }
   end

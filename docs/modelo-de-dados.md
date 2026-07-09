@@ -380,7 +380,22 @@ Padrão recorrente detectado ou cadastrado manualmente (RF9).
 **Enum cadence**: `weekly`, `monthly`, `yearly`, `custom`.
 **Enum status**: `active`, `paused`, `cancelled`.
 **Enum source**: `detected`, `manual`.
-**RFs**: RF9.1, RF9.2, RF9.6.
+**RFs**: RF9.1, RF9.2, RF9.6, RF9.7.
+
+### `recurrence_exclusions`
+Gasto removido manualmente do grupo de uma recorrência (RF9.7). O casamento da
+recorrência é dinâmico por descritor; a exclusão tira um gasto avulso que caiu no
+padrão sem fazer parte da assinatura. Restaurar = deletar a linha.
+
+| coluna | tipo | constraints |
+|---|---|---|
+| id | uuid | PK |
+| recurrence_id | uuid | FK NOT NULL (on_delete cascade) |
+| transaction_id | uuid | FK NOT NULL (on_delete cascade) |
+| workspace_id | uuid | FK NOT NULL |
+| created_at, updated_at | timestamp | |
+
+Índice único `(recurrence_id, transaction_id)`. **RFs**: RF9.7.
 
 ### `transaction_refunds` ✅ implementado
 Vínculo de estorno a gasto original (RF10).
@@ -391,11 +406,13 @@ Vínculo de estorno a gasto original (RF10).
 | refund_transaction_id | uuid | FK NOT NULL UNIQUE — credit |
 | refunded_transaction_id | uuid | FK NOT NULL — debit |
 | confirmed_at | timestamp | NOT NULL |
-| confirmed_by_membership_id | uuid | FK NOT NULL |
+| confirmed_by_membership_id | uuid | FK NULL (null em auto-vínculo) |
+| origin | string | NOT NULL default `manual`, check in (`manual`,`automatic`) |
 | created_at | timestamp | |
 
 **Constraints**: workspace_id de ambas as transações deve coincidir (validação em service, mais barato que via DB).
-**RFs**: RF10. Importante: o valor consolidado efetivo do gasto original é calculado por query (`amount - SUM(refunds.amount)`), não mutado em coluna.
+**`origin`** (RF10.6): `manual` = confirmado por humano (RF10.5, tem membership); `automatic` = match de código exato único no sync/backfill (sem membership).
+**RFs**: RF10, RF10.6. Importante: o valor consolidado efetivo do gasto original é calculado por query (`amount - SUM(refunds.amount)`), não mutado em coluna.
 
 ### `internal_transfers` ✅ implementado
 Vínculo de transferência interna (RF11).

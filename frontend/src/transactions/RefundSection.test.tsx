@@ -74,14 +74,25 @@ describe('<RefundSection />', () => {
     })
     const debit = tx({
       id: 'd1', direction: 'debit', amount_cents: 10_000, effective_amount_cents: 6_000,
-      refund: { refunded_amount_cents: 4_000, refunds: [{ id: 'r1', refund_transaction_id: 'c1', amount_cents: 4_000, confirmed_at: '2026-06-04' }] },
+      refund: { refunded_amount_cents: 4_000, refunds: [{ id: 'r1', refund_transaction_id: 'c1', amount_cents: 4_000, confirmed_at: '2026-06-04', origin: 'manual' }] },
     })
     renderSection(debit)
     expect(screen.getByTestId('refund-summary')).toBeInTheDocument()
+    expect(screen.queryByTestId('refund-auto-badge')).not.toBeInTheDocument()
     const user = userEvent.setup()
     await user.click(screen.getByTestId('refund-unlink'))
     await waitFor(() =>
       expect(calls.find((c) => c.url === '/api/v1/transaction_refunds/r1' && c.init?.method === 'DELETE')).toBeTruthy(),
     )
+  })
+
+  // RF10.6 — estorno vinculado automaticamente pelo código.
+  it('shows an automatic badge when the refund was auto-linked', () => {
+    const debit = tx({
+      id: 'd2', direction: 'debit', amount_cents: 10_000, effective_amount_cents: 5_000,
+      refund: { refunded_amount_cents: 5_000, refunds: [{ id: 'r2', refund_transaction_id: 'c2', amount_cents: 5_000, confirmed_at: '2026-06-04', origin: 'automatic' }] },
+    })
+    renderSection(debit)
+    expect(screen.getByTestId('refund-auto-badge')).toBeInTheDocument()
   })
 })

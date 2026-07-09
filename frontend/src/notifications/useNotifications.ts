@@ -8,6 +8,7 @@ export type NotificationKind =
   | 'recurrent_missed'
   | 'sync_failed'
   | 'import_completed'
+  | 'refund_auto_linked'
 
 export type AppNotification = {
   id: string

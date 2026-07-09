@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_08_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_09_140000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -233,7 +233,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_08_120000) do
     t.index ["workspace_id", "created_at"], name: "index_notifications_on_workspace_id_and_created_at"
     t.index ["workspace_id", "dedup_key"], name: "index_notifications_dedup", unique: true, where: "(dedup_key IS NOT NULL)"
     t.index ["workspace_id"], name: "index_notifications_on_workspace_id"
-    t.check_constraint "kind::text = ANY (ARRAY['inbox_new'::character varying, 'budget_warning'::character varying, 'budget_exceeded'::character varying, 'recurrent_missed'::character varying, 'sync_failed'::character varying, 'import_completed'::character varying]::text[])", name: "notifications_kind_check"
+    t.check_constraint "kind::text = ANY (ARRAY['inbox_new'::text, 'budget_warning'::text, 'budget_exceeded'::text, 'recurrent_missed'::text, 'sync_failed'::text, 'import_completed'::text, 'refund_auto_linked'::text])", name: "notifications_kind_check"
+  end
+
+  create_table "recurrence_exclusions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.uuid "recurrence_id", null: false
+    t.uuid "transaction_id", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "workspace_id", null: false
+    t.index ["recurrence_id", "transaction_id"], name: "index_recurrence_exclusions_uniqueness", unique: true
+    t.index ["recurrence_id"], name: "index_recurrence_exclusions_on_recurrence_id"
+    t.index ["transaction_id"], name: "index_recurrence_exclusions_on_transaction_id"
+    t.index ["workspace_id"], name: "index_recurrence_exclusions_on_workspace_id"
   end
 
   create_table "recurrences", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -331,14 +343,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_08_120000) do
 
   create_table "transaction_refunds", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "confirmed_at", null: false
-    t.uuid "confirmed_by_membership_id", null: false
+    t.uuid "confirmed_by_membership_id"
     t.datetime "created_at", null: false
+    t.string "origin", default: "manual", null: false
     t.uuid "refund_transaction_id", null: false
     t.uuid "refunded_transaction_id", null: false
     t.datetime "updated_at", null: false
     t.index ["confirmed_by_membership_id"], name: "index_transaction_refunds_on_confirmed_by_membership_id"
     t.index ["refund_transaction_id"], name: "index_transaction_refunds_on_refund_transaction_id", unique: true
     t.index ["refunded_transaction_id"], name: "index_transaction_refunds_on_refunded_transaction_id"
+    t.check_constraint "origin::text = ANY (ARRAY['manual'::character varying, 'automatic'::character varying]::text[])", name: "transaction_refunds_origin_check"
   end
 
   create_table "transaction_tags", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -462,6 +476,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_08_120000) do
   add_foreign_key "internal_transfers", "workspaces"
   add_foreign_key "notifications", "workspace_memberships", column: "recipient_membership_id"
   add_foreign_key "notifications", "workspaces"
+  add_foreign_key "recurrence_exclusions", "recurrences", on_delete: :cascade
+  add_foreign_key "recurrence_exclusions", "transactions", on_delete: :cascade
+  add_foreign_key "recurrence_exclusions", "workspaces", on_delete: :cascade
   add_foreign_key "recurrences", "accounts"
   add_foreign_key "recurrences", "workspaces"
   add_foreign_key "suggested_categories", "workspaces"

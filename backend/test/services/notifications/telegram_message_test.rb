@@ -85,5 +85,14 @@ module Notifications
       })
       assert_match(/Orçamento "Lazer" estourou: R\$ 1\.300,00 de R\$ 1\.000,00 \(130%\)/, TelegramMessage.call(n))
     end
+
+    test "refund_auto_linked com gasto e valor" do
+      n = build(:notification, kind: "refund_auto_linked", payload: {
+        "refunded_title" => "Compra Amazon", "amount_cents" => 8990
+      })
+      assert_equal "Estorno vinculado automaticamente a \"Compra Amazon\" (R$ 89,90). " \
+                   "Desfaça no app se não for.",
+                   TelegramMessage.call(n)
+    end
   end
 end

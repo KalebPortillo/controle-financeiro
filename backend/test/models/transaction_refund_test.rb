@@ -71,4 +71,24 @@ class TransactionRefundTest < ActiveSupport::TestCase
     assert_equal @debit.amount_cents, @debit.effective_amount_cents
     assert_not @debit.refunded?
   end
+
+  # RF10.6 — vínculo automático (match de código): origin automatic, sem membership.
+  test "vínculo automático dispensa membership" do
+    r = build(:transaction_refund, :automatic, refund_transaction: @credit, refunded_transaction: @debit)
+    assert r.valid?
+    assert r.automatic?
+    assert_nil r.confirmed_by_membership
+  end
+
+  test "origin default é manual" do
+    assert_equal "manual", build_refund.origin
+    assert_not build_refund.automatic?
+  end
+
+  test "origin fora da lista é inválido" do
+    r = build_refund
+    r.origin = "robot"
+    assert_not r.valid?
+    assert_includes r.errors[:origin], "is not included in the list"
+  end
 end

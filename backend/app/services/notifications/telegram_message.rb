@@ -15,9 +15,15 @@ module Notifications
       when "recurrent_missed" then recurrent_missed(payload)
       when "budget_warning"   then budget_warning(payload)
       when "budget_exceeded"  then budget_exceeded(payload)
+      when "refund_auto_linked" then refund_auto_linked(payload)
       else
         "Novo aviso no controle financeiro."
       end
+    end
+
+    def refund_auto_linked(payload)
+      "Estorno vinculado automaticamente a \"#{payload['refunded_title']}\" " \
+        "(#{Brl.format(payload['amount_cents'])}). Desfaça no app se não for."
     end
 
     def budget_warning(payload)

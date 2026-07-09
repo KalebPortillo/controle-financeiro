@@ -77,8 +77,8 @@ describe('<RecorrentesPage />', () => {
     'GET /api/v1/recurrences/r1/transactions': {
       status: 200,
       body: { transactions: [
-        { id: 't1', title: 'Netflix', amount_cents: 5590, occurred_at: '2026-06-10' },
-        { id: 't2', title: 'Netflix', amount_cents: 5590, occurred_at: '2026-05-10' },
+        { id: 't1', title: 'Netflix', amount_cents: 5590, occurred_at: '2026-06-10', excluded: false },
+        { id: 't2', title: 'Netflix', amount_cents: 5590, occurred_at: '2026-05-10', excluded: false },
       ] },
     },
   }
@@ -134,6 +134,78 @@ describe('<RecorrentesPage />', () => {
         (c) => c[0] === '/api/v1/recurrences/r1' && c[1]?.method === 'PATCH'
       )
       expect(JSON.parse(call![1]!.body as string)).toEqual({ amount_tolerance_pct: 25 })
+    })
+  })
+
+  // RF9.7 — marcar transação como recorrente pelo picker.
+  it('marks a transaction as recurring from the picker', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/recurrences': { status: 200, body: { recurrences: [] } },
+      'GET /api/v1/transactions?status=consolidated&q=netflix': {
+        status: 200,
+        body: { transactions: [
+          { id: 't9', direction: 'debit', improved_title: 'Netflix', original_description: 'NETFLIX.COM',
+            amount_cents: 5590, occurred_at: '2026-06-10', tags: [] },
+        ] },
+      },
+      'POST /api/v1/recurrences': { status: 201, body: { recurrence: rec({ id: 'r9' }) } },
+    })
+    renderPage()
+    const user = userEvent.setup()
+    await user.click(await screen.findByTestId('new-recurrence'))
+    await user.type(await screen.findByTestId('recurrence-picker-search'), 'netflix')
+    await user.click(await screen.findByTestId('recurrence-pick-t9'))
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(
+        (c) => c[0] === '/api/v1/recurrences' && c[1]?.method === 'POST'
+      )
+      expect(JSON.parse(call![1]!.body as string)).toEqual({ transaction_id: 't9' })
+    })
+  })
+
+  // RF9.7 — remover um item do grupo.
+  it('removes an item from the recurrence group', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/recurrences': { status: 200, body: { recurrences: [rec()] } },
+      'POST /api/v1/recurrences/r1/exclusions': { status: 201, body: {} },
+      ...TX_RESPONSE,
+    })
+    renderPage()
+    const user = userEvent.setup()
+    await user.click(await screen.findByTestId('recurrence-row-r1'))
+    await user.click(await screen.findByTestId('recurrence-exclude-t1'))
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(
+        (c) => c[0] === '/api/v1/recurrences/r1/exclusions' && c[1]?.method === 'POST'
+      )
+      expect(JSON.parse(call![1]!.body as string)).toEqual({ transaction_id: 't1' })
+    })
+  })
+
+  // RF9.7 — restaurar um item removido.
+  it('restores a removed item to the group', async () => {
+    const { fetchMock } = setupFetch({
+      'GET /api/v1/recurrences': { status: 200, body: { recurrences: [rec()] } },
+      'GET /api/v1/recurrences/r1/transactions': {
+        status: 200,
+        body: { transactions: [
+          { id: 't1', title: 'Netflix', amount_cents: 5590, occurred_at: '2026-06-10', excluded: false },
+          { id: 't2', title: 'Compra avulsa', amount_cents: 9900, occurred_at: '2026-05-10', excluded: true },
+        ] },
+      },
+      'DELETE /api/v1/recurrences/r1/exclusions/t2': { status: 204, body: {} },
+    })
+    renderPage()
+    const user = userEvent.setup()
+    await user.click(await screen.findByTestId('recurrence-row-r1'))
+    const removed = await screen.findByTestId('recurrence-removed')
+    expect(removed).toHaveTextContent('Compra avulsa')
+    await user.click(await screen.findByTestId('recurrence-restore-t2'))
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(
+        (c) => c[0] === '/api/v1/recurrences/r1/exclusions/t2' && c[1]?.method === 'DELETE'
+      )
+      expect(call).toBeTruthy()
     })
   })
 

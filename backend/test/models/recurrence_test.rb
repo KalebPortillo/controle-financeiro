@@ -98,4 +98,36 @@ class RecurrenceTest < ActiveSupport::TestCase
     def rec.last_seen_at = Date.new(2026, 1, 3)
     assert_not rec.missed?(today: Date.new(2026, 1, 20))
   end
+
+  # RF9.7 — exclusões manuais de itens do grupo.
+  test "occurrences não inclui transações excluídas do grupo" do
+    ws  = create(:workspace)
+    ac  = create(:account, workspace: ws)
+    rec = create(:recurrence, workspace: ws, account: ac, descriptor_pattern: "NETFLIX COM")
+    keep = create(:transaction, workspace: ws, account: ac, direction: "debit",
+                  original_description: "NETFLIX.COM 1", occurred_at: Date.new(2026, 1, 10),
+                  status: "consolidated", consolidated_at: Time.current)
+    drop = create(:transaction, workspace: ws, account: ac, direction: "debit",
+                  original_description: "NETFLIX.COM 2", occurred_at: Date.new(2026, 2, 10),
+                  status: "consolidated", consolidated_at: Time.current)
+    create(:recurrence_exclusion, recurrence: rec, excluded_transaction: drop, workspace: ws)
+
+    assert_equal [ keep.id ], rec.occurrences.map(&:id)
+    assert_equal [ drop.id ], rec.excluded_occurrences.map(&:id)
+  end
+
+  test "last_seen_at ignora transações excluídas" do
+    ws  = create(:workspace)
+    ac  = create(:account, workspace: ws)
+    rec = create(:recurrence, workspace: ws, account: ac, descriptor_pattern: "NETFLIX COM")
+    create(:transaction, workspace: ws, account: ac, direction: "debit",
+           original_description: "NETFLIX.COM 1", occurred_at: Date.new(2026, 1, 10),
+           status: "consolidated", consolidated_at: Time.current)
+    drop = create(:transaction, workspace: ws, account: ac, direction: "debit",
+                  original_description: "NETFLIX.COM 2", occurred_at: Date.new(2026, 2, 10),
+                  status: "consolidated", consolidated_at: Time.current)
+    create(:recurrence_exclusion, recurrence: rec, excluded_transaction: drop, workspace: ws)
+
+    assert_equal Date.new(2026, 1, 10), rec.last_seen_at
+  end
 end

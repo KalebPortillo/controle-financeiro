@@ -10,6 +10,7 @@ import { GhostTagChips } from './GhostTagChips'
 import { RefundSection } from './RefundSection'
 import { RelatedSection } from './RelatedSection'
 import { LinkOriginSection } from './LinkOriginSection'
+import { RecurringSection } from './RecurringSection'
 import { AggregatorAdjustmentBadge } from './AggregatorAdjustmentBadge'
 import { signedCents, displayTitle } from './display'
 import {
@@ -261,6 +262,9 @@ function SheetInner({
 
         {/* RF23 F3 — vincular manualmente a um gasto de origem (satélite órfão). */}
         <LinkOriginSection transaction={t} />
+
+        {/* RF9.7 — marcar como recorrente (só gasto consolidado). */}
+        {mode === 'consolidated' && <RecurringSection transaction={t} />}
 
         <ActivityTimeline transactionId={t.id} aiSuggestion={t.ai_suggestion} />
 

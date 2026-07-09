@@ -1,18 +1,32 @@
 import { useState } from 'react'
+import { Plus, X, RotateCcw } from 'lucide-react'
+import { toast } from 'sonner'
 import { Money } from '../components/Money'
 import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { Sheet } from '../components/Sheet'
 import { ApiError } from '../api/client'
+import { useDebounced } from '../app/useDebounced'
+import { useConsolidated } from '../transactions/useInbox'
+import { displayTitle } from '../transactions/display'
 import {
   useRecurrences,
   useUpdateRecurrence,
   useRecurrenceTransactions,
+  useCreateRecurrenceFromTransaction,
+  useExcludeTransaction,
+  useIncludeTransaction,
   CADENCE_LABELS,
   type Recurrence,
   type RecurrenceUpdate,
 } from './useRecurrences'
+
+// Período corrente YYYY-MM — base do picker quando a busca está vazia.
+function currentPeriod(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
 
 // next_expected_at vem como YYYY-MM-DD; formata sem Date pra não pegar TZ.
 function formatDate(iso: string | null): string {
@@ -29,17 +43,23 @@ function formatDate(iso: string | null): string {
 export function RecorrentesPage() {
   const { data: recurrences, isLoading } = useRecurrences()
   const [selected, setSelected] = useState<Recurrence | null>(null)
+  const [picking, setPicking] = useState(false)
 
   // Canceladas saem da lista — viram histórico, não item ativo.
   const visible = (recurrences ?? []).filter((r) => r.status !== 'cancelled')
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <section className="space-y-1">
-        <h1 className="font-sans text-2xl font-semibold tracking-tight">Recorrentes</h1>
-        <p className="text-sm text-muted-foreground">
-          Assinaturas e contas fixas detectadas no histórico ou cadastradas por você.
-        </p>
+      <section className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="font-sans text-2xl font-semibold tracking-tight">Recorrentes</h1>
+          <p className="text-sm text-muted-foreground">
+            Assinaturas e contas fixas detectadas no histórico ou cadastradas por você.
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => setPicking(true)} data-testid="new-recurrence">
+          <Plus size={14} /> Nova recorrência
+        </Button>
       </section>
 
       <div className="border border-border rounded-lg overflow-hidden">
@@ -57,6 +77,83 @@ export function RecorrentesPage() {
       <Sheet open={selected !== null} onClose={() => setSelected(null)}>
         {selected && <RecurrenceDetail recurrence={selected} onClose={() => setSelected(null)} />}
       </Sheet>
+
+      <Sheet open={picking} onClose={() => setPicking(false)}>
+        {picking && <RecurrenceTransactionPicker onClose={() => setPicking(false)} />}
+      </Sheet>
+    </div>
+  )
+}
+
+// RF9.7 — escolhe um gasto consolidado pra virar recorrência. Busca server-side
+// (?q= em todos os períodos) reaproveitando useConsolidated; vazio mostra o mês.
+function RecurrenceTransactionPicker({ onClose }: { onClose: () => void }) {
+  const [q, setQ] = useState('')
+  const debouncedQ = useDebounced(q, 250)
+  const { data, isLoading } = useConsolidated(currentPeriod(), debouncedQ)
+  const create = useCreateRecurrenceFromTransaction()
+
+  // Só débitos (gastos) viram recorrente.
+  const gastos = (data?.transactions ?? []).filter((t) => t.direction === 'debit')
+
+  const pick = async (id: string) => {
+    try {
+      await create.mutateAsync(id)
+      toast.success('Marcada como recorrente', {
+        description: 'Gastos parecidos foram agrupados',
+      })
+      onClose()
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : 'Erro ao criar recorrência')
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <h2 className="text-lg font-semibold">Nova recorrência</h2>
+        <p className="text-sm text-muted-foreground">
+          Escolha um gasto — os parecidos são agrupados automaticamente.
+        </p>
+      </div>
+
+      <Input
+        autoFocus
+        placeholder="Buscar gasto"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        data-testid="recurrence-picker-search"
+      />
+
+      {isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
+      {!isLoading && gastos.length === 0 && (
+        <p className="text-sm text-muted-foreground" data-testid="recurrence-picker-empty">
+          Nenhum gasto encontrado.
+        </p>
+      )}
+      {gastos.length > 0 && (
+        <ul className="border border-border rounded-md overflow-hidden">
+          {gastos.map((t) => (
+            <li key={t.id}>
+              <button
+                type="button"
+                onClick={() => pick(t.id)}
+                disabled={create.isPending}
+                data-testid={`recurrence-pick-${t.id}`}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 border-b border-border last:border-b-0 text-left hover:bg-muted/50 disabled:opacity-50"
+              >
+                <span className="min-w-0">
+                  <span className="block text-[13px] truncate">{displayTitle(t)}</span>
+                  <span className="block text-[11px] text-muted-foreground tabular-nums">
+                    {formatDate(t.occurred_at)}
+                  </span>
+                </span>
+                <Money cents={t.amount_cents} className="text-[13px] shrink-0" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
@@ -98,9 +195,14 @@ function RecurrenceRow({ recurrence: r, onOpen }: { recurrence: Recurrence; onOp
 function RecurrenceDetail({ recurrence: r, onClose }: { recurrence: Recurrence; onClose: () => void }) {
   const update = useUpdateRecurrence()
   const { data: transactions, isLoading } = useRecurrenceTransactions(r.id)
+  const exclude = useExcludeTransaction(r.id)
+  const include = useIncludeTransaction(r.id)
   const [tolerance, setTolerance] = useState(String(r.amount_tolerance_pct))
   const [showSettings, setShowSettings] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const included = (transactions ?? []).filter((t) => !t.excluded)
+  const removed = (transactions ?? []).filter((t) => t.excluded)
 
   const run = async (patch: RecurrenceUpdate) => {
     setError(null)
@@ -134,25 +236,65 @@ function RecurrenceDetail({ recurrence: r, onClose }: { recurrence: Recurrence; 
           Gastos desta recorrência
         </span>
         {isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
-        {!isLoading && (transactions?.length ?? 0) === 0 && (
+        {!isLoading && included.length === 0 && (
           <p className="text-sm text-muted-foreground" data-testid="recurrence-tx-empty">
             Nenhum gasto consolidado ainda.
           </p>
         )}
-        {(transactions?.length ?? 0) > 0 && (
+        {included.length > 0 && (
           <ul className="border border-border rounded-md overflow-hidden" data-testid="recurrence-transactions">
-            {transactions!.map((t) => (
+            {included.map((t) => (
               <li key={t.id} className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-border last:border-b-0">
                 <span className="min-w-0">
                   <span className="block text-[13px] truncate">{t.title}</span>
                   <span className="block text-[11px] text-muted-foreground tabular-nums">{formatDate(t.occurred_at)}</span>
                 </span>
-                <Money cents={t.amount_cents} className="text-[13px] shrink-0" />
+                <div className="flex items-center gap-2 shrink-0">
+                  <Money cents={t.amount_cents} className="text-[13px]" />
+                  <button
+                    type="button"
+                    onClick={() => exclude.mutate(t.id)}
+                    disabled={exclude.isPending}
+                    aria-label="Remover do grupo"
+                    data-testid={`recurrence-exclude-${t.id}`}
+                    className="h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      {/* Itens removidos do grupo (RF9.7) — restauráveis. */}
+      {removed.length > 0 && (
+        <section className="space-y-2">
+          <span className="text-[11px] uppercase tracking-wider font-medium text-muted-foreground">
+            Removidos do grupo
+          </span>
+          <ul className="border border-border rounded-md overflow-hidden" data-testid="recurrence-removed">
+            {removed.map((t) => (
+              <li key={t.id} className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-border last:border-b-0">
+                <span className="min-w-0">
+                  <span className="block text-[13px] truncate text-muted-foreground">{t.title}</span>
+                  <span className="block text-[11px] text-muted-foreground tabular-nums">{formatDate(t.occurred_at)}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => include.mutate(t.id)}
+                  disabled={include.isPending}
+                  data-testid={`recurrence-restore-${t.id}`}
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50 shrink-0"
+                >
+                  <RotateCcw size={12} /> Restaurar
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* Ajustes (secundário): tolerância + pausar/cancelar. */}
       <section className="border-t border-border pt-4">

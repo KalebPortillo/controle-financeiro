@@ -7,16 +7,6 @@ module Recurrences
   # Não responsável por avisar atrasos (RF9.6) nem projetar vencimentos
   # (RF9.3) — isso fica em fatias seguintes. Aqui só popula/atualiza o catálogo.
   class Detect
-    MIN_OCCURRENCES   = 3
-    AMOUNT_SPREAD_MAX = 0.15 # (max - min) / mediana — "valor próximo" (RF9.1)
-
-    # Faixas de gap (em dias) por cadência + como projetar o próximo vencimento.
-    CADENCES = [
-      { name: "weekly",  range: 5..9,     advance: ->(d) { d + 7 } },
-      { name: "monthly", range: 26..35,   advance: ->(d) { d + 1.month } },
-      { name: "yearly",  range: 350..380, advance: ->(d) { d + 1.year } }
-    ].freeze
-
     def self.call(**kwargs)
       new(**kwargs).call
     end
@@ -39,15 +29,10 @@ module Recurrences
     private
 
     def detect_group(account_id, pattern, txs)
-      return if pattern.blank? || txs.size < MIN_OCCURRENCES
+      return if pattern.blank?
 
-      dates = txs.map(&:occurred_at)
-      gaps  = dates.each_cons(2).map { |a, b| (b - a).to_i }
-      cadence = classify(gaps)
-      return unless cadence
-
-      amounts = txs.map(&:amount_cents)
-      return unless amounts_close?(amounts)
+      guess = Guess.confident(txs)
+      return unless guess
 
       existing = @workspace.recurrences.find_by(account_id: account_id, descriptor_pattern: pattern)
       return if existing&.source == "manual" # nunca sobrescreve cadastro manual
@@ -55,37 +40,9 @@ module Recurrences
       rec = existing || @workspace.recurrences.new(
         account_id: account_id, descriptor_pattern: pattern, source: "detected"
       )
-      rec.assign_attributes(
-        expected_amount_cents: median(amounts),
-        cadence:               cadence[:name],
-        next_expected_at:      cadence[:advance].call(dates.last),
-        status:                rec.status.presence || "active"
-      )
+      rec.assign_attributes(guess.merge(status: rec.status.presence || "active"))
       rec.save!
       rec
-    end
-
-    # Classifica a cadência pela mediana dos gaps e exige que TODOS os gaps
-    # caiam na mesma faixa (consistência) — senão não é recorrente confiável.
-    def classify(gaps)
-      cad = CADENCES.find { |c| c[:range].include?(median(gaps)) }
-      return unless cad
-      return unless gaps.all? { |g| cad[:range].include?(g) }
-
-      cad
-    end
-
-    def amounts_close?(amounts)
-      m = median(amounts).to_f
-      return false if m.zero?
-
-      (amounts.max - amounts.min) / m <= AMOUNT_SPREAD_MAX
-    end
-
-    def median(values)
-      sorted = values.sort
-      mid = sorted.size / 2
-      sorted.size.odd? ? sorted[mid] : ((sorted[mid - 1] + sorted[mid]) / 2.0).round
     end
   end
 end

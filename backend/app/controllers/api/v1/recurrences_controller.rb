@@ -32,24 +32,22 @@ class Api::V1::RecurrencesController < ApplicationController
     }
   end
 
-  # GET /api/v1/recurrences/:id/transactions — os gastos (consolidados) já
-  # lançados desta recorrência, mais recentes primeiro (RF9 — histórico).
+  # GET /api/v1/recurrences/:id/transactions — os gastos (consolidados) desta
+  # recorrência, mais recentes primeiro (RF9 — histórico), incluindo os
+  # removidos do grupo (RF9.7) marcados com `excluded: true` pra o usuário
+  # poder restaurar.
   def transactions
-    render json: {
-      transactions: @recurrence.occurrences.first(24).map do |t|
-        {
-          id:           t.id,
-          title:        t.improved_title.presence || t.original_description,
-          amount_cents: t.amount_cents,
-          occurred_at:  t.occurred_at.iso8601
-        }
-      end
-    }
+    included = @recurrence.occurrences.first(24).map { |t| serialize_tx(t, excluded: false) }
+    excluded = @recurrence.excluded_occurrences.map { |t| serialize_tx(t, excluded: true) }
+    render json: { transactions: included + excluded }
   end
 
-  # POST /api/v1/recurrences — cadastro manual (RF9.2). `source` é sempre
-  # "manual" aqui; recorrentes detectadas nascem no job de detecção (RF9.1).
+  # POST /api/v1/recurrences — cadastro manual (RF9.2) ou, quando vem
+  # `transaction_id`, marca aquele gasto como recorrente e semeia a recorrência
+  # (descritor + palpite de cadência/valor) — RF9.7. `source` é sempre "manual".
   def create
+    return create_from_transaction if params[:transaction_id].present?
+
     recurrence = current_workspace.recurrences.new(recurrence_params)
     # account_id fora do permit (Brakeman: FK em mass-assignment). Atribuído à
     # mão; a validação account_belongs_to_workspace barra account alheia (422).
@@ -73,6 +71,37 @@ class Api::V1::RecurrencesController < ApplicationController
   end
 
   private
+
+  # RF9.7 — semeia uma recorrência manual a partir de um gasto. Idempotente:
+  # se já existe recorrência pra (conta, descritor), devolve a existente (200).
+  def create_from_transaction
+    tx = current_workspace.transactions.find(params[:transaction_id])
+    descriptor = Recurrences::Descriptor.normalize(tx.original_description)
+
+    existing = current_workspace.recurrences.find_by(account_id: tx.account_id, descriptor_pattern: descriptor)
+    return render json: { recurrence: serialize(existing) }, status: :ok if existing
+
+    seed = tx.account.transactions.consolidated.where(direction: "debit").select do |t|
+      Recurrences::Descriptor.normalize(t.original_description) == descriptor
+    end
+    guess = Recurrences::Guess.seed(seed.presence || [ tx ])
+
+    recurrence = current_workspace.recurrences.new(
+      account_id: tx.account_id, descriptor_pattern: descriptor, source: "manual", **guess
+    )
+    recurrence.save!
+    render json: { recurrence: serialize(recurrence) }, status: :created
+  end
+
+  def serialize_tx(tx, excluded:)
+    {
+      id:           tx.id,
+      title:        tx.improved_title.presence || tx.original_description,
+      amount_cents: tx.amount_cents,
+      occurred_at:  tx.occurred_at.iso8601,
+      excluded:     excluded
+    }
+  end
 
   def set_recurrence
     @recurrence = current_workspace.recurrences.find(params[:id])

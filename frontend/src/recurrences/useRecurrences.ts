@@ -35,11 +35,13 @@ export function useRecurrences() {
 }
 
 // Gasto (consolidado) já lançado desta recorrência — histórico do detalhe.
+// `excluded` = removido manualmente do grupo (RF9.7), pode ser restaurado.
 export type RecurrenceTransaction = {
   id: string
   title: string
   amount_cents: number
   occurred_at: string
+  excluded: boolean
 }
 
 // GET /api/v1/recurrences/:id/transactions. Lazy: só busca quando o detalhe abre.
@@ -72,6 +74,51 @@ export function useUpdateRecurrence() {
     mutationFn: ({ id, ...patch }: { id: string } & RecurrenceUpdate) =>
       apiFetch(`/api/v1/recurrences/${id}`, { method: 'PATCH', body: patch }),
     onSuccess: () => qc.invalidateQueries({ queryKey: recurrencesKey }),
+  })
+}
+
+// RF9.7 — marca um gasto como recorrente; o backend semeia a recorrência
+// (descritor + palpite de cadência/valor) e agrupa os relacionados. Idempotente.
+export function useCreateRecurrenceFromTransaction() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (transactionId: string) =>
+      apiFetch<{ recurrence: Recurrence }>('/api/v1/recurrences', {
+        method: 'POST',
+        body: { transaction_id: transactionId },
+      }).then((r) => r.recurrence),
+    onSuccess: () => qc.invalidateQueries({ queryKey: recurrencesKey }),
+  })
+}
+
+// RF9.7 — remove um gasto do grupo da recorrência (exclusão persistente).
+export function useExcludeTransaction(recurrenceId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (transactionId: string) =>
+      apiFetch(`/api/v1/recurrences/${recurrenceId}/exclusions`, {
+        method: 'POST',
+        body: { transaction_id: transactionId },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['recurrences', recurrenceId, 'transactions'] })
+      qc.invalidateQueries({ queryKey: recurrencesKey })
+    },
+  })
+}
+
+// RF9.7 — restaura um gasto removido de volta ao grupo.
+export function useIncludeTransaction(recurrenceId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (transactionId: string) =>
+      apiFetch(`/api/v1/recurrences/${recurrenceId}/exclusions/${transactionId}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['recurrences', recurrenceId, 'transactions'] })
+      qc.invalidateQueries({ queryKey: recurrencesKey })
+    },
   })
 }
 

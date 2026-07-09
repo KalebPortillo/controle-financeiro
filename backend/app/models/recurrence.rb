@@ -13,6 +13,9 @@ class Recurrence < ApplicationRecord
   belongs_to :workspace
   belongs_to :account
 
+  # Itens que o usuário tirou manualmente do grupo (RF9.7).
+  has_many :exclusions, class_name: "RecurrenceExclusion", dependent: :destroy
+
   validates :descriptor_pattern, presence: true
   validates :cadence, inclusion: { in: CADENCES }
   validates :status,  inclusion: { in: STATUSES }
@@ -29,7 +32,7 @@ class Recurrence < ApplicationRecord
   # Última vez que uma transação consolidada casando o padrão foi vista (RF9.6).
   # Casamento por descritor normalizado — o mesmo critério da detecção (RF9.1).
   def last_seen_at
-    matching_transactions.map(&:occurred_at).max
+    occurrences.map(&:occurred_at).max
   end
 
   # True quando ativa, com vencimento previsto já passado (além do grace) e
@@ -50,12 +53,24 @@ class Recurrence < ApplicationRecord
   end
 
   # Gastos (consolidados) já lançados desta recorrência, mais recentes primeiro —
-  # o histórico que o usuário vê no detalhe (RF9).
+  # o histórico que o usuário vê no detalhe (RF9). Não inclui os excluídos (RF9.7).
   def occurrences
-    matching_transactions.sort_by(&:occurred_at).reverse
+    matching_transactions.reject { |t| excluded_transaction_ids.include?(t.id) }
+                         .sort_by(&:occurred_at).reverse
+  end
+
+  # Itens que casam o padrão mas foram removidos do grupo (RF9.7) — o usuário
+  # pode restaurá-los.
+  def excluded_occurrences
+    matching_transactions.select { |t| excluded_transaction_ids.include?(t.id) }
+                         .sort_by(&:occurred_at).reverse
   end
 
   private
+
+  def excluded_transaction_ids
+    @excluded_transaction_ids ||= exclusions.pluck(:transaction_id).to_set
+  end
 
   # Débitos consolidados desta conta cujo descritor normalizado bate com o
   # padrão. Filtro em Ruby (volume pessoal) — normalização não é trivial em SQL.

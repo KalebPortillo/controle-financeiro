@@ -140,6 +140,9 @@ Rails.application.routes.draw do
           get "missed"          # RF9.6 — não chegou no prazo
           get "transactions"    # RF9 — histórico de gastos desta recorrência
         end
+        # RF9.7 — remover/restaurar item do grupo (chave = transaction_id).
+        resources :exclusions, only: [ :create, :destroy ],
+                  controller: "recurrence_exclusions", param: :transaction_id
       end
 
       # Faturas do cartão (RF9.5) — derivadas, sem entidade física.

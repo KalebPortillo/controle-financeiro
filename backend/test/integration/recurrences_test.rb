@@ -74,6 +74,121 @@ class RecurrencesTest < ActionDispatch::IntegrationTest
     assert_equal 5990, rec.expected_amount_cents
   end
 
+  # RF9.7 — marcar uma transação como recorrente (semeia do gasto).
+  test "POST /recurrences com transaction_id semeia recorrência do gasto" do
+    3.times do |i|
+      create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+             status: "consolidated", consolidated_at: Time.current,
+             original_description: "NETFLIX.COM #{i}", amount_cents: 5990,
+             occurred_at: Date.new(2026, 1, 10) + (i * 30))
+    end
+    seed = @workspace.transactions.find_by(original_description: "NETFLIX.COM 0")
+
+    assert_difference -> { @workspace.recurrences.count }, 1 do
+      post "/api/v1/recurrences", params: { transaction_id: seed.id }, as: :json
+    end
+    assert_response :created
+    rec = @workspace.recurrences.sole
+    assert_equal "manual",       rec.source
+    assert_equal "NETFLIX COM",  rec.descriptor_pattern
+    assert_equal @account.id,    rec.account_id
+    assert_equal "monthly",      rec.cadence
+    assert_equal 5990,           rec.expected_amount_cents
+  end
+
+  test "POST /recurrences com transaction_id de gasto único cai em mensal" do
+    seed = create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+                  status: "consolidated", consolidated_at: Time.current,
+                  original_description: "ALUGUEL", amount_cents: 180000, occurred_at: Date.new(2026, 5, 5))
+
+    post "/api/v1/recurrences", params: { transaction_id: seed.id }, as: :json
+    assert_response :created
+    rec = @workspace.recurrences.sole
+    assert_equal "monthly", rec.cadence
+    assert_equal 180000,    rec.expected_amount_cents
+    assert_equal Date.new(2026, 6, 5), rec.next_expected_at
+  end
+
+  test "POST /recurrences com transaction_id é idempotente (não duplica)" do
+    seed = create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+                  status: "consolidated", consolidated_at: Time.current,
+                  original_description: "SPOTIFY", amount_cents: 1990, occurred_at: Date.new(2026, 5, 5))
+    post "/api/v1/recurrences", params: { transaction_id: seed.id }, as: :json
+    assert_response :created
+
+    assert_no_difference -> { @workspace.recurrences.count } do
+      post "/api/v1/recurrences", params: { transaction_id: seed.id }, as: :json
+    end
+    assert_response :ok
+  end
+
+  test "POST /recurrences com transaction_id de outro workspace → 404" do
+    foreign = create(:transaction, workspace: create(:workspace))
+    post "/api/v1/recurrences", params: { transaction_id: foreign.id }, as: :json
+    assert_response :not_found
+  end
+
+  # RF9.7 — exclusões: remover/restaurar item do grupo.
+  test "POST /recurrences/:id/exclusions remove o item do grupo" do
+    rec = create(:recurrence, workspace: @workspace, account: @account, descriptor_pattern: "NETFLIX COM")
+    keep = create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+                  status: "consolidated", original_description: "NETFLIX.COM 1", occurred_at: Date.new(2026, 1, 10))
+    drop = create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+                  status: "consolidated", original_description: "NETFLIX.COM 2", occurred_at: Date.new(2026, 2, 10))
+
+    assert_difference -> { rec.exclusions.count }, 1 do
+      post "/api/v1/recurrences/#{rec.id}/exclusions", params: { transaction_id: drop.id }, as: :json
+    end
+    assert_response :created
+    assert_equal [ keep.id ], rec.reload.occurrences.map(&:id)
+  end
+
+  test "POST exclusions duas vezes não duplica (idempotente)" do
+    rec = create(:recurrence, workspace: @workspace, account: @account, descriptor_pattern: "NETFLIX COM")
+    drop = create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+                  status: "consolidated", original_description: "NETFLIX.COM 2", occurred_at: Date.new(2026, 2, 10))
+    post "/api/v1/recurrences/#{rec.id}/exclusions", params: { transaction_id: drop.id }, as: :json
+    assert_response :created
+    assert_no_difference -> { rec.exclusions.count } do
+      post "/api/v1/recurrences/#{rec.id}/exclusions", params: { transaction_id: drop.id }, as: :json
+    end
+    assert_response :ok
+  end
+
+  test "DELETE /recurrences/:id/exclusions/:transaction_id restaura o item" do
+    rec = create(:recurrence, workspace: @workspace, account: @account, descriptor_pattern: "NETFLIX COM")
+    drop = create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+                  status: "consolidated", original_description: "NETFLIX.COM 2", occurred_at: Date.new(2026, 2, 10))
+    create(:recurrence_exclusion, recurrence: rec, excluded_transaction: drop, workspace: @workspace)
+
+    assert_difference -> { rec.exclusions.count }, -1 do
+      delete "/api/v1/recurrences/#{rec.id}/exclusions/#{drop.id}"
+    end
+    assert_response :no_content
+  end
+
+  test "exclusions de recorrência de outro workspace → 404" do
+    foreign = create(:recurrence, workspace: create(:workspace))
+    tx = create(:transaction, workspace: @workspace, account: @account, direction: "debit")
+    post "/api/v1/recurrences/#{foreign.id}/exclusions", params: { transaction_id: tx.id }, as: :json
+    assert_response :not_found
+  end
+
+  test "GET /recurrences/:id/transactions marca excluídos" do
+    rec = create(:recurrence, workspace: @workspace, account: @account, descriptor_pattern: "NETFLIX COM")
+    keep = create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+                  status: "consolidated", original_description: "NETFLIX.COM 1", occurred_at: Date.new(2026, 1, 10))
+    drop = create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+                  status: "consolidated", original_description: "NETFLIX.COM 2", occurred_at: Date.new(2026, 2, 10))
+    create(:recurrence_exclusion, recurrence: rec, excluded_transaction: drop, workspace: @workspace)
+
+    get "/api/v1/recurrences/#{rec.id}/transactions"
+    txs = JSON.parse(response.body)["transactions"]
+    by_id = txs.index_by { |t| t["id"] }
+    assert_equal false, by_id[keep.id]["excluded"]
+    assert_equal true,  by_id[drop.id]["excluded"]
+  end
+
   test "POST /recurrences sem descriptor → 422" do
     post "/api/v1/recurrences",
          params: { account_id: @account.id, cadence: "monthly" }, as: :json

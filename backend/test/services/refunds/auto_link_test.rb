@@ -54,32 +54,23 @@ class Refunds::AutoLinkTest < ActiveSupport::TestCase
     assert_equal 89_054, purchase.reload.effective_amount_cents # a compra não muda
   end
 
-  test "não vincula estorno com irmão duplicado idêntico (ambíguo)" do
-    debit(description: "AMAZON RETA PZ7SW7MV3", amount_cents: 103_000)
-    # duplicata do dado: 2 créditos idênticos (mesmo valor+data+descrição).
-    credit(description: "Crédito de AMAZON RETA PZ7SW7MV3", amount_cents: 2962, on: Date.new(2026, 6, 28))
-    credit(description: "Crédito de AMAZON RETA PZ7SW7MV3", amount_cents: 2962, on: Date.new(2026, 6, 28))
-
-    assert_equal 0, Refunds::AutoLink.call(workspace: @workspace)
-    assert_equal 0, TransactionRefund.count
-  end
-
-  test "irmão rejeitado não bloqueia: o estorno que sobra vincula sozinho" do
-    debit(description: "AMAZON RETA PZ7SW7MV3", amount_cents: 103_000)
-    credit(description: "Crédito de AMAZON RETA PZ7SW7MV3", amount_cents: 2962,
-           on: Date.new(2026, 6, 28)).update!(status: "rejected", rejected_at: Time.current)
-    survivor = credit(description: "Crédito de AMAZON RETA PZ7SW7MV3", amount_cents: 2962, on: Date.new(2026, 6, 28))
-
-    assert_equal 1, Refunds::AutoLink.call(workspace: @workspace)
-    assert survivor.reload.refund_of.present?
-  end
-
   test "vincula estornos distintos (valores diferentes) do mesmo gasto" do
     debit(description: "AMAZON RETA PZ7SW7MV3", amount_cents: 103_000)
     credit(description: "Crédito de AMAZON RETA PZ7SW7MV3", amount_cents: 5918, on: Date.new(2026, 6, 28))
     credit(description: "Crédito de AMAZON RETA PZ7SW7MV3", amount_cents: 7107, on: Date.new(2026, 6, 27))
 
     assert_equal 2, Refunds::AutoLink.call(workspace: @workspace)
+  end
+
+  # Dois estornos IGUAIS podem ser reais (dois itens iguais devolvidos separado):
+  # ambos vinculam e ambos abatem.
+  test "vincula os dois estornos de mesmo valor (dois itens iguais devolvidos)" do
+    purchase = debit(description: "AMAZON RETA PZ7SW7MV3", amount_cents: 103_000)
+    credit(description: "Estorno de AMAZON RETA PZ7SW7MV3", amount_cents: 23_676, on: Date.new(2026, 7, 4))
+    credit(description: "Estorno de AMAZON RETA PZ7SW7MV3", amount_cents: 23_676, on: Date.new(2026, 7, 4))
+
+    assert_equal 2, Refunds::AutoLink.call(workspace: @workspace)
+    assert_equal 47_352, purchase.reload.refunded_amount_cents
   end
 
   test "é idempotente — não duplica o vínculo" do

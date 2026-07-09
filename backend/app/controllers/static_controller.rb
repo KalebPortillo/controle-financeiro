@@ -9,6 +9,8 @@ class StaticController < ApplicationController
   def index
     index_path = Rails.public_path.join("index.html")
     if index_path.exist?
+      # Shell nunca cacheia (deep links tipo /inbox): sempre a versão nova.
+      response.set_header("Cache-Control", "no-cache")
       render plain: index_path.read, content_type: "text/html"
     else
       render plain: "Frontend not built yet. Run `npm run build` in frontend/.", status: :not_found

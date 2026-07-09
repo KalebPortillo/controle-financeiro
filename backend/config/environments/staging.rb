@@ -14,6 +14,10 @@ Rails.application.configure do
   config.consider_all_requests_local = false
 
   config.public_file_server.headers = { "cache-control" => "public, max-age=#{1.year.to_i}" }
+  # Shell do SPA (index.html/sw.js/manifest) revalida sempre — senão o navegador
+  # fica preso numa versão antiga (ver StaticCacheControl).
+  require_relative "../../lib/static_cache_control"
+  config.middleware.insert_before ActionDispatch::Static, StaticCacheControl
 
   config.active_storage.service = :local
 

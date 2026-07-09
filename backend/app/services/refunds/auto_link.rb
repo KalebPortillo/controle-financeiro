@@ -20,8 +20,6 @@ module Refunds
     def call
       linked = 0
       unlinked_credits.find_each do |credit|
-        next if duplicate_sibling?(credit) # duplicata do dado → ambíguo, não vincula
-
         debit = CodeMatch.call(credit: credit)
         next unless debit
         next if debit.refunded_amount_cents >= debit.amount_cents # já estornado
@@ -36,19 +34,6 @@ module Refunds
 
     def unlinked_credits
       @workspace.transactions.where(direction: "credit").where.missing(:refund_of)
-    end
-
-    # Estorno idêntico repetido (mesmo valor+data+descrição) costuma ser duplicata
-    # do agregador; auto-vincular os dois dobraria o abatimento — melhor deixar
-    # como sugestão (o usuário decide). Irmãos REJEITADOS não contam: quando o
-    # usuário rejeita a duplicata, o estorno que sobra volta a vincular sozinho.
-    def duplicate_sibling?(credit)
-      @workspace.transactions
-                .where(direction: "credit", amount_cents: credit.amount_cents,
-                       occurred_at: credit.occurred_at, original_description: credit.original_description)
-                .where.not(id: credit.id)
-                .where.not(status: "rejected")
-                .exists?
     end
 
     def link!(credit, debit)

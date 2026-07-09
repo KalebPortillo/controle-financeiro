@@ -93,4 +93,13 @@ class Refunds::AutoLinkTest < ActiveSupport::TestCase
       Refunds::AutoLink.call(workspace: @workspace)
     end
   end
+
+  test "notify: false (backfill) vincula sem notificar" do
+    debit(description: "COMPRA AB12CD34 LOJA", amount_cents: 5000)
+    credit(description: "ESTORNO AB12CD34")
+
+    assert_no_difference -> { @workspace.notifications.count } do
+      assert_equal 1, Refunds::AutoLink.call(workspace: @workspace, notify: false)
+    end
+  end
 end

@@ -6,7 +6,8 @@ namespace :refunds do
   task autolink: :environment do
     total = 0
     Workspace.find_each do |workspace|
-      linked = Refunds::AutoLink.call(workspace: workspace)
+      # Lote silencioso: sem enxurrada de notificação (o usuário revê no app).
+      linked = Refunds::AutoLink.call(workspace: workspace, notify: false)
       total += linked
       puts "[refunds:autolink] workspace=#{workspace.id} linked=#{linked}" if linked.positive?
     end

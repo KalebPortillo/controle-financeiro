@@ -9,8 +9,11 @@ module Refunds
       new(**kwargs).call
     end
 
-    def initialize(workspace:)
+    # `notify: false` no backfill em lote — dezenas de avisos de uma vez viram
+    # spam; o usuário revê os vínculos no app. No sync ao vivo, notifica (RF10.6).
+    def initialize(workspace:, notify: true)
       @workspace = workspace
+      @notify    = notify
     end
 
     # Retorna quantos estornos foram vinculados nesta passagem.
@@ -40,7 +43,7 @@ module Refunds
         origin:               "automatic",
         confirmed_at:         Time.current
       )
-      notify(credit, debit)
+      notify(credit, debit) if @notify
     end
 
     def notify(credit, debit)

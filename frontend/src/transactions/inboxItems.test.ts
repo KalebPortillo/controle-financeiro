@@ -210,6 +210,39 @@ describe('buildInboxItems — estornos aninhados (RF10.6)', () => {
     expect(singles).toHaveLength(0)
   })
 
+  it('caso REAL: compra + IOF + estorno de IOF + 2 estornos, com ruído na lista', () => {
+    // Espelha exatamente o que o backend serializa (staging Amazon PZ7SW7MV3).
+    const purchase = tx({ id: 'buy', improved_title: 'Amazon', direction: 'debit', amount_cents: 103000,
+      occurred_at: '2026-06-28', related: [
+        rel({ role: 'satellite', relation_type: 'iof', transaction_id: 'iof', amount_cents: 3605 }),
+        rel({ role: 'satellite', relation_type: 'refund', link_kind: 'refund', transaction_id: 'r5918', direction: 'credit', amount_cents: 5918 }),
+        rel({ role: 'satellite', relation_type: 'refund', link_kind: 'refund', transaction_id: 'r7107', direction: 'credit', amount_cents: 7107 }),
+      ] })
+    const iofCharge = tx({ id: 'iof', original_description: 'IOF de compra internacional', direction: 'debit', amount_cents: 3605,
+      occurred_at: '2026-06-28', related: [
+        rel({ role: 'origin', relation_type: 'iof', transaction_id: 'buy', amount_cents: 103000 }),
+        rel({ role: 'satellite', relation_type: 'refund', link_kind: 'refund', transaction_id: 'iofback', direction: 'credit', amount_cents: 3605 }),
+      ] })
+    const iofBack = tx({ id: 'iofback', original_description: 'IOF de volta', direction: 'credit', amount_cents: 3605, occurred_at: '2026-06-29',
+      related: [rel({ role: 'origin', relation_type: 'refund', link_kind: 'refund', transaction_id: 'iof', direction: 'debit', amount_cents: 3605 })] })
+    const r5918 = tx({ id: 'r5918', original_description: 'Crédito de AMAZON', direction: 'credit', amount_cents: 5918, occurred_at: '2026-06-28',
+      related: [rel({ role: 'origin', relation_type: 'refund', link_kind: 'refund', transaction_id: 'buy', direction: 'debit', amount_cents: 103000 })] })
+    const r7107 = tx({ id: 'r7107', original_description: 'Crédito de AMAZON', direction: 'credit', amount_cents: 7107, occurred_at: '2026-06-27',
+      related: [rel({ role: 'origin', relation_type: 'refund', link_kind: 'refund', transaction_id: 'buy', direction: 'debit', amount_cents: 103000 })] })
+    // ruído: duplicatas soltas + gastos avulsos
+    const noise = [tx({ id: 'dup1', direction: 'credit', amount_cents: 23676 }), tx({ id: 'x', amount_cents: 5000 })]
+
+    const items = buildInboxItems([r7107, noise[0], purchase, iofBack, noise[1], iofCharge, r5918])
+    const rel_item = items.find((i) => i.kind === 'related')
+    expect(rel_item).toBeDefined()
+    if (rel_item?.kind !== 'related') return
+    expect(rel_item.anchor.id).toBe('buy')
+    expect(rel_item.memberIds.sort()).toEqual(['buy', 'iof', 'iofback', 'r5918', 'r7107'])
+    // os avulsos/duplicata seguem soltos
+    expect(items.filter((i) => i.kind === 'single').map((i) => i.kind === 'single' && i.transaction.id).sort())
+      .toEqual(['dup1', 'x'])
+  })
+
   it('estorno de IOF entra como IRMÃO no grupo da compra (compra + IOF + estorno de IOF)', () => {
     // compra → cobrança de IOF (satélite RF23) → estorno de IOF (refund do IOF)
     const purchase = tx({ id: 'buy', improved_title: 'Amazon', direction: 'debit', amount_cents: 103000,

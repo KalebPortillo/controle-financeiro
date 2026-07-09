@@ -152,9 +152,25 @@ module Notifications
 
       footer = @channel.sent.last
       assert_match "Mais 3 gastos novos", footer[:text]
-      link = footer[:reply_markup][:inline_keyboard].last.first
+      rows = footer[:reply_markup][:inline_keyboard]
+      # "Ver mais 7" (pagina os pendentes) + "Abrir no app".
+      ver_mais = rows.first.first
+      assert_equal "Ver mais 7", ver_mais[:text]
+      assert_equal "inbox:more:7", ver_mais[:callback_data]
+      link = rows.last.first
       assert_equal "Abrir no app", link[:text]
       assert_equal "https://#{ENV.fetch('APP_HOST')}/inbox", link[:url]
+    end
+
+    test "notificação do sync sem overflow não mostra 'Ver mais'" do
+      ids = (1..3).map { |i| pending_tx(occurred_at: Date.new(2026, 6, i)).id }
+
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: ids, channel: @channel)
+
+      footer = @channel.sent.last
+      rows = footer[:reply_markup][:inline_keyboard]
+      assert_equal 1, rows.size, "só 'Abrir no app', sem 'Ver mais'"
+      assert_equal "Abrir no app", rows.first.first[:text]
     end
 
     test "manda as 7 MAIS RECENTES (ordem por data desc)" do

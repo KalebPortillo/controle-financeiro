@@ -24,13 +24,19 @@ module Notifications
 
       send_buttons(channel, chat_id, recent)
 
-      overflow = scope.count - PAGE_SIZE
+      # Botão "Ver mais 7" também aqui (não só no /pendentes): pagina TODOS os
+      # pendentes a partir dos já mostrados — dá pra limpar o inbox pelo Telegram.
+      shown         = recent.size
+      total_pending = workspace.transactions.where(status: "pending").count
+      overflow      = scope.count - shown # novos além dos exibidos
+
       text = if overflow.positive?
-        "Mais #{overflow} #{overflow == 1 ? 'gasto novo' : 'gastos novos'} no app"
+        "Mais #{overflow} #{overflow == 1 ? 'gasto novo' : 'gastos novos'}"
       else
         "Gerencie no inbox do app"
       end
-      send_footer(channel, chat_id, text)
+      more_offset = total_pending > shown ? shown : nil
+      send_footer(channel, chat_id, text, more_offset: more_offset)
     end
 
     def push_pending(workspace:, offset: 0, channel: NotificationChannels::Telegram.new)

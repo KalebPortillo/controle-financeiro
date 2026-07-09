@@ -31,7 +31,11 @@ export function RelatedGroupRow({
   const { anchor, satellites, signedTotalCents, key } = item
   const title = displayTitle(anchor)
   const hasTitle = Boolean(anchor.improved_title)
-  const summary = satelliteSummary((anchor.related ?? []).filter((r) => r.role === 'satellite').map((r) => r.relation_type))
+  // Resumo só dos satélites REALMENTE agrupados (estorno pode entrar sem IOF).
+  const typeById = new Map(
+    (anchor.related ?? []).filter((r) => r.role === 'satellite').map((r) => [r.transaction_id, r.relation_type]),
+  )
+  const summary = satelliteSummary(satellites.flatMap((s) => (typeById.get(s.id) ? [typeById.get(s.id)!] : [])))
 
   return (
     <SwipeableRow

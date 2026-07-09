@@ -20,8 +20,36 @@ function CreditRefundLinker({ credit }: { credit: InboxTransaction }) {
   const [open, setOpen] = useState(false)
   const { data: candidates, isLoading } = useRefundCandidates(credit.id, open)
   const link = useLinkRefund()
+  const unlink = useUnlinkRefund()
 
-  // Se este crédito já é um estorno (vinculado), não oferece de novo.
+  // Se este crédito já é um estorno vinculado (RF10.6), mostra a origem + desfazer
+  // em vez de oferecer o vínculo de novo.
+  const linkedTo = (credit.related ?? []).find((r) => r.relation_type === 'refund' && r.role === 'origin')
+  if (linkedTo) {
+    return (
+      <div className="mt-2 pt-3.5 border-t border-border space-y-1.5" data-testid="refund-linked">
+        <div className="flex items-center gap-1.5 text-sm">
+          <Undo2 size={13} className="text-accent" />
+          <span className="truncate">Estorno de {linkedTo.title}</span>
+        </div>
+        {linkedTo.origin === 'automatic' && (
+          <p className="text-xs text-muted-foreground" data-testid="refund-auto-badge">
+            Vinculado automaticamente pelo código do estorno
+          </p>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => unlink.mutate(linkedTo.link_id)}
+          disabled={unlink.isPending}
+          data-testid="refund-linked-unlink"
+        >
+          Desfazer estorno
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <div className="mt-2 pt-3.5 border-t border-border space-y-2" data-testid="refund-section">
       {!open && (

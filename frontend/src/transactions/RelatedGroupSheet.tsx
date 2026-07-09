@@ -60,7 +60,8 @@ function Inner({
   const typeById = new Map(
     (anchor.related ?? []).filter((r) => r.role === 'satellite').map((r) => [r.transaction_id, r.relation_type]),
   )
-  const summary = satelliteSummary([...typeById.values()])
+  // Só os satélites realmente no grupo (estorno pode entrar sem IOF presente).
+  const summary = satelliteSummary(satellites.flatMap((s) => (typeById.get(s.id) ? [typeById.get(s.id)!] : [])))
 
   return (
     <div className="flex flex-col h-full">

@@ -85,4 +85,23 @@ class RefundsTest < ActionDispatch::IntegrationTest
     assert_equal 0, debit_json["effective_amount_cents"]
     assert_equal 10_000, debit_json["refund"]["refunded_amount_cents"]
   end
+
+  # RF10.6 — estorno vira "relacionada" pra aninhar sob a compra no inbox.
+  test "debit expõe o estorno em related (satélite refund) e o crédito aponta a origem" do
+    refund = create(:transaction_refund, :automatic, refund_transaction: @credit, refunded_transaction: @debit)
+    get "/api/v1/transactions", params: { status: "consolidated" }
+    debit_json = JSON.parse(response.body)["transactions"].find { |t| t["id"] == @debit.id }
+    sat = debit_json["related"].find { |r| r["relation_type"] == "refund" }
+    assert_equal "satellite", sat["role"]
+    assert_equal "refund",    sat["link_kind"]
+    assert_equal "automatic", sat["origin"]
+    assert_equal @credit.id,  sat["transaction_id"]
+    assert_equal refund.id,   sat["link_id"]
+
+    get "/api/v1/transactions", params: { status: "pending" }
+    credit_json = JSON.parse(response.body)["transactions"].find { |t| t["id"] == @credit.id }
+    origin = credit_json["related"].find { |r| r["relation_type"] == "refund" }
+    assert_equal "origin",   origin["role"]
+    assert_equal @debit.id,  origin["transaction_id"]
+  end
 end

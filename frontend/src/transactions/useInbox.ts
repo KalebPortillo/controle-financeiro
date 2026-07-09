@@ -37,8 +37,12 @@ export type RefundInfo = {
 // 'satellite') ou o gasto de origem quando ESTE é o satélite (role 'origin').
 export type RelatedItem = {
   link_id: string
-  relation_type: 'iof' | 'fee' | 'interest' | 'adjustment'
+  // 'link' = TransactionLink (RF23); 'refund' = estorno (RF10.6).
+  link_kind?: 'link' | 'refund'
+  relation_type: 'iof' | 'fee' | 'interest' | 'adjustment' | 'refund'
   role: 'satellite' | 'origin'
+  // Só em refund: manual (confirmado) ou automatic (match de código).
+  origin?: 'manual' | 'automatic'
   transaction_id: string
   title: string
   direction: 'debit' | 'credit'

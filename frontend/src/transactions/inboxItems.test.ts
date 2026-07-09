@@ -169,3 +169,44 @@ describe('buildInboxItems — relacionadas (RF23 Fase 2)', () => {
     expect(items.map((i) => i.kind).sort()).toEqual(['installment', 'single'])
   })
 })
+
+describe('buildInboxItems — estornos aninhados (RF10.6)', () => {
+  // Compra (débito) + estornos (créditos) que a apontam via related 'refund'.
+  const buy = (refundIds: string[]) =>
+    tx({ id: 'buy', improved_title: 'Amazon', direction: 'debit', amount_cents: 103000,
+      effective_amount_cents: 103000, occurred_at: '2026-06-28',
+      related: refundIds.map((id) =>
+        rel({ role: 'satellite', relation_type: 'refund', link_kind: 'refund', transaction_id: id, direction: 'credit' })) })
+  const refund = (id: string, cents: number) =>
+    tx({ id, direction: 'credit', amount_cents: cents, occurred_at: '2026-06-28',
+      original_description: 'Crédito de AMAZON',
+      related: [rel({ role: 'origin', relation_type: 'refund', link_kind: 'refund', transaction_id: 'buy', direction: 'debit' })] })
+
+  it('a compra e seus estornos presentes viram um item related (bruto − estornos)', () => {
+    const items = buildInboxItems([buy(['r1', 'r2']), refund('r1', 5918), refund('r2', 7107)])
+    expect(items).toHaveLength(1)
+    const item = items[0]
+    expect(item.kind).toBe('related')
+    if (item.kind !== 'related') return
+    expect(item.anchor.id).toBe('buy')
+    expect(item.satellites.map((s) => s.id).sort()).toEqual(['r1', 'r2'])
+    // signed: −103000 (débito) + 5918 + 7107 (créditos) = −90 (mil e pouco)
+    expect(item.signedTotalCents).toBe(-103000 + 5918 + 7107)
+  })
+
+  it('estorno parcial: agrupa os estornos PRESENTES sem exigir todos', () => {
+    // a compra referencia r1 e r2, mas só r1 está na lista
+    const items = buildInboxItems([buy(['r1', 'r2']), refund('r1', 5918)])
+    expect(items).toHaveLength(1)
+    const item = items[0]
+    expect(item.kind).toBe('related')
+    if (item.kind !== 'related') return
+    expect(item.satellites.map((s) => s.id)).toEqual(['r1'])
+  })
+
+  it('estorno consumido não renderiza avulso', () => {
+    const items = buildInboxItems([buy(['r1']), refund('r1', 5918)])
+    const singles = items.filter((i) => i.kind === 'single')
+    expect(singles).toHaveLength(0)
+  })
+})

@@ -16,6 +16,7 @@ class Api::V1::TransactionsController < ApplicationController
     # Preload do que o serialize toca por transação (conta, tags, estornos) —
     # sem isso a listagem faz ~3 queries por item.
     transactions = scope.includes(:account, :tags, refunds_received: :refund_transaction,
+                                   refund_of: :refunded_transaction,
                                    related_links: :related_transaction, link_as_related: :primary_transaction)
                         .order(occurred_at: :desc, created_at: :desc)
 
@@ -380,14 +381,41 @@ class Api::V1::TransactionsController < ApplicationController
   def serialize_related(t)
     items =
       t.related_links.map { |l| related_item(l, l.related_transaction, "satellite", l.id) } +
-      Array(t.link_as_related).map { |l| related_item(l, l.primary_transaction, "origin", l.id) }
+      Array(t.link_as_related).map { |l| related_item(l, l.primary_transaction, "origin", l.id) } +
+      refund_related_items(t)
     items.presence
   end
 
   def related_item(link, other, role, link_id)
     {
       link_id:       link_id,
+      link_kind:     "link",
       relation_type: link.relation_type,
+      role:          role,
+      transaction_id: other.id,
+      title:         other.improved_title.presence || other.original_description,
+      direction:     other.direction,
+      amount_cents:  other.amount_cents,
+      occurred_at:   other.occurred_at.iso8601,
+      status:        other.status
+    }
+  end
+
+  # RF10.6 — o vínculo de estorno também flui por `related` pra aninhar o estorno
+  # sob a compra no inbox: compra estornada → satélites "refund" (os créditos);
+  # crédito de estorno → origem "refund" (a compra).
+  def refund_related_items(t)
+    as_anchor = t.refunds_received.map { |r| refund_related_item(r, r.refund_transaction, "satellite") }
+    as_refund = Array(t.refund_of).map { |r| refund_related_item(r, r.refunded_transaction, "origin") }
+    as_anchor + as_refund
+  end
+
+  def refund_related_item(refund, other, role)
+    {
+      link_id:       refund.id,
+      link_kind:     "refund",
+      relation_type: "refund",
+      origin:        refund.origin,
       role:          role,
       transaction_id: other.id,
       title:         other.improved_title.presence || other.original_description,

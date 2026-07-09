@@ -13,12 +13,15 @@ import type { InboxTransaction } from './useInbox'
 export function RelatedSection({ transaction: t }: { transaction: InboxTransaction }) {
   const { push } = useOverlay()
   const unlink = useUnlinkTransaction()
-  if (!t.related || t.related.length === 0) return null
+  // Estornos (relation_type 'refund') são tratados no RefundSection — aqui só os
+  // vínculos RF23 (IOF/tarifa…), que desvinculam por outro endpoint.
+  const related = (t.related ?? []).filter((r) => r.relation_type !== 'refund')
+  if (related.length === 0) return null
 
   return (
     <div className="mt-2 pt-3.5 border-t border-border space-y-1.5" data-testid="related-section">
       <p className="text-xs text-muted-foreground">Relacionadas</p>
-      {t.related.map((item) => (
+      {related.map((item) => (
         <div key={item.link_id} className="flex items-center justify-between gap-2">
           <button
             type="button"

@@ -95,4 +95,25 @@ describe('<RefundSection />', () => {
     renderSection(debit)
     expect(screen.getByTestId('refund-auto-badge')).toBeInTheDocument()
   })
+
+  // RF10.6 — o crédito de estorno já vinculado mostra a origem + desfazer.
+  it('a linked refund credit shows its origin purchase and can be undone', async () => {
+    const { calls } = setupFetch({ 'DELETE /api/v1/transaction_refunds/ref9': { status: 204, body: null } })
+    const credit = tx({
+      id: 'c3', direction: 'credit', amount_cents: 5_918, original_description: 'Crédito de AMAZON',
+      related: [{
+        link_id: 'ref9', link_kind: 'refund', relation_type: 'refund', role: 'origin', origin: 'automatic',
+        transaction_id: 'buy', title: 'Amazon', direction: 'debit', amount_cents: 103_000,
+        occurred_at: '2026-06-28', status: 'pending',
+      }],
+    })
+    renderSection(credit)
+    expect(screen.getByTestId('refund-linked')).toHaveTextContent('Estorno de Amazon')
+    expect(screen.getByTestId('refund-auto-badge')).toBeInTheDocument()
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('refund-linked-unlink'))
+    await waitFor(() =>
+      expect(calls.find((c) => c.url === '/api/v1/transaction_refunds/ref9' && c.init?.method === 'DELETE')).toBeTruthy(),
+    )
+  })
 })

@@ -60,11 +60,24 @@ function resolveRelatedGroups(transactions: InboxTransaction[]) {
     const satelliteRefs = (t.related ?? []).filter((r) => r.role === 'satellite')
     if (satelliteRefs.length === 0) continue
 
-    const satellites = satelliteRefs.map((r) => byId.get(r.transaction_id))
-    // Só agrupa quando TODOS os satélites estão na lista (e não são parcelas).
-    if (satellites.some((s) => s == null || isInstallment(s))) continue
+    // IOF/tarifa (RF23): tudo-ou-nada — só agrupa com TODOS presentes (e não
+    // parcelas). Estornos (RF10.6): agrupa os que ESTIVEREM presentes (estorno
+    // parcial chega aos poucos), sem exigir todos.
+    const linkRefs = satelliteRefs.filter((r) => r.relation_type !== 'refund')
+    const refundRefs = satelliteRefs.filter((r) => r.relation_type === 'refund')
 
-    const present = satellites as InboxTransaction[]
+    const linkSats = linkRefs.map((r) => byId.get(r.transaction_id))
+    const linksComplete = linkRefs.length > 0 && linkSats.every((s) => s != null && !isInstallment(s))
+    const refundSats = refundRefs
+      .map((r) => byId.get(r.transaction_id))
+      .filter((s): s is InboxTransaction => s != null && !isInstallment(s))
+
+    const present = [
+      ...(linksComplete ? (linkSats as InboxTransaction[]) : []),
+      ...refundSats,
+    ]
+    if (present.length === 0) continue
+
     anchors.set(t.id, present)
     present.forEach((s) => consumed.add(s.id))
   }

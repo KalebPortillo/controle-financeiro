@@ -6,6 +6,7 @@ export const RELATION_LABEL: Record<RelatedItem['relation_type'], string> = {
   fee: 'Tarifa',
   interest: 'Juros',
   adjustment: 'Ajuste',
+  refund: 'Estorno',
 }
 
 // Resumo dos satélites pro subtítulo do grupo: tipos distintos na ordem de

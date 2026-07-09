@@ -58,7 +58,7 @@ module Notifications
 
     # Mais recentes primeiro (a janela das PAGE_SIZE "últimas" pendentes).
     def ordered(scope)
-      scope.includes(:account).order(occurred_at: :desc, created_at: :desc)
+      scope.includes(:account, :tags).order(occurred_at: :desc, created_at: :desc)
     end
 
     def send_buttons(channel, chat_id, txs)
@@ -76,10 +76,51 @@ module Notifications
       channel.send_message(chat_id: chat_id, text: text, reply_markup: { inline_keyboard: rows })
     end
 
+    # Mensagem por transação com contexto suficiente pra decidir consolidar/rejeitar
+    # sem abrir o app (RF17): título + valor, natureza (cartão ••dígitos, ou
+    # transferência/pagamento de conta), e as tags (aplicadas ou sugeridas pela IA).
     def text_for(tx)
       title = tx.improved_title.presence || tx.original_description
-      "#{title} — #{Brl.format(tx.amount_cents)}\n" \
-        "#{tx.account&.name} · #{tx.occurred_at.strftime('%d/%m')}"
+      lines = [ "#{title} — #{Brl.format(tx.amount_cents)}", source_line(tx) ]
+      tags = tags_line(tx)
+      lines << tags if tags
+      lines.join("\n")
+    end
+
+    # Natureza da transação + data. Cartão → "Cartão ••1234". Conta com natureza no
+    # extrato ("Transferência enviada|…", "Pagamento efetuado|…", "Aplicação RDB|…")
+    # → "Transferência enviada · Conta". Senão → só o nome da conta.
+    def source_line(tx)
+      date = tx.occurred_at.strftime("%d/%m")
+      card = tx.source_metadata&.dig("creditCardMetadata", "cardNumber")
+      desc = tx.original_description.to_s
+
+      if tx.account&.kind == "credit_card" && card.present?
+        "Cartão ••#{card} · #{date}"
+      elsif desc.include?("|")
+        nature = desc.split("|").first.strip
+        "#{nature} · #{tx.account&.name} · #{date}"
+      else
+        "#{tx.account&.name} · #{date}"
+      end
+    end
+
+    # Tags aplicadas; se não houver, as sugeridas pela IA (tag_names + new_tags).
+    def tags_line(tx)
+      names = tx.tags.map(&:name)
+      prefix = "Tags"
+      if names.empty?
+        names  = suggested_tag_names(tx)
+        prefix = "Sugestão"
+      end
+      return if names.empty?
+
+      "#{prefix}: #{names.first(4).join(', ')}"
+    end
+
+    def suggested_tag_names(tx)
+      s = tx.ai_suggestion || {}
+      (Array(s["tag_names"]) + Array(s["new_tags"])).uniq
     end
 
     def keyboard_for(tx)

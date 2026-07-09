@@ -63,6 +63,42 @@ module Notifications
       assert_match "MERCADO X", @channel.sent.first[:text]
     end
 
+    test "gasto de cartão mostra os dígitos do cartão" do
+      card = create(:account, workspace: @workspace, name: "Nubank", kind: "credit_card")
+      tx = pending_tx(account: card, source_metadata: { "id" => "c1", "creditCardMetadata" => { "cardNumber" => "5190" } })
+
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: [ tx.id ], channel: @channel)
+      assert_match "Cartão ••5190", @channel.sent.first[:text]
+    end
+
+    test "transação de conta mostra a natureza (transferência/pagamento)" do
+      tx = pending_tx(original_description: "Transferência enviada|Moacir")
+
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: [ tx.id ], channel: @channel)
+      text = @channel.sent.first[:text]
+      assert_match "Transferência enviada", text
+      assert_match "Nubank", text
+    end
+
+    test "mostra as tags aplicadas" do
+      tx  = pending_tx
+      tag = create(:tag, workspace: @workspace, name: "Mercado")
+      tx.tags << tag
+
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: [ tx.id ], channel: @channel)
+      assert_match "Tags: Mercado", @channel.sent.first[:text]
+    end
+
+    test "sem tags aplicadas, mostra as sugeridas pela IA" do
+      tx = pending_tx(ai_suggestion: { "tag_names" => [ "Delivery" ], "new_tags" => [ "iFood" ] })
+
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: [ tx.id ], channel: @channel)
+      text = @channel.sent.first[:text]
+      assert_match "Sugestão:", text
+      assert_match "Delivery", text
+      assert_match "iFood", text
+    end
+
     test "cada gasto tem só Consolidar e Rejeitar; 'Abrir no app' vai no rodapé" do
       tx = pending_tx
 

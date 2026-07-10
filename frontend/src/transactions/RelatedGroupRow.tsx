@@ -6,7 +6,7 @@ import { AiConfidenceBadge, NotAnalyzedBadge } from './AiConfidenceBadge'
 import { CurrencyChip } from './CurrencyChip'
 import { SwipeableRow } from './SwipeableRow'
 import type { InboxItem } from './inboxItems'
-import { formatDayMonth, displayTitle } from './display'
+import { formatDayMonth, groupAnchorTitle } from './display'
 import { satelliteSummary } from './relationType'
 
 type RelatedGroupItem = Extract<InboxItem, { kind: 'related' }>
@@ -29,7 +29,7 @@ export function RelatedGroupRow({
   onOpenGroup: () => void
 }) {
   const { anchor, satellites, satelliteTypes, signedTotalCents, key } = item
-  const title = displayTitle(anchor)
+  const title = groupAnchorTitle(anchor)
   const hasTitle = Boolean(anchor.improved_title)
   // Resumo dos satélites realmente agrupados (inclui netos-irmãos, ex.: estorno de IOF).
   const summary = satelliteSummary(satellites.flatMap((s) => (satelliteTypes.get(s.id) ? [satelliteTypes.get(s.id)!] : [])))

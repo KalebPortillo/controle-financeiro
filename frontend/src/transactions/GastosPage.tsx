@@ -9,7 +9,7 @@ import { AccountTag } from './AccountTag'
 import { InstallmentBadge } from './InstallmentBadge'
 import { CurrencyChip } from './CurrencyChip'
 import { useConsolidated, originalToShow, type InboxTransaction } from './useInbox'
-import { formatDayMonth, signedCents, displayTitle } from './display'
+import { formatDayMonth, signedCents, displayTitle, groupAnchorTitle } from './display'
 import { buildInboxItems, type InboxItem } from './inboxItems'
 import { satelliteSummary } from './relationType'
 import { useOverlay } from '../app/useOverlay'
@@ -277,7 +277,7 @@ function GastoGroupRow({
     >
       <div className="min-w-0">
         <div className="flex items-center gap-1.5 truncate">
-          <span className="text-[13px] font-medium truncate">{displayTitle(anchor)}</span>
+          <span className="text-[13px] font-medium truncate">{groupAnchorTitle(anchor)}</span>
           <CurrencyChip currency={anchor.foreign_currency} />
         </div>
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">

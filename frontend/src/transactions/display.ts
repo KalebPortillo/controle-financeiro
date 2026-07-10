@@ -18,3 +18,12 @@ export function signedCents(t: Pick<InboxTransaction, 'direction' | 'amount_cent
 export function displayTitle(t: Pick<InboxTransaction, 'improved_title' | 'original_description'>): string {
   return t.improved_title || t.original_description
 }
+
+// Título da ÂNCORA de um grupo. Normalmente é a própria compra; mas quando o
+// grupo ancora numa cobrança de IOF (a compra não está na lista), o título
+// genérico "IOF compra internacional" vira "IOF · <compra>" usando a compra
+// vinculada (RF23, role origin) que o `related` carrega.
+export function groupAnchorTitle(anchor: InboxTransaction): string {
+  const iofOrigin = (anchor.related ?? []).find((r) => r.role === 'origin' && r.relation_type === 'iof')
+  return iofOrigin ? `IOF · ${iofOrigin.title}` : displayTitle(anchor)
+}

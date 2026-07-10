@@ -5,7 +5,7 @@ import { Money } from '../components/Money'
 import { AccountTag } from './AccountTag'
 import type { InboxItem } from './inboxItems'
 import type { InboxTransaction } from './useInbox'
-import { formatDayMonth, displayTitle, signedCents } from './display'
+import { formatDayMonth, displayTitle, groupAnchorTitle, signedCents } from './display'
 import { RELATION_LABEL, satelliteSummary } from './relationType'
 
 type RelatedGroupItem = Extract<InboxItem, { kind: 'related' }>
@@ -77,7 +77,7 @@ function Inner({
               </span>
             </div>
             <div className="font-display text-lg font-semibold tracking-tight truncate">
-              {displayTitle(anchor)}
+              {groupAnchorTitle(anchor)}
             </div>
           </div>
           <button
@@ -106,7 +106,7 @@ function Inner({
             const type = typeById.get(s.id) ?? 'iof'
             // A cobrança de IOF vem genérica do banco ("IOF de compra
             // internacional"); no grupo, referencia a compra pra saber de qual é.
-            const title = type === 'iof' ? `IOF · ${displayTitle(anchor)}` : undefined
+            const title = type === 'iof' ? `IOF · ${groupAnchorTitle(anchor)}` : undefined
             return (
               <MemberRow
                 key={s.id}

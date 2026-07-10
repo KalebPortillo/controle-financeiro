@@ -50,6 +50,18 @@ module AiProviders
         para gastos do mesmo tema.
     GUIDE
 
+    # Regra de improved_title: legível MAS sem perder o que identifica o gasto.
+    TITLE_GUIDANCE = <<~GUIDE.freeze
+      improved_title: melhore a legibilidade em PT-BR, mas PRESERVE as referências
+      ÚNICAS que existirem no original — códigos/identificadores (ex.: "PZ7SW7MV3",
+      "Qd37i8h13") e o nome do estabelecimento/loja. NUNCA troque por um nome
+      genérico que perca a referência, sobretudo em IOF. Exemplos:
+      - "IOF de volta de Amazon Reta* R98it6de3" → "IOF Amazon R98it6de3" (NÃO "Reembolso IOF")
+      - 'IOF de "Amazon Reta* Qd37i8h13"' → "IOF Amazon Qd37i8h13" (NÃO "IOF Amazon")
+      - "Sq *Hellenika Cultured" → "Hellenika" (loja preservada)
+      Só encurte/generalize quando NÃO houver código nem loja identificável no original.
+    GUIDE
+
     def initialize(api_key: nil, model: nil)
       @api_key = api_key || ENV.fetch("GEMINI_API_KEY", nil)
       @model   = model   || ENV.fetch("AI_MODEL", "gemini-2.5-flash")
@@ -187,7 +199,7 @@ module AiProviders
         }
         Regras:
         - Priorize sempre tags existentes. Sugira tag nova só se nenhuma encaixar.
-        - improved_title deve ser conciso e em PT-BR.
+        - #{TITLE_GUIDANCE}
         - confidence: high = certeza, medium = provável, low = chute.
 
         Tags disponíveis: #{tags_json}
@@ -223,6 +235,7 @@ module AiProviders
         Regras:
         - Seja consistente: o mesmo tipo de gasto deve receber a mesma tag.
         - Máximo 2 tags por transação.
+        - #{TITLE_GUIDANCE}
 
         #{TAG_TAXONOMY_GUIDANCE}
         Transações: #{list}
@@ -251,8 +264,8 @@ module AiProviders
         ]
         Regras:
         - Priorize sempre tags existentes. Sugira tag nova só se nenhuma encaixar.
-        - improved_title conciso e em PT-BR. confidence: high = certeza,
-          medium = provável, low = chute.
+        - #{TITLE_GUIDANCE}
+        - confidence: high = certeza, medium = provável, low = chute.
         - Seja consistente: o mesmo tipo de gasto deve receber as mesmas tags.
 
         #{TAG_TAXONOMY_GUIDANCE}

@@ -56,6 +56,19 @@ class AiProviders::GeminiProviderTest < ActiveSupport::TestCase
     assert_match(/Priorize sempre tags existentes/, prompt)
   end
 
+  # RF10.6/título — os prompts que geram improved_title mandam preservar as
+  # referências únicas (código/loja), sobretudo em IOF.
+  test "improved_title prompts instruct to preserve unique references" do
+    normal   = @provider.send(:build_normal_prompt, { description: "IOF de Amazon Qd37i8h13", amount: 1.5, direction: "debit" }, [])
+    batch    = @provider.send(:build_inbox_batch_prompt, [ { id: "1", description: "X" } ], [])
+    onboard  = @provider.send(:build_onboarding_prompt, [ { id: "1", description: "X" } ])
+
+    [ normal, batch, onboard ].each do |prompt|
+      assert_match(/PRESERVE as referências/i, prompt)
+      assert_match(/IOF Amazon R98it6de3/, prompt) # exemplo de referência mantida
+    end
+  end
+
   test "raises ConfigurationError when api key is blank" do
     provider = AiProviders::GeminiProvider.new(api_key: "", model: "gemini-2.5-flash")
     assert_raises(AiProviders::ConfigurationError) do

@@ -376,8 +376,41 @@ class Api::V1::TransactionsController < ApplicationController
       refund:                 serialize_refund(t),
       # RF23 — transações relacionadas (IOF/tarifa…): satélites deste gasto e/ou
       # o gasto de origem quando esta é o satélite.
-      related:                serialize_related(t)
+      related:                serialize_related(t),
+      # RF9.7 — a recorrência a que este gasto pertence (pra sinalizar/gerenciar
+      # no detalhe); null quando não faz parte de nenhuma.
+      recurrence:             serialize_recurrence(t)
     }
+  end
+
+  # RF9.7 — recorrência deste gasto (débito cujo descritor normalizado casa o
+  # padrão de uma recorrência da conta e que não foi excluído do grupo).
+  def serialize_recurrence(t)
+    r = recurrence_for(t)
+    r && { id: r.id, descriptor_pattern: r.descriptor_pattern }
+  end
+
+  def recurrence_for(t)
+    return nil unless t.direction == "debit"
+
+    r = recurrence_index[[ t.account_id, Recurrences::Descriptor.normalize(t.original_description) ]]
+    return nil if r.nil? || recurrence_exclusion_pairs.include?([ r.id, t.id ])
+
+    r
+  end
+
+  # (account_id, descriptor_pattern) => Recurrence — memoizado por request pra a
+  # listagem não fazer uma query por transação.
+  def recurrence_index
+    @recurrence_index ||= current_workspace.recurrences.each_with_object({}) do |r, acc|
+      acc[[ r.account_id, r.descriptor_pattern ]] = r
+    end
+  end
+
+  def recurrence_exclusion_pairs
+    @recurrence_exclusion_pairs ||=
+      RecurrenceExclusion.where(recurrence_id: recurrence_index.values.map(&:id))
+                         .pluck(:recurrence_id, :transaction_id).to_set
   end
 
   # RF23 — vínculos desta transação. Como origem: lista os satélites (role

@@ -182,9 +182,45 @@ class TransactionsInboxTest < ActionDispatch::IntegrationTest
     assert_equal 5, body["transactions"].size
     assert_equal 2, body["transactions"].first["tags"].size
     assert body["transactions"].first["refund"].present?
-    # workspace + user/membership/session + transações + 3 preloads + count.
-    # Sem preload eram ~3 queries POR transação (tags, refunds, refund_transaction).
-    assert_operator queries.size, :<=, 12,
+    # workspace + user/membership/session + transações + preloads + count +
+    # recorrências/exclusões (RF9.7, memoizadas por request). Sem preload eram ~3
+    # queries POR transação; o que importa é continuar CONSTANTE, não crescer com N.
+    assert_operator queries.size, :<=, 14,
                     "esperava listagem com queries constantes, rodou #{queries.size}:\n#{queries.join("\n")}"
+  end
+
+  # RF9.7 — o gasto que pertence a uma recorrência sinaliza isso no serializer,
+  # pra o detalhe mostrar "está em Recorrentes" e permitir remover.
+  test "serializa a recorrência a que o gasto pertence" do
+    rec = create(:recurrence, workspace: @workspace, account: @account,
+                              descriptor_pattern: "NETFLIX COM")
+    txn(status: "consolidated", consolidated_at: Time.current, direction: "debit",
+        original_description: "NETFLIX.COM 4821")
+
+    get "/api/v1/transactions?status=consolidated"
+    t = JSON.parse(response.body)["transactions"].first
+    assert_equal rec.id, t["recurrence"]["id"]
+    assert_equal "NETFLIX COM", t["recurrence"]["descriptor_pattern"]
+  end
+
+  test "gasto excluído do grupo (RF9.7) não sinaliza recorrência" do
+    rec = create(:recurrence, workspace: @workspace, account: @account,
+                              descriptor_pattern: "NETFLIX COM")
+    tx = txn(status: "consolidated", consolidated_at: Time.current, direction: "debit",
+             original_description: "NETFLIX.COM 4821")
+    create(:recurrence_exclusion, recurrence: rec, workspace: @workspace, excluded_transaction: tx)
+
+    get "/api/v1/transactions?status=consolidated"
+    t = JSON.parse(response.body)["transactions"].first
+    assert_nil t["recurrence"]
+  end
+
+  test "gasto sem recorrência casando traz recurrence null" do
+    txn(status: "consolidated", consolidated_at: Time.current, direction: "debit",
+        original_description: "PADARIA DO ZE")
+
+    get "/api/v1/transactions?status=consolidated"
+    t = JSON.parse(response.body)["transactions"].first
+    assert_nil t["recurrence"]
   end
 end

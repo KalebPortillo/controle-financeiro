@@ -96,6 +96,8 @@ export type InboxTransaction = {
   refund: RefundInfo
   // RF23 — transações relacionadas (IOF/tarifa…); null quando não há vínculo.
   related: RelatedItem[] | null
+  // RF9.7 — recorrência a que este gasto pertence; null quando não faz parte.
+  recurrence?: { id: string; descriptor_pattern: string } | null
 }
 
 export type InboxPayload = {

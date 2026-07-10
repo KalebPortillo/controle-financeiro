@@ -87,7 +87,12 @@ export function useCreateRecurrenceFromTransaction() {
         method: 'POST',
         body: { transaction_id: transactionId },
       }).then((r) => r.recurrence),
-    onSuccess: () => qc.invalidateQueries({ queryKey: recurrencesKey }),
+    // Também invalida as listas de transações: o serializer marca o gasto como
+    // pertencente à recorrência (RF9.7) e o detalhe precisa refletir na hora.
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: recurrencesKey })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+    },
   })
 }
 
@@ -103,6 +108,7 @@ export function useExcludeTransaction(recurrenceId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['recurrences', recurrenceId, 'transactions'] })
       qc.invalidateQueries({ queryKey: recurrencesKey })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
     },
   })
 }
@@ -118,6 +124,7 @@ export function useIncludeTransaction(recurrenceId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['recurrences', recurrenceId, 'transactions'] })
       qc.invalidateQueries({ queryKey: recurrencesKey })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
     },
   })
 }

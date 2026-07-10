@@ -59,4 +59,24 @@ describe('<RecurringSection />', () => {
       expect(JSON.parse(call!.body!)).toEqual({ transaction_id: 'g1' })
     })
   })
+
+  it('shows the recurrence membership state instead of the mark button', () => {
+    renderSection(tx({ recurrence: { id: 'r1', descriptor_pattern: 'NETFLIX COM' } }))
+    expect(screen.getByText('Está em Recorrentes')).toBeInTheDocument()
+    expect(screen.queryByTestId('mark-recurring-g1')).not.toBeInTheDocument()
+  })
+
+  it('removes the expense from the recurrence via POST exclusions', async () => {
+    const { calls } = setupFetch()
+    renderSection(tx({ recurrence: { id: 'r1', descriptor_pattern: 'NETFLIX COM' } }))
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('remove-recurring-g1'))
+    await waitFor(() => {
+      const call = calls.find(
+        (c) => c.url === '/api/v1/recurrences/r1/exclusions' && c.method === 'POST',
+      )
+      expect(call).toBeTruthy()
+      expect(JSON.parse(call!.body!)).toEqual({ transaction_id: 'g1' })
+    })
+  })
 })

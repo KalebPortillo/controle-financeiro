@@ -440,4 +440,85 @@ class BankConnections::SyncTest < ActiveSupport::TestCase
     assert_equal "iof", link.relation_type
     assert_equal buy, link.primary_transaction
   end
+
+  # --- Reconciliação por conteúdo: o id do Pluggy muda em PENDING→POSTED ---
+
+  # Igual ao `txn`, mas carrega o `status` do Pluggy no raw (PENDING/POSTED).
+  def synced_txn(id, amount, desc, status:, date: "2026-03-10")
+    {
+      id: id, amount: amount, currency_code: "BRL", type: nil,
+      amount_in_account_currency: nil, date: date, description: desc,
+      raw: { "id" => id, "status" => status, "amount" => amount,
+             "descriptionRaw" => desc, "date" => date }
+    }
+  end
+
+  test "PENDING→POSTED com id novo não duplica: migra a linha existente pro id postado" do
+    connection, account = setup_connection_with_account
+    BankConnections::Sync.call(connection: connection, provider: FakeProvider.new(by_account: {
+      "acc-1" => [ synced_txn("pending-id", -99.0, "Nike Us Stores", status: "PENDING") ]
+    }))
+    tx = account.transactions.sole
+    tx.update!(status: "consolidated") # usuário já revisou a pendente
+
+    # Fatura fecha: a MESMA compra volta com id NOVO e status POSTED.
+    assert_no_difference -> { Transaction.count } do
+      BankConnections::Sync.call(connection: connection, provider: FakeProvider.new(by_account: {
+        "acc-1" => [ synced_txn("posted-id", -99.0, "Nike Us Stores", status: "POSTED") ]
+      }))
+    end
+
+    tx.reload
+    assert_equal "posted-id",    tx.external_transaction_id, "migra pro id postado"
+    assert_equal "consolidated", tx.status, "preserva a decisão do usuário"
+    assert_equal "POSTED",       tx.source_metadata["status"]
+  end
+
+  test "reconciliação preserva tags e título ao promover pendente→postada" do
+    connection, account = setup_connection_with_account
+    tag = create(:tag, workspace: connection.workspace)
+    BankConnections::Sync.call(connection: connection, provider: FakeProvider.new(by_account: {
+      "acc-1" => [ synced_txn("p1", -50.0, "Loja", status: "PENDING") ]
+    }))
+    tx = account.transactions.sole
+    tx.update!(improved_title: "Loja X")
+    tx.tags << tag
+
+    BankConnections::Sync.call(connection: connection, provider: FakeProvider.new(by_account: {
+      "acc-1" => [ synced_txn("p2", -50.0, "Loja", status: "POSTED") ]
+    }))
+
+    tx.reload
+    assert_equal "Loja X", tx.improved_title
+    assert_equal [ tag ], tx.tags.to_a
+    assert_equal "p2",     tx.external_transaction_id
+  end
+
+  test "duas pendentes idênticas (mesma assinatura) não duplicam" do
+    connection, account = setup_connection_with_account
+    BankConnections::Sync.call(connection: connection, provider: FakeProvider.new(by_account: {
+      "acc-1" => [ synced_txn("a", -10.0, "Cafe", status: "PENDING") ]
+    }))
+    assert_no_difference -> { Transaction.count } do
+      BankConnections::Sync.call(connection: connection, provider: FakeProvider.new(by_account: {
+        "acc-1" => [ synced_txn("b", -10.0, "Cafe", status: "PENDING") ]
+      }))
+    end
+  end
+
+  test "transação excluída (tombstone) não volta no sync, mesmo com id novo" do
+    connection, account = setup_connection_with_account
+    BankConnections::Sync.call(connection: connection, provider: FakeProvider.new(by_account: {
+      "acc-1" => [ synced_txn("id-1", -30.0, "Cafe", status: "POSTED") ]
+    }))
+    tx = account.transactions.sole
+    TransactionTombstone.record!(tx) # o que o controller#destroy faz
+    tx.destroy!
+
+    assert_no_difference -> { Transaction.count } do
+      BankConnections::Sync.call(connection: connection, provider: FakeProvider.new(by_account: {
+        "acc-1" => [ synced_txn("id-2", -30.0, "Cafe", status: "POSTED") ]
+      }))
+    end
+  end
 end

@@ -12,6 +12,9 @@ class Api::V1::WebhooksController < ApplicationController
   # Eventos que disparam um sync (transações novas/atualizadas).
   SYNC_EVENTS  = %w[item/updated transactions/created transactions/updated].freeze
   ERROR_EVENTS = %w[item/error item/login_error].freeze
+  # Two-way sync: o Pluggy apaga transações ao consolidar (PENDING vira POSTED
+  # com id novo) e avisa aqui com os ids afetados (docs.pluggy.ai/docs/webhooks).
+  DELETE_EVENT = "transactions/deleted"
 
   # POST /api/v1/webhooks/pluggy
   def pluggy
@@ -25,6 +28,9 @@ class Api::V1::WebhooksController < ApplicationController
       if SYNC_EVENTS.include?(event)
         connection.update!(status: "syncing")
         BankConnections::SyncJob.perform_later(connection.id)
+      elsif event == DELETE_EVENT
+        ids = Array(params[:transactionIds]).map(&:to_s)
+        BankConnections::PruneTransactionsJob.perform_later(connection.id, ids) if ids.any?
       elsif ERROR_EVENTS.include?(event)
         connection.update!(status: "error", error_message: params.dig(:error, :message))
       end

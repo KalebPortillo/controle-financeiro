@@ -70,6 +70,10 @@ class Api::V1::TransactionsController < ApplicationController
 
   # DELETE /api/v1/transactions/:id — exclusão definitiva (RF2.3 remover).
   def destroy
+    # Gasto sincronizado excluído deixa um tombstone pela assinatura de conteúdo,
+    # senão o próximo sync o traz de volta (o id do Pluggy muda em PENDING→POSTED,
+    # então dedup por id não segura).
+    TransactionTombstone.record!(@transaction) if @transaction.source == "automatic_sync"
     @transaction.destroy!
     head :no_content
   rescue ActiveRecord::StaleObjectError

@@ -8,6 +8,7 @@ class Account < ApplicationRecord
 
   has_many :transactions, dependent: :destroy
   has_many :recurrences, dependent: :destroy
+  has_many :transaction_tombstones, dependent: :destroy
 
   validates :name,        presence: true
   validates :kind,        presence: true, inclusion: { in: KINDS }

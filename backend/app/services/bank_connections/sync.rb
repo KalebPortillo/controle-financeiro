@@ -184,15 +184,37 @@ module BankConnections
       # número em USD entraria como se fosse BRL. Mesma moeda da conta vem com
       # esse campo null e usamos o amount normal.
       value, currency = value_in_account_currency(account, t, amount)
+      direction    = direction_for(account, t, amount)
+      amount_cents = (value.abs * 100).round
+      description  = t[:description].presence || "(sem descrição)"
+
+      # Assinatura de conteúdo (mesmo hash conceitual do Pluggy: conta+data+valor
+      # +direção+descrição). O `id` do Pluggy NÃO é estável — quando a compra de
+      # cartão passa de PENDING pra POSTED (fatura fecha), ele deleta a antiga e
+      # cria uma nova com id novo. Dedup por id não pega isso; reconciliamos por
+      # conteúdo. Ver docs.pluggy.ai/docs/transactions ("Transaction Id can change").
+      signature = { occurred_at: occurred, amount_cents: amount_cents,
+                    direction: direction, original_description: description }
+
+      # (a) Excluída manualmente pelo usuário → não ressuscita (RF2.3, tombstone).
+      return :duplicated if account.transaction_tombstones.exists?(signature)
+
+      # (b) Mesma compra já importada (id novo / PENDING→POSTED) → atualiza no
+      # lugar, nunca duplica; preserva status/tags/edições/título/vínculos.
+      existing = account.transactions.where(source: "automatic_sync").find_by(signature)
+      if existing
+        reconcile_existing!(existing, t)
+        return :duplicated
+      end
 
       attrs = {
         workspace:            account.workspace,
         account:              account,
-        direction:            direction_for(account, t, amount),
-        amount_cents:         (value.abs * 100).round,
+        direction:            direction,
+        amount_cents:         amount_cents,
         currency:             currency,
         occurred_at:          occurred,
-        original_description: t[:description].presence || "(sem descrição)",
+        original_description: description,
         status:               "pending",
         source:               "automatic_sync",
         source_metadata:      t[:raw] || { "id" => t[:id] },
@@ -219,6 +241,25 @@ module BankConnections
     rescue ArgumentError, ActiveRecord::RecordInvalid => e
       Rails.logger.warn("[Sync] transação ignorada (#{t[:id]}): #{e.message}")
       :errored
+    end
+
+    # Mesma compra reaparecendo com id novo do Pluggy (tipicamente PENDING→POSTED).
+    # "Promove" a linha existente pro payload atual — migra o source_metadata (e,
+    # com ele, a coluna gerada external_transaction_id) pro id postado — SEM tocar
+    # no que o usuário decidiu/editou (status, tags, título, vínculos). Só sobe
+    # pendente→postado; POSTED↔POSTED / PENDING↔PENDING só deduplica (mantém a linha).
+    def reconcile_existing!(existing, t)
+      raw = t[:raw]
+      return unless raw.is_a?(Hash)
+      return unless raw["status"].to_s.upcase == "POSTED"
+
+      current = existing.source_metadata
+      return if current.is_a?(Hash) && current["status"].to_s.upcase == "POSTED"
+
+      existing.update_columns(source_metadata: raw, updated_at: Time.current)
+    rescue ActiveRecord::RecordNotUnique
+      # id postado já em uso por outra linha (corrida) — segue como duplicado.
+      nil
     end
 
     # [valor, moeda] na MOEDA DA CONTA. Compra em moeda estrangeira usa o valor

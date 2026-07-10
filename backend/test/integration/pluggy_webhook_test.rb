@@ -64,4 +64,22 @@ class PluggyWebhookTest < ActionDispatch::IntegrationTest
     end
     assert_response :ok
   end
+
+  test "transactions/deleted enfileira PruneTransactionsJob com os ids" do
+    conn = create(:bank_connection, external_connection_id: "item-del")
+    assert_enqueued_with(job: BankConnections::PruneTransactionsJob,
+                         args: [ conn.id, [ "gone-1", "gone-2" ] ]) do
+      post_webhook({ event: "transactions/deleted", itemId: "item-del",
+                     transactionIds: [ "gone-1", "gone-2" ] })
+    end
+    assert_response :ok
+  end
+
+  test "transactions/deleted sem ids não enfileira nada" do
+    create(:bank_connection, external_connection_id: "item-del2")
+    assert_no_enqueued_jobs do
+      post_webhook({ event: "transactions/deleted", itemId: "item-del2", transactionIds: [] })
+    end
+    assert_response :ok
+  end
 end

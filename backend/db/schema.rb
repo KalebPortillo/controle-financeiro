@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_09_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_10_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -367,6 +367,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_09_150000) do
     t.index ["transaction_id"], name: "index_transaction_tags_on_transaction_id"
   end
 
+  create_table "transaction_tombstones", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.integer "amount_cents", null: false
+    t.datetime "created_at", null: false
+    t.string "direction", null: false
+    t.date "occurred_at", null: false
+    t.text "original_description", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "workspace_id", null: false
+    t.index ["account_id", "occurred_at", "amount_cents", "direction", "original_description"], name: "idx_transaction_tombstones_signature"
+    t.index ["account_id"], name: "index_transaction_tombstones_on_account_id"
+    t.index ["workspace_id"], name: "index_transaction_tombstones_on_workspace_id"
+  end
+
   create_table "transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.decimal "ai_confidence", precision: 3, scale: 2
@@ -497,6 +511,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_09_150000) do
   add_foreign_key "transaction_refunds", "workspace_memberships", column: "confirmed_by_membership_id"
   add_foreign_key "transaction_tags", "tags"
   add_foreign_key "transaction_tags", "transactions"
+  add_foreign_key "transaction_tombstones", "accounts", on_delete: :cascade
+  add_foreign_key "transaction_tombstones", "workspaces", on_delete: :cascade
   add_foreign_key "transactions", "accounts"
   add_foreign_key "transactions", "transactions", column: "parent_transaction_id"
   add_foreign_key "transactions", "workspace_memberships", column: "created_by_membership_id"

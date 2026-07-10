@@ -102,14 +102,21 @@ function Inner({
         <FieldLabel>Itens ({item.members.length})</FieldLabel>
         <ul className="border border-border rounded-md overflow-hidden" data-testid={`related-sheet-members-${key}`}>
           <MemberRow t={anchor} badge="Origem" onOpen={() => onOpenMember(anchor)} />
-          {satellites.map((s) => (
-            <MemberRow
-              key={s.id}
-              t={s}
-              badge={RELATION_LABEL[typeById.get(s.id) ?? 'iof']}
-              onOpen={() => onOpenMember(s)}
-            />
-          ))}
+          {satellites.map((s) => {
+            const type = typeById.get(s.id) ?? 'iof'
+            // A cobrança de IOF vem genérica do banco ("IOF de compra
+            // internacional"); no grupo, referencia a compra pra saber de qual é.
+            const title = type === 'iof' ? `IOF · ${displayTitle(anchor)}` : undefined
+            return (
+              <MemberRow
+                key={s.id}
+                t={s}
+                title={title}
+                badge={RELATION_LABEL[type]}
+                onOpen={() => onOpenMember(s)}
+              />
+            )
+          })}
         </ul>
       </div>
 
@@ -137,7 +144,7 @@ function Inner({
   )
 }
 
-function MemberRow({ t, badge, onOpen }: { t: InboxTransaction; badge: string; onOpen: () => void }) {
+function MemberRow({ t, badge, onOpen, title }: { t: InboxTransaction; badge: string; onOpen: () => void; title?: string }) {
   return (
     <li className="border-b border-border last:border-b-0">
       <button
@@ -150,7 +157,7 @@ function MemberRow({ t, badge, onOpen }: { t: InboxTransaction; badge: string; o
           {badge}
         </span>
         <span className="min-w-0">
-          <span className="block text-[12px] text-foreground truncate">{displayTitle(t)}</span>
+          <span className="block text-[12px] text-foreground truncate">{title ?? displayTitle(t)}</span>
           <span className="block text-[11px] text-muted-foreground truncate">
             {formatDayMonth(t.occurred_at)} · {STATUS_LABEL[t.status] ?? t.status}
           </span>

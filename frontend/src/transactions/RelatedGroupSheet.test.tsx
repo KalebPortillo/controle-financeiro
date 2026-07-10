@@ -55,6 +55,13 @@ describe('RelatedGroupSheet', () => {
     expect(screen.getByTestId('related-sheet-member-iof1')).toHaveTextContent('IOF')
   })
 
+  // RF10.6/título — a cobrança de IOF (genérica do banco) referencia a compra.
+  it('o membro de IOF genérico mostra a referência da compra', () => {
+    renderSheet()
+    // "IOF" original vira "IOF · Figma" (a loja da compra âncora)
+    expect(screen.getByTestId('related-sheet-member-iof1')).toHaveTextContent('IOF · Figma')
+  })
+
   it('mostra o custo combinado e o resumo dos tipos no header', () => {
     renderSheet()
     expect(screen.getByText('Gasto + IOF')).toBeInTheDocument()

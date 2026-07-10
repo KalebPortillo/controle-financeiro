@@ -38,6 +38,17 @@ class Refunds::MatchTest < ActiveSupport::TestCase
     assert_equal :high, r.confidence
   end
 
+  test "nome exato (código) ganha de débitos genéricos da mesma loja (não vira ambíguo)" do
+    purchase = debit(description: "Amazon Reta* Pz7sw7mv3", amount_cents: 103_000)
+    debit(description: "Amazon", amount_cents: 4696)
+    debit(description: "Amazon", amount_cents: 4421)
+    c = credit(description: 'Estorno de "AMAZON RETA* PZ7SW7MV3"', amount_cents: 23_676)
+
+    r = Refunds::Match.call(credit: c)
+    assert_equal purchase.id, r.debit.id
+    assert_equal :high, r.confidence
+  end
+
   test "nome único (sem código) casa com ALTA confiança mesmo com valor diferente (Nike)" do
     purchase = debit(description: "Nike US Stores", amount_cents: 50_000)
     debit(description: "Padaria do Zé", amount_cents: 44_938) # ruído

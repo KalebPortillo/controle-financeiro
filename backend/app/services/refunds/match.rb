@@ -39,6 +39,12 @@ module Refunds
       merchant = refund_merchant(credit)
       hits     = merchant ? debits.select { |d| merchant_match?(d.original_description, merchant) } : []
 
+      # Correspondência EXATA de nome (código único) ganha do substring genérico:
+      # "Estorno de AMAZON RETA PZ7SW7MV3" casa a compra homônima, não os débitos
+      # genéricos "Amazon" que também batem por substring (senão vira ambíguo).
+      exact = hits.select { |d| normalize_merchant(d.original_description) == merchant }
+      return Result.new(exact.first, :high) if exact.one?
+
       return Result.new(hits.first, :high) if hits.one?
 
       if hits.size > 1 # nome ambíguo → desempata pelo valor exato

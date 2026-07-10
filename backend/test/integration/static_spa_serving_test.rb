@@ -45,6 +45,11 @@ class StaticSpaServingTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "o shell do SPA é servido com no-cache (não trava numa versão antiga)" do
+    get "/login", headers: { "Accept" => "text/html" }
+    assert_equal "no-cache", response.headers["Cache-Control"]
+  end
+
   test "GET /api/v1/health não é interceptado pelo catch-all" do
     get "/api/v1/health"
     assert_response :ok

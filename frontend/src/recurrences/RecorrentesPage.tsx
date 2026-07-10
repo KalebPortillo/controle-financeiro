@@ -10,6 +10,7 @@ import { ApiError } from '../api/client'
 import { useDebounced } from '../app/useDebounced'
 import { useConsolidated } from '../transactions/useInbox'
 import { displayTitle } from '../transactions/display'
+import { currentPeriod } from '../transactions/period'
 import {
   useRecurrences,
   useUpdateRecurrence,
@@ -21,12 +22,6 @@ import {
   type Recurrence,
   type RecurrenceUpdate,
 } from './useRecurrences'
-
-// Período corrente YYYY-MM — base do picker quando a busca está vazia.
-function currentPeriod(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
 
 // next_expected_at vem como YYYY-MM-DD; formata sem Date pra não pegar TZ.
 function formatDate(iso: string | null): string {

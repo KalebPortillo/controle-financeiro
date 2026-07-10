@@ -27,6 +27,7 @@ class Refunds::AutoLinkTest < ActiveSupport::TestCase
 
     refund = TransactionRefund.sole
     assert refund.automatic?
+    assert_equal "medium", refund.confidence # nome genérico + valor exato
     assert_nil refund.confirmed_by_membership
     assert_equal c.id, refund.refund_transaction_id
     assert_equal d.id, refund.refunded_transaction_id
@@ -38,6 +39,7 @@ class Refunds::AutoLinkTest < ActiveSupport::TestCase
     credit(description: "Crédito de AMAZON RETA PZ7SW7MV3", amount_cents: 5918)
 
     assert_equal 1, Refunds::AutoLink.call(workspace: @workspace)
+    assert_equal "high", TransactionRefund.sole.confidence # nome/código único
     assert_equal 5918, purchase.reload.refunded_amount_cents
     assert_equal 97_082, purchase.effective_amount_cents
   end

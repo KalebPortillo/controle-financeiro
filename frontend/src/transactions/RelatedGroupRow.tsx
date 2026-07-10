@@ -7,7 +7,7 @@ import { CurrencyChip } from './CurrencyChip'
 import { SwipeableRow } from './SwipeableRow'
 import type { InboxItem } from './inboxItems'
 import { formatDayMonth, groupAnchorTitle } from './display'
-import { satelliteSummary } from './relationType'
+import { groupSummary } from './relationType'
 
 type RelatedGroupItem = Extract<InboxItem, { kind: 'related' }>
 
@@ -31,8 +31,7 @@ export function RelatedGroupRow({
   const { anchor, satellites, satelliteTypes, signedTotalCents, key } = item
   const title = groupAnchorTitle(anchor)
   const hasTitle = Boolean(anchor.improved_title)
-  // Resumo dos satélites realmente agrupados (inclui netos-irmãos, ex.: estorno de IOF).
-  const summary = satelliteSummary(satellites.flatMap((s) => (satelliteTypes.get(s.id) ? [satelliteTypes.get(s.id)!] : [])))
+  const summary = groupSummary(satellites, satelliteTypes)
 
   return (
     <SwipeableRow

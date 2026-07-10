@@ -19,3 +19,12 @@ export function satelliteSummary(types: RelatedItem['relation_type'][]): string 
   }
   return seen.join(', ')
 }
+
+// Resumo a partir dos satélites REALMENTE no grupo (mapa id→tipo), pulando os
+// sem tipo. Usado pela linha/detalhe do grupo (inbox + consolidado).
+export function groupSummary(
+  satellites: { id: string }[],
+  types: Map<string, RelatedItem['relation_type']>,
+): string {
+  return satelliteSummary(satellites.flatMap((s) => (types.get(s.id) ? [types.get(s.id)!] : [])))
+}

@@ -5,6 +5,13 @@ import { Money } from '../components/Money'
 import { useRefundCandidates, useLinkRefund, useUnlinkRefund } from './useRefunds'
 import type { InboxTransaction } from './useInbox'
 
+// Texto do selo de auto-vínculo (RF10.6): média confiança pede conferência.
+function autoLinkLabel(isMedium: boolean): string {
+  return isMedium
+    ? 'Vinculado automaticamente (confiança média — confira)'
+    : 'Vinculado automaticamente pelo estorno'
+}
+
 /**
  * RF10 — seção de estorno no detalhe da transação.
  * - credit: botão "Esta transação é um estorno?" → lista candidatos → vincular.
@@ -34,9 +41,7 @@ function CreditRefundLinker({ credit }: { credit: InboxTransaction }) {
         </div>
         {linkedTo.origin === 'automatic' && (
           <p className="text-xs text-muted-foreground" data-testid="refund-auto-badge">
-            {linkedTo.confidence === 'medium'
-              ? 'Vinculado automaticamente (confiança média — confira)'
-              : 'Vinculado automaticamente pelo estorno'}
+            {autoLinkLabel(linkedTo.confidence === 'medium')}
           </p>
         )}
         <Button
@@ -121,9 +126,7 @@ function DebitRefundSummary({ transaction: t }: { transaction: InboxTransaction 
       </div>
       {isAutomatic && (
         <p className="text-xs text-muted-foreground" data-testid="refund-auto-badge">
-          {anyMedium
-            ? 'Vinculado automaticamente (confiança média — confira)'
-            : 'Vinculado automaticamente pelo estorno'}
+          {autoLinkLabel(anyMedium)}
         </p>
       )}
       <Button

@@ -11,30 +11,12 @@ import { CurrencyChip } from './CurrencyChip'
 import { useConsolidated, originalToShow, type InboxTransaction } from './useInbox'
 import { formatDayMonth, signedCents, displayTitle, groupAnchorTitle } from './display'
 import { buildInboxItems, type InboxItem } from './inboxItems'
-import { satelliteSummary } from './relationType'
+import { groupSummary } from './relationType'
+import { currentPeriod, shiftPeriod, periodLabel } from './period'
 import { useOverlay } from '../app/useOverlay'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
 import { RelatedGroupSheet } from './RelatedGroupSheet'
 import { ManualEntrySheet } from './ManualEntrySheet'
-
-const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
-
-function currentPeriod(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-}
-
-function shiftPeriod(period: string, delta: number): string {
-  const [y, m] = period.split('-').map(Number)
-  const d = new Date(y, m - 1 + delta, 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
-function periodLabel(period: string): string {
-  const [y, m] = period.split('-').map(Number)
-  return `${MONTHS[m - 1]} · ${y}`
-}
-
 
 /**
  * Gastos consolidados (RF4) — o que foi aceito da inbox, por mês. Totais de
@@ -267,7 +249,7 @@ function GastoGroupRow({
   onOpen: () => void
 }) {
   const { anchor, satellites, satelliteTypes, signedTotalCents, key } = item
-  const summary = satelliteSummary(satellites.flatMap((s) => (satelliteTypes.get(s.id) ? [satelliteTypes.get(s.id)!] : [])))
+  const summary = groupSummary(satellites, satelliteTypes)
 
   return (
     <button

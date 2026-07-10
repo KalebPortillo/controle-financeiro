@@ -6,7 +6,7 @@ import { AccountTag } from './AccountTag'
 import type { InboxItem } from './inboxItems'
 import type { InboxTransaction } from './useInbox'
 import { formatDayMonth, displayTitle, groupAnchorTitle, signedCents } from './display'
-import { RELATION_LABEL, satelliteSummary } from './relationType'
+import { RELATION_LABEL, groupSummary } from './relationType'
 
 type RelatedGroupItem = Extract<InboxItem, { kind: 'related' }>
 
@@ -60,9 +60,7 @@ function Inner({
   readonly: boolean
 }) {
   const { anchor, satellites, satelliteTypes, signedTotalCents, key } = item
-  // Tipo de cada satélite do grupo (inclui netos-irmãos, ex.: estorno de IOF).
-  const typeById = satelliteTypes
-  const summary = satelliteSummary(satellites.flatMap((s) => (typeById.get(s.id) ? [typeById.get(s.id)!] : [])))
+  const summary = groupSummary(satellites, satelliteTypes)
 
   return (
     <div className="flex flex-col h-full">
@@ -103,7 +101,7 @@ function Inner({
         <ul className="border border-border rounded-md overflow-hidden" data-testid={`related-sheet-members-${key}`}>
           <MemberRow t={anchor} badge="Origem" onOpen={() => onOpenMember(anchor)} />
           {satellites.map((s) => {
-            const type = typeById.get(s.id) ?? 'iof'
+            const type = satelliteTypes.get(s.id) ?? 'iof'
             // A cobrança de IOF vem genérica do banco ("IOF de compra
             // internacional"); no grupo, referencia a compra pra saber de qual é.
             const title = type === 'iof' ? `IOF · ${groupAnchorTitle(anchor)}` : undefined

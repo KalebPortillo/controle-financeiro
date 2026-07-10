@@ -21,14 +21,16 @@ const STATUS_LABEL: Record<string, string> = {
  * detalhe. Rodapé aceita/rejeita o conjunto todo de uma vez.
  */
 export function RelatedGroupSheet({
-  item, open, onClose, onOpenMember, onAcceptGroup, onRejectGroup,
+  item, open, onClose, onOpenMember, onAcceptGroup, onRejectGroup, readonly = false,
 }: {
   item: RelatedGroupItem | null
   open: boolean
   onClose: () => void
   onOpenMember: (t: InboxTransaction) => void
-  onAcceptGroup: () => void
-  onRejectGroup: () => void
+  onAcceptGroup?: () => void
+  onRejectGroup?: () => void
+  // No consolidado (RF9.4.4) o grupo é só leitura — sem aceitar/rejeitar.
+  readonly?: boolean
 }) {
   return (
     <Sheet open={open} onClose={onClose} width={460}>
@@ -40,6 +42,7 @@ export function RelatedGroupSheet({
           onOpenMember={onOpenMember}
           onAcceptGroup={onAcceptGroup}
           onRejectGroup={onRejectGroup}
+          readonly={readonly}
         />
       )}
     </Sheet>
@@ -47,13 +50,14 @@ export function RelatedGroupSheet({
 }
 
 function Inner({
-  item, onClose, onOpenMember, onAcceptGroup, onRejectGroup,
+  item, onClose, onOpenMember, onAcceptGroup, onRejectGroup, readonly,
 }: {
   item: RelatedGroupItem
   onClose: () => void
   onOpenMember: (t: InboxTransaction) => void
-  onAcceptGroup: () => void
-  onRejectGroup: () => void
+  onAcceptGroup?: () => void
+  onRejectGroup?: () => void
+  readonly: boolean
 }) {
   const { anchor, satellites, satelliteTypes, signedTotalCents, key } = item
   // Tipo de cada satélite do grupo (inclui netos-irmãos, ex.: estorno de IOF).
@@ -109,24 +113,26 @@ function Inner({
         </ul>
       </div>
 
-      {/* Rodapé — aceitar/rejeitar o conjunto */}
-      <div className="px-5 py-4 border-t border-border flex gap-2">
-        <Button
-          variant="ghost"
-          onClick={() => { onRejectGroup(); onClose() }}
-          data-testid={`related-sheet-reject-${key}`}
-        >
-          Rejeitar todas
-        </Button>
-        <Button
-          variant="primary"
-          className="flex-1"
-          onClick={() => { onAcceptGroup(); onClose() }}
-          data-testid={`related-sheet-accept-${key}`}
-        >
-          <Check size={16} /> Aceitar todas ({item.members.length})
-        </Button>
-      </div>
+      {/* Rodapé — aceitar/rejeitar o conjunto (só no inbox; consolidado é leitura) */}
+      {!readonly && (
+        <div className="px-5 py-4 border-t border-border flex gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => { onRejectGroup?.(); onClose() }}
+            data-testid={`related-sheet-reject-${key}`}
+          >
+            Rejeitar todas
+          </Button>
+          <Button
+            variant="primary"
+            className="flex-1"
+            onClick={() => { onAcceptGroup?.(); onClose() }}
+            data-testid={`related-sheet-accept-${key}`}
+          >
+            <Check size={16} /> Aceitar todas ({item.members.length})
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { ChevronLeft, ChevronRight, Plus, Search, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Link2, Plus, Search, X } from 'lucide-react'
 import { useDebounced } from '../app/useDebounced'
 import { Money } from '../components/Money'
 import { Button } from '../components/Button'
@@ -8,10 +8,13 @@ import { TagChip } from '../components/TagChip'
 import { AccountTag } from './AccountTag'
 import { InstallmentBadge } from './InstallmentBadge'
 import { CurrencyChip } from './CurrencyChip'
-import { useConsolidated, originalToShow } from './useInbox'
+import { useConsolidated, originalToShow, type InboxTransaction } from './useInbox'
 import { formatDayMonth, signedCents, displayTitle } from './display'
+import { buildInboxItems, type InboxItem } from './inboxItems'
+import { satelliteSummary } from './relationType'
 import { useOverlay } from '../app/useOverlay'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
+import { RelatedGroupSheet } from './RelatedGroupSheet'
 import { ManualEntrySheet } from './ManualEntrySheet'
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
@@ -60,14 +63,23 @@ export function GastosPage() {
 
   const { data, isLoading } = useConsolidated(period, debouncedQ)
 
-  // Overlays como estado de URL (?tx, ?new) → back do navegador fecha o sheet.
+  // Overlays como estado de URL (?tx, ?rel, ?new) → back do navegador fecha.
   const { get, push, close } = useOverlay()
   const activeId = get('tx')
+  const activeRelId = get('rel')
   const sheetOpen = activeId != null
+  const relSheetOpen = activeRelId != null && activeId == null
   const manualOpen = get('new') != null
 
-  const txs = data?.transactions ?? []
+  const txs = useMemo(() => data?.transactions ?? [], [data?.transactions])
   const active = txs.find((t) => t.id === activeId) ?? null
+
+  // Mesmo agrupamento do inbox (relacionadas RF23 + estornos RF10.6), mas SEM
+  // agregar parcelas (RF9.4.4: no consolidado cada parcela é uma linha).
+  const items = useMemo(() => buildInboxItems(txs, { groupInstallments: false }), [txs])
+  const activeGroup = items.find(
+    (i): i is Extract<InboxItem, { kind: 'related' }> => i.kind === 'related' && i.key === activeRelId,
+  ) ?? null
 
   const spent = txs.filter((t) => t.direction === 'debit').reduce((s, t) => s + t.amount_cents, 0)
   const received = txs.filter((t) => t.direction === 'credit').reduce((s, t) => s + t.amount_cents, 0)
@@ -164,58 +176,13 @@ export function GastosPage() {
             <span>Tags</span>
             <span className="text-right">Valor</span>
           </div>
-          {txs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => push((p) => p.set('tx', t.id))}
-              data-testid={`gasto-row-${t.id}`}
-              className="grid w-full text-left grid-cols-[1fr_auto] md:grid-cols-[1fr_150px_110px] gap-3 items-center px-4 py-3 border-b border-border last:border-b-0 hover:bg-muted transition-colors"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 truncate">
-                  <span className="text-[13px] font-medium truncate">
-                    {displayTitle(t)}
-                  </span>
-                  <CurrencyChip currency={t.foreign_currency} />
-                </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
-                  <AccountTag t={t} />
-                  {t.installment_total && (
-                    <>
-                      <span className="text-border">·</span>
-                      <InstallmentBadge number={t.installment_number} total={t.installment_total} />
-                    </>
-                  )}
-                </div>
-                {originalToShow(t) && (
-                  <div className="text-[11px] text-muted-foreground/70 font-mono truncate mt-0.5" data-testid={`original-${t.id}`}>
-                    orig.: {originalToShow(t)}
-                  </div>
-                )}
-                {/* tags inline no mobile (no desktop vão na coluna ao lado) */}
-                {t.tags.length > 0 && (
-                  <div className="flex md:hidden items-center gap-1.5 mt-1.5 overflow-hidden">
-                    {t.tags.slice(0, 2).map((tag) => (
-                      <TagChip key={tag.id} name={tag.name} color={tag.color} />
-                    ))}
-                    {t.tags.length > 2 && <span className="text-[11px] text-muted-foreground">+{t.tags.length - 2}</span>}
-                  </div>
-                )}
-              </div>
-              <div className="hidden md:flex items-center gap-1.5 overflow-hidden">
-                {t.tags.slice(0, 2).map((tag) => (
-                  <TagChip key={tag.id} name={tag.name} color={tag.color} />
-                ))}
-                {t.tags.length > 2 && <span className="text-[11px] text-muted-foreground">+{t.tags.length - 2}</span>}
-              </div>
-              <div className="text-right whitespace-nowrap">
-                <div className="text-[11px] text-muted-foreground tabular-nums mb-0.5" data-testid={`date-${t.id}`}>
-                  {formatDayMonth(t.occurred_at)}
-                </div>
-                <Money cents={signedCents(t)} signed className="font-semibold" />
-              </div>
-            </button>
-          ))}
+          {items.map((item) =>
+            item.kind === 'related' ? (
+              <GastoGroupRow key={`rel-${item.key}`} item={item} onOpen={() => push((p) => p.set('rel', item.key))} />
+            ) : item.kind === 'single' ? (
+              <GastoRow key={item.transaction.id} t={item.transaction} onOpen={() => push((p) => p.set('tx', item.transaction.id))} />
+            ) : null,
+          )}
         </div>
       )}
 
@@ -226,7 +193,121 @@ export function GastosPage() {
         mode="consolidated"
       />
 
+      {/* Grupo (compra + IOF + estornos) só leitura no consolidado. */}
+      <RelatedGroupSheet
+        item={activeGroup}
+        open={relSheetOpen}
+        readonly
+        onClose={() => close('rel')}
+        onOpenMember={(t) => push((p) => p.set('tx', t.id))}
+      />
+
       <ManualEntrySheet open={manualOpen} onClose={() => close('new')} />
     </div>
+  )
+}
+
+// Linha de um gasto avulso no consolidado.
+function GastoRow({ t, onOpen }: { t: InboxTransaction; onOpen: () => void }) {
+  return (
+    <button
+      onClick={onOpen}
+      data-testid={`gasto-row-${t.id}`}
+      className="grid w-full text-left grid-cols-[1fr_auto] md:grid-cols-[1fr_150px_110px] gap-3 items-center px-4 py-3 border-b border-border last:border-b-0 hover:bg-muted transition-colors"
+    >
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5 truncate">
+          <span className="text-[13px] font-medium truncate">{displayTitle(t)}</span>
+          <CurrencyChip currency={t.foreign_currency} />
+        </div>
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
+          <AccountTag t={t} />
+          {t.installment_total && (
+            <>
+              <span className="text-border">·</span>
+              <InstallmentBadge number={t.installment_number} total={t.installment_total} />
+            </>
+          )}
+        </div>
+        {originalToShow(t) && (
+          <div className="text-[11px] text-muted-foreground/70 font-mono truncate mt-0.5" data-testid={`original-${t.id}`}>
+            orig.: {originalToShow(t)}
+          </div>
+        )}
+        {t.tags.length > 0 && (
+          <div className="flex md:hidden items-center gap-1.5 mt-1.5 overflow-hidden">
+            {t.tags.slice(0, 2).map((tag) => (
+              <TagChip key={tag.id} name={tag.name} color={tag.color} />
+            ))}
+            {t.tags.length > 2 && <span className="text-[11px] text-muted-foreground">+{t.tags.length - 2}</span>}
+          </div>
+        )}
+      </div>
+      <div className="hidden md:flex items-center gap-1.5 overflow-hidden">
+        {t.tags.slice(0, 2).map((tag) => (
+          <TagChip key={tag.id} name={tag.name} color={tag.color} />
+        ))}
+        {t.tags.length > 2 && <span className="text-[11px] text-muted-foreground">+{t.tags.length - 2}</span>}
+      </div>
+      <div className="text-right whitespace-nowrap">
+        <div className="text-[11px] text-muted-foreground tabular-nums mb-0.5" data-testid={`date-${t.id}`}>
+          {formatDayMonth(t.occurred_at)}
+        </div>
+        <Money cents={signedCents(t)} signed className="font-semibold" />
+      </div>
+    </button>
+  )
+}
+
+// Linha agregada (compra + IOF/tarifa + estornos) — RF23/RF10.6 no consolidado.
+function GastoGroupRow({
+  item, onOpen,
+}: {
+  item: Extract<InboxItem, { kind: 'related' }>
+  onOpen: () => void
+}) {
+  const { anchor, satellites, satelliteTypes, signedTotalCents, key } = item
+  const summary = satelliteSummary(satellites.flatMap((s) => (satelliteTypes.get(s.id) ? [satelliteTypes.get(s.id)!] : [])))
+
+  return (
+    <button
+      onClick={onOpen}
+      data-testid={`gasto-related-${key}`}
+      className="grid w-full text-left grid-cols-[1fr_auto] md:grid-cols-[1fr_150px_110px] gap-3 items-center px-4 py-3 border-b border-border last:border-b-0 hover:bg-muted transition-colors"
+    >
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5 truncate">
+          <span className="text-[13px] font-medium truncate">{displayTitle(anchor)}</span>
+          <CurrencyChip currency={anchor.foreign_currency} />
+        </div>
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
+          <AccountTag t={anchor} />
+        </div>
+        <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+          <Link2 size={11} className="shrink-0" />
+          <span>com {summary} · {item.members.length} itens</span>
+        </div>
+        {anchor.tags.length > 0 && (
+          <div className="flex md:hidden items-center gap-1.5 mt-1.5 overflow-hidden">
+            {anchor.tags.slice(0, 2).map((tag) => (
+              <TagChip key={tag.id} name={tag.name} color={tag.color} />
+            ))}
+            {anchor.tags.length > 2 && <span className="text-[11px] text-muted-foreground">+{anchor.tags.length - 2}</span>}
+          </div>
+        )}
+      </div>
+      <div className="hidden md:flex items-center gap-1.5 overflow-hidden">
+        {anchor.tags.slice(0, 2).map((tag) => (
+          <TagChip key={tag.id} name={tag.name} color={tag.color} />
+        ))}
+        {anchor.tags.length > 2 && <span className="text-[11px] text-muted-foreground">+{anchor.tags.length - 2}</span>}
+      </div>
+      <div className="text-right whitespace-nowrap">
+        <div className="text-[11px] text-muted-foreground tabular-nums mb-0.5" data-testid={`related-date-${key}`}>
+          {formatDayMonth(anchor.occurred_at)}
+        </div>
+        <Money cents={signedTotalCents} signed className="font-semibold" />
+      </div>
+    </button>
   )
 }

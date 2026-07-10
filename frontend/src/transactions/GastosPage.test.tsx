@@ -184,4 +184,35 @@ describe('<GastosPage />', () => {
     // editar/remover continuam disponíveis
     expect(within(document.body).getByTestId('sheet-remove-g1')).toBeInTheDocument()
   })
+
+  // RF23/RF10.6 — agrupa compra + IOF + estorno no consolidado, como no inbox.
+  it('groups a purchase with its IOF and refund into one row', async () => {
+    const rel = (o: Record<string, unknown>) => ({
+      link_id: `l-${o.transaction_id}`, relation_type: 'iof', title: 'x', direction: 'debit',
+      amount_cents: 0, occurred_at: '2026-05-19', status: 'consolidated', role: 'satellite', ...o,
+    })
+    const purchase = tx({ id: 'buy', improved_title: 'Amazon', amount_cents: 103000,
+      related: [
+        rel({ role: 'satellite', relation_type: 'iof', transaction_id: 'iof' }),
+        rel({ role: 'satellite', relation_type: 'refund', transaction_id: 'ref' }),
+      ] as InboxTransaction['related'] })
+    const iof = tx({ id: 'iof', improved_title: 'IOF', amount_cents: 3605,
+      related: [rel({ role: 'origin', relation_type: 'iof', transaction_id: 'buy' })] as InboxTransaction['related'] })
+    const refund = tx({ id: 'ref', improved_title: 'Estorno Amazon', direction: 'credit', amount_cents: 5000,
+      related: [rel({ role: 'origin', relation_type: 'refund', transaction_id: 'buy' })] as InboxTransaction['related'] })
+
+    setupFetch(() => ({ status: 200, body: { transactions: [purchase, iof, refund], pending_count: 0 } }))
+    renderGastos()
+
+    // um único item agrupado; IOF e estorno NÃO aparecem soltos
+    await waitFor(() => expect(screen.getByTestId('gasto-related-buy')).toBeInTheDocument())
+    expect(screen.queryByTestId('gasto-row-iof')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('gasto-row-ref')).not.toBeInTheDocument()
+
+    // abre o grupo (só leitura: sem aceitar/rejeitar)
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('gasto-related-buy'))
+    expect(await screen.findByTestId('related-sheet-members-buy')).toBeInTheDocument()
+    expect(screen.queryByTestId('related-sheet-accept-buy')).not.toBeInTheDocument()
+  })
 })

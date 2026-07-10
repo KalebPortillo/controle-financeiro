@@ -118,7 +118,12 @@ function resolveRelatedGroups(transactions: InboxTransaction[]) {
  * desc no fim (gasto = occurred_at; parcelamento = data da compra; relacionadas =
  * data da âncora).
  */
-export function buildInboxItems(transactions: InboxTransaction[]): InboxItem[] {
+export function buildInboxItems(
+  transactions: InboxTransaction[],
+  // No consolidado (RF9.4.4) NÃO agrupamos parcelas — cada parcela é uma linha
+  // no seu mês; só o agrupamento de relacionadas/estornos (RF23/RF10.6) vale.
+  { groupInstallments = true }: { groupInstallments?: boolean } = {},
+): InboxItem[] {
   const { anchors, consumed } = resolveRelatedGroups(transactions)
   const items: InboxItem[] = []
   const groupIndex = new Map<string, number>() // installment_group_id → posição
@@ -144,7 +149,7 @@ export function buildInboxItems(transactions: InboxTransaction[]): InboxItem[] {
       continue
     }
 
-    if (!isInstallment(t)) {
+    if (!groupInstallments || !isInstallment(t)) {
       items.push({ kind: 'single', transaction: t })
       continue
     }

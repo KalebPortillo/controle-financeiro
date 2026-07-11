@@ -1,13 +1,16 @@
 module Api
   module V1
     class ReportsController < ApplicationController
+      include TransactionSerialization
+
       before_action :require_authentication!
 
-      # GET /api/v1/reports/overview?period=current_month
+      # GET /api/v1/reports/overview?period=current_month | ?from=&to= (+ filtros)
+      # Os KPIs de gasto/receita são sempre separados — a direção não se aplica ao
+      # overview (ele mostra os dois). Conta/cartão/pessoa recortam ambos.
       def overview
-        from, to = resolve_period(params[:period])
-        prev_from = from.prev_month.beginning_of_month
-        prev_to   = from.prev_month.end_of_month
+        from, to = report_period
+        prev_from, prev_to = previous_period(from, to)
 
         expense_cents  = debit_sum(from, to)
         income_cents   = credit_sum(from, to)
@@ -28,12 +31,11 @@ module Api
         }
       end
 
-      # GET /api/v1/reports/by_tag?from=YYYY-MM-DD&to=YYYY-MM-DD
+      # GET /api/v1/reports/by_tag?from=&to= (+ filtros, direction)
       def by_tag
-        from = Date.parse(params[:from])
-        to   = Date.parse(params[:to])
+        from, to = report_period
 
-        rows = consolidated_debits(from, to)
+        rows = consolidated_scope(from, to)
           .joins(:tags)
           .group("tags.id, tags.name, tags.color")
           .select("tags.id, tags.name, tags.color, SUM(transactions.amount_cents) AS amount_cents, COUNT(transactions.id) AS transactions_count")
@@ -48,12 +50,11 @@ module Api
         }
       end
 
-      # GET /api/v1/reports/by_category?from=YYYY-MM-DD&to=YYYY-MM-DD
+      # GET /api/v1/reports/by_category?from=&to= (+ filtros, direction)
       def by_category
-        from = Date.parse(params[:from])
-        to   = Date.parse(params[:to])
+        from, to = report_period
 
-        txs = consolidated_debits(from, to)
+        txs = consolidated_scope(from, to)
 
         # Sum per category (may double-count shared transactions)
         category_rows = txs
@@ -103,14 +104,16 @@ module Api
         }
       end
 
-      # GET /api/v1/reports/monthly_evolution?months=12
+      # GET /api/v1/reports/monthly_evolution?months=12 (+ filtros)
       def monthly_evolution
         n_months = (params[:months] || 12).to_i.clamp(1, 24)
         from = (Date.current - (n_months - 1).months).beginning_of_month
         to   = Date.current.end_of_month
 
-        rows = current_workspace.transactions.not_internal_transfer
-          .where(status: "consolidated", occurred_at: from..to)
+        rows = apply_report_filters(
+          current_workspace.transactions.not_internal_transfer
+            .where(status: "consolidated", occurred_at: from..to)
+        )
           .group("DATE_TRUNC('month', occurred_at)")
           .select(
             "DATE_TRUNC('month', occurred_at) AS month, " \
@@ -128,7 +131,93 @@ module Api
         }
       end
 
+      # GET /api/v1/reports/category/:id?from=&to= (+ filtros, direction) — RF13.8
+      # Detalhe de uma categoria no período: resumo (total, nº, participação %,
+      # comparativo com o período anterior), quebra pelas tags-membro e a lista de
+      # transações (serialização idêntica ao consolidado).
+      def category_detail
+        category = current_workspace.categories.find(params[:id])
+        from, to = report_period
+        tag_ids = category.tag_ids
+
+        tx_ids = category_transaction_ids(consolidated_scope(from, to), tag_ids)
+        transactions = load_transactions(tx_ids)
+        amount = transactions.sum(&:amount_cents)
+
+        prev_from, prev_to = previous_period(from, to)
+        prev_ids = category_transaction_ids(consolidated_scope(prev_from, prev_to), tag_ids)
+        prev_amount = current_workspace.transactions.where(id: prev_ids).sum(:amount_cents)
+
+        breakdown = current_workspace.transactions.where(id: tx_ids)
+          .joins(:tags).where(tags: { id: tag_ids })
+          .group("tags.id, tags.name, tags.color")
+          .select("tags.id, tags.name, tags.color, SUM(transactions.amount_cents) AS amount_cents, COUNT(transactions.id) AS transactions_count")
+          .order("amount_cents DESC")
+          .map { |r| breakdown_item(r.id, r.name, r.color, r.amount_cents, r.transactions_count) }
+
+        render json: detail_payload(
+          id: category.id, name: category.name, color: category.color,
+          amount: amount, count: tx_ids.size, from: from, to: to,
+          prev_amount: prev_amount, breakdown: breakdown, transactions: transactions
+        )
+      end
+
+      # GET /api/v1/reports/tag/:id?from=&to= (+ filtros, direction) — RF13.8
+      # Detalhe de uma tag no período: resumo + quebra por conta (onde foi gasto) +
+      # lista de transações.
+      def tag_detail
+        tag = current_workspace.tags.find(params[:id])
+        from, to = report_period
+
+        in_tag = consolidated_scope(from, to).joins(:tags).where(tags: { id: tag.id })
+        tx_ids = in_tag.distinct.pluck(:id)
+        transactions = load_transactions(tx_ids)
+        amount = transactions.sum(&:amount_cents)
+
+        prev_from, prev_to = previous_period(from, to)
+        prev_amount = consolidated_scope(prev_from, prev_to)
+          .joins(:tags).where(tags: { id: tag.id }).sum(:amount_cents)
+
+        breakdown = current_workspace.transactions.where(id: tx_ids)
+          .joins(:account)
+          .group("accounts.id, accounts.name")
+          .select("accounts.id, accounts.name, SUM(transactions.amount_cents) AS amount_cents, COUNT(transactions.id) AS transactions_count")
+          .order("amount_cents DESC")
+          .map { |r| breakdown_item(r.id, r.name, nil, r.amount_cents, r.transactions_count) }
+
+        render json: detail_payload(
+          id: tag.id, name: tag.name, color: tag.color,
+          amount: amount, count: tx_ids.size, from: from, to: to,
+          prev_amount: prev_amount, breakdown: breakdown, transactions: transactions
+        )
+      end
+
       private
+
+      # Período canônico: from/to (ISO) têm prioridade; senão cai no `period=`
+      # (current_month/last_month/YYYY-MM).
+      def report_period
+        if params[:from].present? && params[:to].present?
+          [ Date.parse(params[:from]), Date.parse(params[:to]) ]
+        else
+          resolve_period(params[:period])
+        end
+      rescue ArgumentError
+        resolve_period(nil)
+      end
+
+      # Janela anterior de comparação: mês calendário completo → mês anterior;
+      # range custom → janela imediatamente anterior de mesma duração.
+      def previous_period(from, to)
+        if from == from.beginning_of_month && to == from.end_of_month
+          m = from.prev_month
+          [ m.beginning_of_month, m.end_of_month ]
+        else
+          span = (to - from).to_i
+          prev_to = from - 1
+          [ prev_to - span, prev_to ]
+        end
+      end
 
       def resolve_period(period_param)
         case period_param
@@ -148,10 +237,41 @@ module Api
         end
       end
 
-      # RF11 — exclui transferências internas (não são gasto). Base dos breakdowns.
+      # RF13.4 — filtros comuns a todos os endpoints (todos opcionais, combináveis):
+      # conta(s), só cartão, e pessoa (dona da conta). Joins de `accounts`
+      # deduplicados pelo AR quando mais de um filtro precisa deles.
+      def apply_report_filters(relation)
+        relation = relation.where(account_id: Array(params[:account_ids])) if params[:account_ids].present?
+        if truthy?(params[:card_only]) || params[:membership_id].present?
+          relation = relation.joins(:account)
+          relation = relation.where(accounts: { kind: "credit_card" }) if truthy?(params[:card_only])
+          relation = relation.where(accounts: { owner_membership_id: params[:membership_id] }) if params[:membership_id].present?
+        end
+        relation
+      end
+
+      # Direção analisada nos breakdowns/detalhe: débito (gasto) por padrão; o
+      # filtro permite ver "receita por tag/categoria".
+      def report_direction
+        d = params[:direction].to_s
+        %w[debit credit].include?(d) ? d : "debit"
+      end
+
+      # RF11 — exclui transferências internas. Base gasto-cêntrica (débito), usada
+      # pela matemática de gasto do overview (independe do filtro de direção).
       def consolidated_debits(from, to)
-        current_workspace.transactions.not_internal_transfer
-          .where(status: "consolidated", direction: "debit", occurred_at: from..to)
+        apply_report_filters(
+          current_workspace.transactions.not_internal_transfer
+            .where(status: "consolidated", direction: "debit", occurred_at: from..to)
+        )
+      end
+
+      # Base dos breakdowns/detalhe: honra o filtro de direção (default débito).
+      def consolidated_scope(from, to)
+        apply_report_filters(
+          current_workspace.transactions.not_internal_transfer
+            .where(status: "consolidated", direction: report_direction, occurred_at: from..to)
+        )
       end
 
       # RF10/RF11 — gasto efetivo: débitos (sem transferências) menos os estornos
@@ -163,10 +283,10 @@ module Api
       # RF10/RF11 — receita real exclui créditos que são estornos (não é renda
       # nova) e os que são entrada de transferência interna.
       def credit_sum(from, to)
-        current_workspace.transactions.not_internal_transfer
-          .where(status: "consolidated", direction: "credit", occurred_at: from..to)
-          .where.missing(:refund_of)
-          .sum(:amount_cents)
+        apply_report_filters(
+          current_workspace.transactions.not_internal_transfer
+            .where(status: "consolidated", direction: "credit", occurred_at: from..to)
+        ).where.missing(:refund_of).sum(:amount_cents)
       end
 
       # Soma dos estornos cujos GASTOS estornados caem no período (centavos).
@@ -198,9 +318,57 @@ module Api
           .map { |r| { category_id: r.id, name: r.name, color: r.color, amount_cents: r.amount_cents.to_i } }
       end
 
+      # Ids distintos das transações do escopo que têm alguma tag da categoria.
+      def category_transaction_ids(scope, tag_ids)
+        return [] if tag_ids.empty?
+        scope.joins(:tags).where(tags: { id: tag_ids }).distinct.pluck(:id)
+      end
+
+      # Carrega + ordena + faz preload das transações para serialização.
+      def load_transactions(ids)
+        return [] if ids.empty?
+        current_workspace.transactions.where(id: ids)
+          .includes(*TransactionSerialization::SERIALIZE_INCLUDES)
+          .order(occurred_at: :desc, created_at: :desc)
+          .to_a
+      end
+
+      def breakdown_item(id, name, color, amount_cents, count)
+        { id: id, name: name, color: color,
+          amount_cents: amount_cents.to_i, transactions_count: count.to_i }
+      end
+
+      # Payload comum das telas de detalhe (categoria/tag).
+      def detail_payload(id:, name:, color:, amount:, count:, from:, to:, prev_amount:, breakdown:, transactions:)
+        {
+          id: id, name: name, color: color,
+          period: { from: from.iso8601, to: to.iso8601 },
+          summary: {
+            amount_cents: amount.to_i,
+            transactions_count: count,
+            share_pct: share_pct(amount, from, to),
+            previous_amount_cents: prev_amount.to_i,
+            delta_pct: delta_pct(amount, prev_amount)
+          },
+          breakdown: breakdown,
+          transactions: transactions.map { |t| serialize(t) }
+        }
+      end
+
+      # Participação % do valor no total do escopo (mesma direção) do período.
+      def share_pct(amount, from, to)
+        total = consolidated_scope(from, to).sum(:amount_cents)
+        return 0.0 if total.zero?
+        (amount.to_f / total * 100).round(1)
+      end
+
       def delta_pct(current_val, previous_val)
         return nil if previous_val.nil? || previous_val.zero?
         ((current_val.to_f - previous_val) / previous_val * 100).round(1)
+      end
+
+      def truthy?(value)
+        ActiveModel::Type::Boolean.new.cast(value)
       end
     end
   end

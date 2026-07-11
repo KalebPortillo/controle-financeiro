@@ -64,12 +64,14 @@ function Donut({ data, size = 200 }) {
           {compact(total)}
         </text>
       </svg>
+      {/* Legenda clicável → drill-down por categoria (RF13.8). */}
       <ul className="cf-donut__legend">
         {data.map(d => (
-          <li key={d.id}>
+          <li key={d.id} style={{ cursor: 'pointer' }} title={`Ver detalhes de ${d.name}`}>
             <span className="cf-donut__sw" style={{ background: d.color }} />
             <span>{d.name}</span>
             <span className="cf-donut__val">{fmtBRL(d.value)}</span>
+            <span style={{ color: 'var(--muted-foreground)', marginLeft: 6 }}>›</span>
           </li>
         ))}
       </ul>
@@ -90,9 +92,10 @@ const TAG_TOP = [
 function HBar() {
   const max = Math.max(...TAG_TOP.map(t => t.value));
   return (
+    // Cada linha clicável → drill-down por tag (RF13.8).
     <ul className="cf-hbar">
       {TAG_TOP.map(t => (
-        <li key={t.id}>
+        <li key={t.id} style={{ cursor: 'pointer' }} title={`Ver detalhes de ${t.name}`}>
           <div className="cf-hbar__label">{t.name}</div>
           <div className="cf-hbar__track">
             <div className="cf-hbar__fill" style={{ width: `${(t.value / max) * 100}%` }} />
@@ -141,17 +144,61 @@ function LineChart() {
   );
 }
 
+// Estilos inline (o kit de referência é auto-contido, sem CSS novo).
+const iconBtn = {
+  width: 32, height: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  borderRadius: 6, border: '1px solid transparent', background: 'transparent',
+  color: 'var(--muted-foreground)', cursor: 'pointer', fontSize: 16,
+};
+const chip = {
+  height: 28, padding: '0 10px', display: 'inline-flex', alignItems: 'center', gap: 6,
+  borderRadius: 6, border: '1px solid var(--border)', background: 'transparent',
+  color: 'var(--muted-foreground)', fontSize: 12, cursor: 'pointer',
+};
+const chipActive = { ...chip, borderColor: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 10%, transparent)', color: 'var(--foreground)' };
+
+// Period control — chevrons de mês + toggle de período custom (RF13.7).
+function PeriodControl() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <button style={iconBtn} aria-label="Mês anterior">‹</button>
+      <span style={{ fontSize: 14, fontWeight: 500, width: 96, textAlign: 'center' }}>maio · 2026</span>
+      <button style={iconBtn} aria-label="Próximo mês">›</button>
+      <button style={{ ...iconBtn, marginLeft: 4 }} aria-label="Período customizado" title="Período customizado">▦</button>
+    </div>
+  );
+}
+
+// Barra de filtros (RF13.4): direção, pessoa, só cartão, contas.
+function FilterBar() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+      <button style={chip}>
+        ⚲ Filtros
+        <span style={{ minWidth: 16, height: 16, padding: '0 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999, background: 'var(--accent)', color: 'var(--accent-foreground)', fontSize: 10, fontWeight: 500 }}>2</span>
+      </button>
+      <span style={chipActive}>Gastos</span>
+      <span style={chip}>Pessoa: Ana</span>
+      <span style={chip}>Nubank ·1234</span>
+      <span className="cf-caption" style={{ cursor: 'pointer' }}>✕ Limpar</span>
+    </div>
+  );
+}
+
 function ReportsView() {
   const p = PERIOD_SUMMARY;
   const saldo = p.totalReceived - p.totalSpent;
   return (
     <div className="cf-reports">
-      <div className="cf-page-head">
+      <div className="cf-page-head" style={{ alignItems: 'flex-end' }}>
         <div>
-          <div className="cf-caption">{p.label}</div>
+          <div className="cf-caption">{p.label} · todas as contas</div>
           <h2 className="cf-h1" style={{ margin: '4px 0 0' }}>Relatórios</h2>
         </div>
+        <PeriodControl />
       </div>
+
+      <FilterBar />
 
       <div className="cf-kpis">
         <KpiCard label="Total gasto"    value={-p.totalSpent}    delta={p.vsLastMonth} deltaPositive={false} />
@@ -164,7 +211,7 @@ function ReportsView() {
         <div className="cf-card cf-reports__panel">
           <div className="cf-panel-head">
             <div className="cf-h2" style={{ fontSize: 15 }}>Gastos por categoria</div>
-            <div className="cf-caption">5 categorias · maio</div>
+            <div className="cf-caption">maio · toque para detalhar</div>
           </div>
           <Donut data={CATEGORY_BREAKDOWN} />
           <div className="cf-callout cf-callout--info" style={{ marginTop: 16 }}>
@@ -178,7 +225,7 @@ function ReportsView() {
         <div className="cf-card cf-reports__panel">
           <div className="cf-panel-head">
             <div className="cf-h2" style={{ fontSize: 15 }}>Top tags do período</div>
-            <div className="cf-caption">6 tags com maior gasto</div>
+            <div className="cf-caption">por valor · toque para detalhar</div>
           </div>
           <HBar />
         </div>

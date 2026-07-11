@@ -125,6 +125,11 @@ Conta corrente ou cartão de crédito.
 display — RF2.7, corrige o "Manual" pra bancos fora do enum). `institution_name`/
 `card_brand`/`last_digits` capturados no connect (`BankConnections::Create`).
 **RFs**: RF1.1, RF1.2, RF2.7 (fonte do gasto), RF12 (origem "Externo/Dinheiro" → `institution='manual'`).
+**Filtro "pessoa" nos relatórios (RF13.4/RF13.6)**: deriva de `owner_membership_id` — não há
+atribuição de pessoa por transação; o recorte por pessoa filtra as contas cuja dona é aquela
+membership. Contas conjuntas (owner único) contam para a pessoa dona; não há rateio.
+`GET /api/v1/accounts` expõe a lista de contas (id, name, kind, `owner_membership_id`, …) que
+alimenta os filtros de conta/cartão e pessoa.
 
 ### `bank_connections`
 Conexão via agregador (Pluggy) para sync automática.

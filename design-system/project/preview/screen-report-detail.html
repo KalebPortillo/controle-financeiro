@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Relatório — detalhe de categoria</title>
+<link rel="stylesheet" href="_preview.css" />
+<style>
+  .rd-card { border:1px solid var(--border); border-radius:8px; padding:16px; }
+  .rd-cap { font-size:11px; text-transform:uppercase; letter-spacing:.06em; font-weight:500; color:var(--muted-foreground); margin-bottom:6px; }
+  .rd-big { font-size:20px; font-weight:600; }
+  .rd-row { display:grid; grid-template-columns:1fr auto; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--border); }
+  .rd-row:last-child { border-bottom:0; }
+  .rd-track { height:6px; border-radius:999px; background:var(--muted); overflow:hidden; }
+  .rd-fill { height:100%; border-radius:999px; background:#7C3AED; }
+</style>
+</head>
+<body>
+
+<div class="col gap-2" style="max-width:760px">
+  <div class="label">relatório · detalhe de categoria (drill-down RF13.8)</div>
+
+  <!-- header: voltar + period control -->
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+    <span style="display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--muted-foreground);cursor:pointer">‹ Relatórios</span>
+    <div style="display:flex;align-items:center;gap:4px">
+      <span style="width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;color:var(--muted-foreground)">‹</span>
+      <span style="font-size:14px;font-weight:500;width:96px;text-align:center">maio · 2026</span>
+      <span style="width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;color:var(--muted-foreground)">›</span>
+    </div>
+  </div>
+
+  <!-- título -->
+  <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+    <span style="width:12px;height:12px;border-radius:50%;background:#7C3AED"></span>
+    <h2 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.01em">Alimentação</h2>
+  </div>
+
+  <!-- resumo: 4 cards -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px">
+    <div class="rd-card"><div class="rd-cap">Total</div><div class="rd-big cf-money">− R$ 1.450,00</div></div>
+    <div class="rd-card"><div class="rd-cap">Transações</div><div class="rd-big">22</div></div>
+    <div class="rd-card"><div class="rd-cap">Participação</div><div class="rd-big">23,7%</div></div>
+    <div class="rd-card"><div class="rd-cap">vs anterior</div><div class="rd-big" style="color:var(--destructive)">+9,8%</div></div>
+  </div>
+
+  <!-- quebra por tag -->
+  <div class="rd-card" style="margin-top:12px">
+    <div style="font-size:14px;font-weight:600;margin-bottom:16px">Por tag</div>
+    <div class="col gap-2">
+      <div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="width:6px;height:6px;border-radius:50%;background:#7C3AED"></span><span style="font-size:12px;font-weight:500">Mercado</span><span style="font-size:12px;color:var(--muted-foreground)">· 9</span></div>
+        <div class="rd-track"><div class="rd-fill" style="width:57%"></div></div>
+      </div>
+      <div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="width:6px;height:6px;border-radius:50%;background:#0EA5E9"></span><span style="font-size:12px;font-weight:500">Padaria</span><span style="font-size:12px;color:var(--muted-foreground)">· 6</span></div>
+        <div class="rd-track"><div class="rd-fill" style="width:34%;background:#0EA5E9"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- lista de transações -->
+  <div style="font-size:14px;font-weight:600;margin:12px 0 8px">Transações · 22</div>
+  <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+    <div class="rd-row">
+      <div><div style="font-size:13px;font-weight:500">Pão de Açúcar</div><div style="font-size:11px;color:var(--muted-foreground);margin-top:2px">Nubank cartão · seg 10/05</div></div>
+      <div class="cf-money" style="font-size:14px">− R$ 820,00</div>
+    </div>
+    <div class="rd-row">
+      <div><div style="font-size:13px;font-weight:500">Zaffari</div><div style="font-size:11px;color:var(--muted-foreground);margin-top:2px">Inter cartão · qua 12/05</div></div>
+      <div class="cf-money" style="font-size:14px">− R$ 630,00</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

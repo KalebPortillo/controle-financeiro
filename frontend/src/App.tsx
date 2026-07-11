@@ -14,6 +14,8 @@ const ContasPage    = lazy(() => import('./workspace/ContasPage').then(m => ({ d
 const TagsPage      = lazy(() => import('./transactions/TagsPage').then(m => ({ default: m.TagsPage })))
 const CategoriasPage = lazy(() => import('./transactions/CategoriasPage').then(m => ({ default: m.CategoriasPage })))
 const ReportsPage   = lazy(() => import('./transactions/ReportsPage').then(m => ({ default: m.ReportsPage })))
+const CategoryDetailPage = lazy(() => import('./transactions/ReportDetailPage').then(m => ({ default: m.CategoryDetailPage })))
+const TagDetailPage = lazy(() => import('./transactions/ReportDetailPage').then(m => ({ default: m.TagDetailPage })))
 const OnboardingPage = lazy(() => import('./onboarding/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
 const RecorrentesPage = lazy(() => import('./recurrences/RecorrentesPage').then(m => ({ default: m.RecorrentesPage })))
 const BudgetsPage = lazy(() => import('./budgets/BudgetsPage').then(m => ({ default: m.BudgetsPage })))
@@ -71,6 +73,8 @@ export default function App() {
         <Route path="/transferencias" element={<LazyPage><TransferenciasPage /></LazyPage>} />
         <Route path="/importar" element={<LazyPage><ImportarPage /></LazyPage>} />
         <Route path="/relatorios" element={<LazyPage><ReportsPage /></LazyPage>} />
+        <Route path="/relatorios/categoria/:id" element={<LazyPage><CategoryDetailPage /></LazyPage>} />
+        <Route path="/relatorios/tag/:id" element={<LazyPage><TagDetailPage /></LazyPage>} />
         <Route path="/mais" element={<LazyPage><DashboardPage /></LazyPage>} />
       </Route>
       <Route path="*" element={<Navigate to="/inbox" replace />} />

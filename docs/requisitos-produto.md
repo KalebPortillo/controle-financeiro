@@ -194,16 +194,19 @@ compõem o gasto do mês + editar/excluir.
 - **RF12.4** Podem ser editados e removidos como qualquer consolidado.
 
 ### RF13. Relatórios e dashboards
-- **RF13.1** Visão geral do período (mês atual): total gasto, total recebido, saldo, top tags/categorias, comparativo com mês anterior.
+- **RF13.1** Visão geral do período: total gasto, total recebido, saldo, top tags/categorias, comparativo com o período anterior.
 - **RF13.2** Gráfico de gastos por tag e por categoria (pizza/barras).
 - **RF13.3** Gráfico de evolução mensal (linha histórica).
-- **RF13.4** Filtros: período, conta, cartão, tag, categoria, pessoa.
+- **RF13.4** Filtros: período, conta, cartão (só cartão), pessoa, direção (gasto/receita). **IMPLEMENTADO** — conta/cartão via `account`, pessoa via `account.owner_membership`, direção via `direction`. Aplicáveis ao overview, breakdowns e páginas de detalhe.
 - **RF13.5** Quebra por conta/cartão (ex.: "gastos só no meu Nubank cartão este mês").
-- **RF13.6** Vista do casal: total combinado vs por pessoa.
+- **RF13.6** Vista do casal: total combinado vs por pessoa (filtro por pessoa = dona da conta).
+- **RF13.7** **Período navegável** — como na lista de Gastos, o relatório abre no mês corrente e navega mês a mês (‹ ›); há ainda um **período customizado** (data início/fim). O período é estado de URL (shareável; back do navegador volta). **IMPLEMENTADO.**
+- **RF13.8** **Drill-down por categoria/tag** — clicar numa fatia do donut (categoria) ou numa linha de top tags abre uma **página dedicada** de detalhe do período: resumo (total, nº de transações, participação % no total, comparativo com o período anterior), **quebra interna** (categoria → tags-membro; tag → contas) e a **lista de transações** que a compõem (cada linha abre o detalhe da transação). Herda período/filtros ativos. **IMPLEMENTADO.**
 
 ### RF14. Períodos
-- **RF14.1** Período de controle: **mês calendário** (dia 1 ao último dia). Sem ciclo customizado no MVP.
+- **RF14.1** Período de controle (orçamentos): **mês calendário** (dia 1 ao último dia). Sem ciclo customizado.
 - **RF14.2** Cartão de crédito: gasto entra pelo **mês da compra** (data da transação), não pelo mês da fatura — alinhado ao seu cenário onde a fatura cai na hora.
+- **RF14.3** **Relatórios** aceitam, além do mês calendário, um **range customizado** (from/to). O comparativo "período anterior" usa a janela imediatamente anterior de **mesma duração** (mês → mês anterior; range de N dias → N dias antes). Não altera o período de controle de orçamentos (RF14.1). **IMPLEMENTADO.**
 
 ### RF15. Plataforma e UX
 - **RF15.1** **Web app** responsivo, acessível via navegador.

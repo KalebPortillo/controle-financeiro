@@ -387,14 +387,30 @@ categorias, agrupando as tags efetivamente aceitas.
 - **Criar orçamento**: wizard de 2 passos (escolher escopo: tag/categoria/composto → definir teto + alerta).
 
 ### Relatórios (RF13)
+- **Header**: título "Relatórios" + **period control** à direita — chevrons ‹ › de mês
+  (idêntico ao header de Gastos) + ícone `calendar-range` que revela dois inputs de
+  data (início/fim) para **período custom** (RF13.7). Em modo custom, o rótulo do
+  header vira o range ("5 mai – 20 mai") e um `x` volta pra navegação mensal.
+- **Barra de filtros** (RF13.4) logo abaixo: botão "Filtros" (ícone `filter`) com
+  badge de contagem de filtros ativos + "Limpar". Ao abrir, painel com borda:
+  **Direção** (toggle Gastos/Receitas), **Pessoa** (select das pessoas do workspace),
+  **Tipo** (checkbox "só cartão de crédito") e **Contas** (chips multi-select). Sóbrio,
+  bordas não sombras. Período e filtros são estado de URL (shareáveis).
 - **Overview** (default):
-  - 4 cards no topo: total gasto, total recebido, saldo, vs mês anterior (delta).
-  - **Donut chart**: gastos por categoria (Tremor).
-  - **Bar chart**: top 10 tags do período.
+  - 3 cards no topo: total gasto, total recebido, saldo (delta vs período anterior).
+  - **Donut chart**: gastos por categoria. **Fatias e legenda são clicáveis** →
+    drill-down (RF13.8). Legenda com hover `bg-muted`.
+  - **Bar chart**: top tags do período. **Cada linha é clicável** → drill-down.
   - **Line chart**: evolução mensal (últimos 12 meses).
   - Quando `overlap_present=true`, mostrar callout discreto: "ℹ Alguns gastos aparecem em mais de uma categoria; a soma das categorias pode ser maior que o total real."
-- **By tag** e **By category**: páginas dedicadas com tabela ordenável + chart.
-- **Custom**: range picker + filtros completos.
+- **Detalhe de categoria/tag** (RF13.8, rota dedicada `/relatorios/categoria/:id`,
+  `/relatorios/tag/:id`):
+  - Header: seta voltar "Relatórios" + o mesmo period control. Ponto de cor + nome.
+  - **Resumo**: 4 cards — Total, Transações, Participação (%), vs anterior (delta
+    colorido: verde quando gasto cai / receita sobe).
+  - **Quebra**: barras horizontais (categoria → tags-membro; tag → contas).
+  - **Transações**: lista reusando a linha de gasto consolidado; clique abre o
+    detail sheet da transação (overlay `?tx`). Herda período/filtros da URL.
 
 ### Fatura do cartão (RF9.5)
 - Para cada `account.kind='credit_card'`: card com fatura aberta (valor atual + previsto até fechamento), e tabs para faturas dos próximos 3 meses (com parcelamentos já planejados).

@@ -388,6 +388,12 @@ das tags consolidadas, excluindo as já existentes (máx 10). Ver tabela
   (serializer expõe `ai_status`).
 
 ### Reports (RF13)
+
+**Período e filtros comuns a todos os endpoints:**
+- Período (RF13.7/RF14.3): `from=YYYY-MM-DD&to=YYYY-MM-DD` (canônico, inclui range custom) **ou** `period=current_month|last_month|YYYY-MM` (atalho). `from/to` têm prioridade.
+- Filtros (RF13.4, todos opcionais e combináveis): `account_ids[]=<uuid>` (uma ou mais contas), `card_only=true` (só `kind=credit_card`), `membership_id=<uuid>` (pessoa = dona da conta, via `account.owner_membership_id`), `direction=debit|credit` (default `debit`; aplica-se a `by_tag`/`by_category`/detalhe — o overview sempre mostra gasto e receita).
+- O comparativo "período anterior" (`previous_period_comparison`, `delta_pct`) usa a janela imediatamente anterior de mesma duração: mês completo → mês anterior; range de N dias → N dias antes.
+
 - `GET /api/v1/reports/overview?period=current_month` — totals + comparativo:
   ```json
   {
@@ -416,7 +422,28 @@ das tags consolidadas, excluindo as já existentes (máx 10). Ver tabela
   }
   ```
   Frontend usa `overlap_present` para sinalizar visualmente que a soma > total (RF6.6).
-- `GET /api/v1/reports/monthly_evolution?months=12` — array por mês.
+- `GET /api/v1/reports/monthly_evolution?months=12` — array por mês (aceita os filtros de conta/cartão/pessoa).
+- `GET /api/v1/reports/category/:id?from=&to=` (+ filtros) — RF13.8 drill-down de uma categoria:
+  ```json
+  {
+    "id": "...", "name": "Alimentação", "color": "#7C3AED",
+    "period": { "from": "2026-05-01", "to": "2026-05-31" },
+    "summary": {
+      "amount_cents": 145000, "transactions_count": 22,
+      "share_pct": 23.7,
+      "previous_amount_cents": 132000, "delta_pct": 9.8
+    },
+    "breakdown": [
+      { "id": "...", "name": "Mercado", "color": "#...", "amount_cents": 82000, "transactions_count": 9 }
+    ],
+    "transactions": [ /* serialização idêntica ao index de consolidados */ ]
+  }
+  ```
+  `breakdown` = tags-membro da categoria (para `tag/:id`, `breakdown` = contas onde a tag foi usada). `share_pct` = participação no total do escopo (mesma direção) do período. `delta_pct` null quando o período anterior é zero. `404` para id fora do workspace.
+- `GET /api/v1/reports/tag/:id?from=&to=` (+ filtros) — mesmo formato, quebra por conta.
+
+### Accounts
+- `GET /api/v1/accounts` — lista enxuta das contas do workspace (alimenta os filtros de relatório e seleções). Cada item: `id`, `name`, `kind` (`checking`/`credit_card`), `institution`, `institution_label`, `last_digits`, `owner_membership_id`, `currency`.
 
 ### Onboarding (RF22)
 Fluxo guiado de 3 passos para o dono do workspace, na primeira vez.

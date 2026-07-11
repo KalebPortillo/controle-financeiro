@@ -222,6 +222,147 @@ class ReportsTest < ActionDispatch::IntegrationTest
   end
 
   # ---------------------------------------------------------------------------
+  # custom period (from/to) on overview
+  # ---------------------------------------------------------------------------
+  test "overview accepts custom from/to range" do
+    this_month = Date.current.beginning_of_month
+    # range covering only tx1 (day+1) and tx2 (day+2), not the credit (day+3)
+    from = (this_month + 1.day).iso8601
+    to   = (this_month + 2.days).iso8601
+    get "/api/v1/reports/overview", params: { from: from, to: to }
+    assert_response :ok
+    body = JSON.parse(response.body)
+    assert_equal 30_000, body["expense_cents"]
+    assert_equal 0, body["income_cents"] # credit is on day+3, outside range
+    assert_equal from, body["period"]["from"]
+    assert_equal to, body["period"]["to"]
+  end
+
+  # ---------------------------------------------------------------------------
+  # filters: account, card_only, membership (pessoa), direction
+  # ---------------------------------------------------------------------------
+  test "overview filters by account_ids" do
+    other = create(:account, workspace: @workspace)
+    this_month = Date.current.beginning_of_month
+    create(:transaction, workspace: @workspace, account: other, direction: "debit",
+           amount_cents: 5_000, status: "consolidated", occurred_at: this_month + 1.day)
+
+    get "/api/v1/reports/overview", params: { period: "current_month", account_ids: [ @account.id ] }
+    body = JSON.parse(response.body)
+    assert_equal 30_000, body["expense_cents"] # only @account, not the 5_000 on `other`
+  end
+
+  test "by_category filters by card_only" do
+    card = create(:account, workspace: @workspace, kind: "credit_card")
+    this_month = Date.current.beginning_of_month
+    card_tx = create(:transaction, workspace: @workspace, account: card, direction: "debit",
+                     amount_cents: 7_000, status: "consolidated", occurred_at: this_month + 1.day)
+    card_tx.tags << @tag_food
+
+    from = this_month.iso8601
+    to   = Date.current.end_of_month.iso8601
+    get "/api/v1/reports/by_category", params: { from: from, to: to, card_only: "true" }
+    body = JSON.parse(response.body)
+    cat = body["categories"].find { |c| c["name"] == "Alimentação" }
+    assert_equal 7_000, cat["amount_cents"] # only the card tx, not @tx1 on checking account
+  end
+
+  test "by_tag filters by membership (pessoa)" do
+    other_membership = create(:workspace_membership, workspace: @workspace)
+    her_account = create(:account, workspace: @workspace, owner_membership: other_membership)
+    this_month = Date.current.beginning_of_month
+    her_tx = create(:transaction, workspace: @workspace, account: her_account, direction: "debit",
+                    amount_cents: 8_000, status: "consolidated", occurred_at: this_month + 1.day)
+    her_tx.tags << @tag_house
+
+    from = this_month.iso8601
+    to   = Date.current.end_of_month.iso8601
+    get "/api/v1/reports/by_tag", params: { from: from, to: to, membership_id: @account.owner_membership_id }
+    body = JSON.parse(response.body)
+    casa = body["tags"].find { |t| t["name"] == "Casa" }
+    assert_equal 20_000, casa["amount_cents"] # @tx2 on @account, not her 8_000
+  end
+
+  test "by_category direction credit aggregates income per category" do
+    # tag the income credit into a category
+    @cat_feed.tags << @tag_house # ensure category has a tag on the credit
+    @tx_credit.tags << @tag_house
+    from = Date.current.beginning_of_month.iso8601
+    to   = Date.current.end_of_month.iso8601
+    get "/api/v1/reports/by_category", params: { from: from, to: to, direction: "credit" }
+    body = JSON.parse(response.body)
+    cat = body["categories"].find { |c| c["name"] == "Alimentação" }
+    assert_equal 50_000, cat["amount_cents"] # the credit, aggregated as receita
+  end
+
+  # ---------------------------------------------------------------------------
+  # drill-down: category detail
+  # ---------------------------------------------------------------------------
+  test "category detail returns summary, breakdown and transactions" do
+    from = Date.current.beginning_of_month.iso8601
+    to   = Date.current.end_of_month.iso8601
+    get "/api/v1/reports/category/#{@cat_feed.id}", params: { from: from, to: to }
+    assert_response :ok
+    body = JSON.parse(response.body)
+
+    assert_equal @cat_feed.id, body["id"]
+    assert_equal "Alimentação", body["name"]
+    # summary: only @tx1 (10_000) has @tag_food which is in Alimentação
+    assert_equal 10_000, body["summary"]["amount_cents"]
+    assert_equal 1, body["summary"]["transactions_count"]
+    # share of total consolidated debits (30_000) → ~33.3%
+    assert_in_delta 33.3, body["summary"]["share_pct"], 0.5
+    # breakdown lists member tag "Comida"
+    assert body["breakdown"].any? { |b| b["name"] == "Comida" && b["amount_cents"] == 10_000 }
+    # transactions serialized (has id + amount_cents fields)
+    assert_equal [ @tx1.id ], body["transactions"].map { |t| t["id"] }
+  end
+
+  test "category detail computes previous-period delta" do
+    last_month = Date.current.beginning_of_month - 1.month
+    prev_tx = create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+                     amount_cents: 5_000, status: "consolidated", occurred_at: last_month + 1.day)
+    prev_tx.tags << @tag_food
+
+    from = Date.current.beginning_of_month.iso8601
+    to   = Date.current.end_of_month.iso8601
+    get "/api/v1/reports/category/#{@cat_feed.id}", params: { from: from, to: to }
+    body = JSON.parse(response.body)
+    assert_equal 5_000, body["summary"]["previous_amount_cents"]
+    # (10_000 - 5_000) / 5_000 * 100 = 100.0
+    assert_in_delta 100.0, body["summary"]["delta_pct"], 0.1
+  end
+
+  test "category detail 404 for unknown id" do
+    get "/api/v1/reports/category/#{SecureRandom.uuid}", params: { period: "current_month" }
+    assert_response :not_found
+  end
+
+  # ---------------------------------------------------------------------------
+  # drill-down: tag detail
+  # ---------------------------------------------------------------------------
+  test "tag detail returns summary, account breakdown and transactions" do
+    from = Date.current.beginning_of_month.iso8601
+    to   = Date.current.end_of_month.iso8601
+    get "/api/v1/reports/tag/#{@tag_house.id}", params: { from: from, to: to }
+    assert_response :ok
+    body = JSON.parse(response.body)
+
+    assert_equal @tag_house.id, body["id"]
+    assert_equal "Casa", body["name"]
+    assert_equal 20_000, body["summary"]["amount_cents"]
+    assert_equal 1, body["summary"]["transactions_count"]
+    # breakdown by account
+    assert body["breakdown"].any? { |b| b["amount_cents"] == 20_000 }
+    assert_equal [ @tx2.id ], body["transactions"].map { |t| t["id"] }
+  end
+
+  test "tag detail 404 for unknown id" do
+    get "/api/v1/reports/tag/#{SecureRandom.uuid}", params: { period: "current_month" }
+    assert_response :not_found
+  end
+
+  # ---------------------------------------------------------------------------
   # auth guard
   # ---------------------------------------------------------------------------
   test "reports require authentication" do

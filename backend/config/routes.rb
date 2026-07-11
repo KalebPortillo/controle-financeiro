@@ -146,7 +146,8 @@ Rails.application.routes.draw do
       end
 
       # Faturas do cartão (RF9.5) — derivadas, sem entidade física.
-      resources :accounts, only: [] do
+      # index: lista de contas do workspace (filtros de relatório, seleções).
+      resources :accounts, only: [ :index ] do
         resources :invoices, only: [ :index ]
       end
 
@@ -167,6 +168,9 @@ Rails.application.routes.draw do
         get "by_tag",            to: "reports#by_tag"
         get "by_category",       to: "reports#by_category"
         get "monthly_evolution", to: "reports#monthly_evolution"
+        # RF13.8 — drill-down: detalhe de uma categoria/tag no período.
+        get "category/:id",      to: "reports#category_detail"
+        get "tag/:id",           to: "reports#tag_detail"
       end
 
       # Bank connections (RF1 + RF21) — conexão via Pluggy.

@@ -7,6 +7,8 @@ import {
   useBulkConsolidate,
   useUpdateTransaction,
   inboxKey,
+  consolidatedKey,
+  searchKey,
   type InboxPayload,
   type InboxTransaction,
 } from './useInbox'
@@ -88,5 +90,28 @@ describe('useInbox — cache cirúrgico (sem refetch da lista)', () => {
 
     expect(inbox(qc).transactions).toHaveLength(2) // substituiu, não removeu
     expect(inbox(qc).transactions.find((x) => x.id === 'a')!.tags).toHaveLength(1)
+  })
+
+  it('useUpdateTransaction também atualiza a tag no cache de CONSOLIDADOS e de BUSCA', async () => {
+    const updated = t('a', { tags: [{ id: 'tg1', name: 'Mercado', color: null, icon: null }] })
+    mockFetch(() => ({ status: 200, body: { transaction: updated } }))
+    const period = '2026-07'
+    const query = 'padaria'
+    const { qc, wrapper } = setup({ transactions: [], pending_count: 0 })
+    // a transação vive nas listas de consolidados e de busca, não na inbox
+    qc.setQueryData<InboxPayload>(consolidatedKey(period), { transactions: [t('a'), t('b')], pending_count: 0 })
+    qc.setQueryData<InboxPayload>(searchKey(query), { transactions: [t('a')], pending_count: 0 })
+    // cache de shape diferente sob a mesma raiz ['transactions'] — não pode quebrar
+    qc.setQueryData(['transactions', 'analysis_progress'], { total: 0, done: true })
+
+    const { result } = renderHook(() => useUpdateTransaction(), { wrapper })
+    await act(async () => {
+      await result.current.mutateAsync({ id: 'a', lock_version: 0, tag_ids: ['tg1'] })
+    })
+
+    const cons = qc.getQueryData<InboxPayload>(consolidatedKey(period))!
+    expect(cons.transactions.find((x) => x.id === 'a')!.tags).toHaveLength(1)
+    const srch = qc.getQueryData<InboxPayload>(searchKey(query))!
+    expect(srch.transactions.find((x) => x.id === 'a')!.tags).toHaveLength(1)
   })
 })

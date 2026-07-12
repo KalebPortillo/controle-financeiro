@@ -168,12 +168,18 @@ export function dropFromInbox(qc: QueryClient, ids: Iterable<string>) {
   })
 }
 
-// Substitui uma transação na lista pelo registro atualizado (ex.: nova tag).
-function replaceInInbox(qc: QueryClient, tx: InboxTransaction) {
-  patchInbox(qc, (p) => ({
-    ...p,
-    transactions: p.transactions.map((t) => (t.id === tx.id ? tx : t)),
-  }))
+// Substitui uma transação pelo registro atualizado (ex.: nova tag) em TODAS as
+// listas cacheadas: inbox (pending), consolidados por mês e busca — todas sob a
+// raiz ['transactions'] e no shape InboxPayload. Sem isso, editar uma tag num
+// gasto consolidado não refletia na lista (o cache só da inbox era atualizado).
+function replaceInTransactionLists(qc: QueryClient, tx: InboxTransaction) {
+  // O prefixo ['transactions'] também casa caches de shape diferente (ex.:
+  // ['transactions','analysis_progress']); só toca os que têm a lista.
+  qc.setQueriesData<InboxPayload>({ queryKey: ['transactions'] }, (old) =>
+    old && Array.isArray(old.transactions)
+      ? { ...old, transactions: old.transactions.map((t) => (t.id === tx.id ? tx : t)) }
+      : old,
+  )
 }
 
 // Ids das parcelas pendentes de um parcelamento, lidos do cache.
@@ -287,8 +293,9 @@ export function useUpdateTransaction() {
     mutationFn: ({ id, ...body }: UpdateInput) =>
       apiFetch<{ transaction: InboxTransaction }>(`/api/v1/transactions/${id}`, { method: 'PATCH', body }),
     onSuccess: (res) => {
-      if (res?.transaction) replaceInInbox(qc, res.transaction)
+      if (res?.transaction) replaceInTransactionLists(qc, res.transaction)
       qc.invalidateQueries({ queryKey: ['transaction_edits'] }) // RF4.3: histórico reflete a edição
+      qc.invalidateQueries({ queryKey: ['reports'] }) // drill-down (RF13.8) reflete a tag editada
     },
   })
 }
@@ -307,8 +314,11 @@ export function useUpdateInstallmentGroup() {
     mutationFn: ({ group_id, ...body }: UpdateInstallmentGroupInput) =>
       apiFetch(`/api/v1/installment_groups/${group_id}`, { method: 'PATCH', body }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: inboxKey })
+      // Invalida todas as listas (inbox + consolidados + busca) — a edição do
+      // grupo vale pra parcelas em qualquer uma delas.
+      qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['transaction_edits'] })
+      qc.invalidateQueries({ queryKey: ['reports'] })
     },
   })
 }

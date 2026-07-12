@@ -155,6 +155,17 @@ jobs:
         # pelo .kamal/secrets-common (espelha o fluxo de dev local).
         run: bundle exec kamal setup -d staging
 
+      - name: "Liberar deploy lock se cancelado/falhar (evita lock preso)"
+        # RAIZ do problema de lock: o Kamal adquire o deploy lock no início e o
+        # segura durante o build. Se o job for morto no meio (ex.: timeout do
+        # buildx remoto), o lock fica preso e o PRÓXIMO deploy falha com
+        # `Kamal::Cli::LockError`. Este cleanup roda mesmo em cancelamento
+        # (o tailnet/SSH ainda estão de pé aqui) e solta o lock. `|| true` p/ não
+        # marcar o job como falho por causa do cleanup. Idempotente.
+        if: ${{ cancelled() || failure() }}
+        working-directory: backend
+        run: bundle exec kamal lock release -d staging || true
+
   deploy-production:
     needs: test
     if: startsWith(github.ref, 'refs/tags/v')
@@ -259,3 +270,14 @@ jobs:
         # As vars são lidas via `~/.config/controle-financeiro/secrets.env`
         # pelo .kamal/secrets-common (espelha o fluxo de dev local).
         run: bundle exec kamal setup -d production
+
+      - name: "Liberar deploy lock se cancelado/falhar (evita lock preso)"
+        # RAIZ do problema de lock: o Kamal adquire o deploy lock no início e o
+        # segura durante o build. Se o job for morto no meio (ex.: timeout do
+        # buildx remoto), o lock fica preso e o PRÓXIMO deploy falha com
+        # `Kamal::Cli::LockError`. Este cleanup roda mesmo em cancelamento
+        # (o tailnet/SSH ainda estão de pé aqui) e solta o lock. `|| true` p/ não
+        # marcar o job como falho por causa do cleanup. Idempotente.
+        if: ${{ cancelled() || failure() }}
+        working-directory: backend
+        run: bundle exec kamal lock release -d production || true

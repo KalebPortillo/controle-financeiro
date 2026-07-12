@@ -390,6 +390,37 @@ isolar o teste de Active Storage do pool paralelo (não vale a pena enquanto rar
 
 ---
 
+### 21. Timeout do buildx remoto deixa o deploy lock do Kamal preso
+
+O build roda no buildx **remoto** (na VPS). Às vezes o passo "transferring context"
+fica lentíssimo (ex.: ~24 MB em 500+s) e o job estoura o `timeout-minutes: 20` →
+GitHub **cancela** o job. Como o Kamal adquire o **deploy lock** no início e o segura
+durante o build, um job morto no meio **não libera o lock** → o próximo deploy falha:
+
+```
+ERROR (Kamal::Cli::LockError): Deploy lock found. Run 'kamal lock help' for more information
+```
+
+O lock é um diretório no host: `~/.kamal/lock-controle-financeiro-<dest>` (com um
+arquivo `details`).
+
+**FIX de raiz (aplicado)**: cada job de deploy tem um passo de cleanup
+`if: ${{ cancelled() || failure() }}` que roda `kamal lock release -d <dest> || true`
+— um deploy interrompido agora **sempre** solta o lock. (Roda durante o cancelamento
+porque o tailnet/SSH ainda estão de pé antes dos Post-steps.)
+
+**Se ainda assim ficar preso** (ex.: runner morto antes do cleanup): liberar manualmente
+via SSH no host (mesmo `oracle-app-box` p/ staging e prod):
+```bash
+ssh oracle-app-box 'rm -f ~/.kamal/lock-controle-financeiro-production/details && \
+  rmdir ~/.kamal/lock-controle-financeiro-production'   # = kamal lock release -d production
+```
+Depois re-disparar só o job: `gh run rerun <run_id> --job <deploy-<dest> job id>`
+(re-arma o gate de aprovação no caso de produção). O timeout do buildx em si é flake
+transitório — re-run costuma passar (o prod v1.4.0 passou na 3ª tentativa).
+
+---
+
 ## Setup completo do zero (recovery)
 
 Se `oracle-app-box` for re-criada do nada:

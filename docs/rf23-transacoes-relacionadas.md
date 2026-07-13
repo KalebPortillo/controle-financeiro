@@ -115,9 +115,16 @@ Confiança **alta** (auto-confirma) quando o comerciante casa OU a razão de val
 
 ## Frontend
 
-- **Detail sheet — seção "Relacionadas"** (padrão `RefundSection`): lista os
-  vínculos; membros presentes na lista viram link `?tx=` navegável; ausentes
-  abrem a transação (mesmo consolidada). Botão desvincular.
+- **Detail sheet — seção "Vínculos"** (`LinksSection`, unificada 2026-07-13):
+  uma seção só lista IOF/tarifa/juros/ajuste **e estornos** juntos (estorno é só
+  mais um `relation_type: "refund"` na view), com resumo de valor efetivo quando o
+  débito foi estornado; membros presentes na lista viram link `?tx=` navegável;
+  ausentes abrem a transação (mesmo consolidada). Desvincular roteia por
+  `link_kind` (`refund` → `DELETE /transaction_refunds/:id`; senão
+  `/transaction_links/:id`). O picker de vincular oferece o chip **"Estorno"** ao
+  lado dos demais (crédito → estorno via `/link_refund`; débito → satélite via
+  `/link`). Substituiu as antigas `RefundSection` + `RelatedSection` +
+  `LinkOriginSection`; armazenamento segue em duas tabelas.
 - **Inbox — agrupamento** (`buildInboxItems`): novo passo colapsa âncora +
   relacionadas **presentes na lista** num item de grupo, reusando a UX do
   `InstallmentGroupSheet` (linha expansível; aceitar o grupo consolida todos).

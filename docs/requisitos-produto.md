@@ -180,6 +180,7 @@ compõem o gasto do mês + editar/excluir.
   - **Média** — nome **genérico**, mas o **valor exato** casa um único gasto (ou, no IOF, um único débito de IOF daquele valor).
   - **Baixa** — nome genérico **e** valor diferente → **fica solto** (o usuário resolve).
   **Estorno de IOF** ("IOF de volta de X") ancora no **débito de IOF da compra** (satélite RF23) com o **valor exato** do IOF. Casos alta e média **aplicam automaticamente** (`origin: automatic`, `confidence: high/medium`), reduzem o valor consolidado (RF10.3), **notificam** e ficam **aninhados sob a compra no inbox**, desfazíveis; os de confiança **média** vêm marcados ("confira"). Roda no sync e via backfill `rails refunds:autolink`. Idempotente.
+- **RF10.7** **UI unificada com vínculos (RF23)**: no detalhe da transação, estorno é apresentado como **mais um tipo de vínculo** ("Estorno"), numa **seção "Vínculos" única** — a mesma lista mostra estornos, IOF, tarifa, juros e ajuste, e o picker de vincular oferece o chip "Estorno" ao lado dos demais. Um crédito vincula como estorno (a um débito); um débito vincula satélites (IOF/tarifa…). Por baixo o **armazenamento segue em duas tabelas** (`TransactionRefund` / `TransactionLink`) com suas regras próprias — a unificação é só de apresentação; endpoints e serialização não mudam (estorno já vem no array `related` como `relation_type: "refund"`).
 
 ### RF11. Transferências internas
 - **RF11.1** Detecção automática de transferências entre contas do mesmo workspace (saída de uma conta + entrada de mesmo valor em outra conta nossa em janela curta).

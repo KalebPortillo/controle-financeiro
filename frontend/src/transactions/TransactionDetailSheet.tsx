@@ -7,10 +7,8 @@ import { Button } from '../components/Button'
 import { Money } from '../components/Money'
 import { TagEditor } from './TagEditor'
 import { GhostTagChips } from './GhostTagChips'
-import { RefundSection } from './RefundSection'
-import { RelatedSection } from './RelatedSection'
+import { LinksSection } from './LinksSection'
 import { InstallmentScheduleSection } from './InstallmentScheduleSection'
-import { LinkOriginSection } from './LinkOriginSection'
 import { RecurringSection } from './RecurringSection'
 import { AggregatorAdjustmentBadge } from './AggregatorAdjustmentBadge'
 import { signedCents, displayTitle } from './display'
@@ -258,14 +256,9 @@ function SheetInner({
         {/* RF9.4.4 — todas as parcelas do parcelamento (o consolidado mostra 1/mês). */}
         {isInstallment && groupId && <InstallmentScheduleSection groupId={groupId} currentId={t.id} />}
 
-        {/* RF10 — vincular/exibir estorno. */}
-        <RefundSection transaction={t} />
-
-        {/* RF23 — transações relacionadas (IOF/tarifa…). */}
-        <RelatedSection transaction={t} />
-
-        {/* RF23 F3 — vincular manualmente a um gasto de origem (satélite órfão). */}
-        <LinkOriginSection transaction={t} />
+        {/* RF10 + RF23 — vínculos: estorno, IOF, tarifa… numa seção só, com picker
+            que oferece o tipo "Estorno" ao lado dos demais. */}
+        <LinksSection transaction={t} />
 
         {/* RF9.7 — marcar como recorrente (só gasto consolidado). */}
         {mode === 'consolidated' && <RecurringSection transaction={t} />}

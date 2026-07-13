@@ -195,6 +195,12 @@ Formato uniforme:
   lock; conflito → 409 `stale_object`). Cada campo alterado vira um TransactionEdit
   (RF4.3). ⏳ `category_id` quando RF6 existir.
 - `DELETE /api/v1/transactions/:id` — hard delete (RF2.3 remover). 204.
+- `GET /api/v1/installment_groups/:id` (RF9.4.4) — cronograma completo do
+  parcelamento (`:id` = `installment_group_id`). No consolidado cada parcela é uma
+  linha no seu mês, então o detalhe de uma parcela usa isto pra listar TODAS.
+  Resposta `{ group_id, installment_total, total_amount_cents, parcels: [{ id,
+  installment_number, installment_total, occurred_at, amount_cents, currency,
+  status }] }`, ordenado por número. Grupo desconhecido / de outro workspace → 404.
 - `PATCH /api/v1/installment_groups/:id` (RF9.4.1) — `:id` = `installment_group_id`.
   Body `improved_title` e/ou `tag_ids`. Aplica a TODAS as parcelas do grupo no
   workspace (um TransactionEdit por parcela alterada); valor/data NÃO mudam.
@@ -502,6 +508,8 @@ Apenas o `created_by_user` do workspace tem acesso — convidados recebem `403`.
 - Registro do webhook: `bin/rails telegram:set_webhook` (usa `APP_HOST` + `TELEGRAM_WEBHOOK_SECRET`; `allowed_updates: [message, callback_query]`), uma vez por ambiente. **Re-rodar após o deploy que introduziu callback_query**, senão os toques não chegam.
 
 **Botões de ação no inbox**: quando um sync traz **≤5** gastos novos e o grupo está vinculado, cada gasto vira uma mensagem no Telegram com inline keyboard (`Consolidar` · `Rejeitar` · `Abrir no app`). Acima de 5, mantém só o resumo `inbox_new`. O sininho in-app recebe o resumo nos dois casos.
+
+**Espera a sugestão da IA antes de mandar**: `TelegramInboxButtonsJob` só dispara as mensagens depois que a análise IA do lote termina (as tx saem de `ai_status "queued"`), pra a mensagem já ir com `Sugestão: …`. O job se reagenda a cada 15 s enquanto houver tx aguardando. **Failsafe**: passado o teto de 3 min (`MAX_WAIT_SECONDS`), ou se a IA falhar (`ai_status "failed"`), manda mesmo sem sugestão — a IA atrasando/falhando nunca trava a notificação de gasto novo.
 
 ### Faturas do cartão (RF9.5, derivado)
 - `GET /api/v1/accounts/:id/invoices?status=open|future` — lista de faturas do cartão como objetos derivados:

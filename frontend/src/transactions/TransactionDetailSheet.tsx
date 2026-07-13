@@ -9,6 +9,7 @@ import { TagEditor } from './TagEditor'
 import { GhostTagChips } from './GhostTagChips'
 import { RefundSection } from './RefundSection'
 import { RelatedSection } from './RelatedSection'
+import { InstallmentScheduleSection } from './InstallmentScheduleSection'
 import { LinkOriginSection } from './LinkOriginSection'
 import { RecurringSection } from './RecurringSection'
 import { AggregatorAdjustmentBadge } from './AggregatorAdjustmentBadge'
@@ -253,6 +254,9 @@ function SheetInner({
             <Trash2 size={12} /> Excluir definitivamente
           </button>
         </div>
+
+        {/* RF9.4.4 — todas as parcelas do parcelamento (o consolidado mostra 1/mês). */}
+        {isInstallment && groupId && <InstallmentScheduleSection groupId={groupId} currentId={t.id} />}
 
         {/* RF10 — vincular/exibir estorno. */}
         <RefundSection transaction={t} />

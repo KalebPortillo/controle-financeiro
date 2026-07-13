@@ -162,7 +162,7 @@ compõem o gasto do mês + editar/excluir.
 - **RF9.3** Visualização "contas previstas para os próximos N dias".
 - **RF9.4** **Parcelamentos no cartão**: cada parcela vira gasto separado no mês de competência, com indicador "3/12" na linha. Padrão de mercado (Organizze, Mobills). Parcelas da mesma compra compartilham `installment_group_id`.
   - **RF9.4.1** **Edição em grupo**: editar **título e tags** de uma parcela vale para **todas as parcelas** do parcelamento (gasto único pra revisar). Valor e data seguem **por parcela** (cada uma no seu mês). Endpoint `PATCH /installment_groups/:id`.
-  - **RF9.4.4** **Agregação no inbox**: no inbox, as parcelas de um parcelamento aparecem **agregadas num único item** com o **valor total** das parcelas presentes e uma **sub-lista** das parcelas (valor + mês). Aceitar/rejeitar age sobre **todas de uma vez** (`POST /installment_groups/:id/consolidate|reject`). Na lista de gastos consolidados, mantém **uma linha por parcela**.
+  - **RF9.4.4** **Agregação no inbox**: no inbox, as parcelas de um parcelamento aparecem **agregadas num único item** com o **valor total** das parcelas presentes e uma **sub-lista** das parcelas (valor + mês). Aceitar/rejeitar age sobre **todas de uma vez** (`POST /installment_groups/:id/consolidate|reject`). Na lista de gastos consolidados, mantém **uma linha por parcela**. No **detalhe de uma parcela consolidada**, um bloco **"Parcelamento"** lista **todas as parcelas do grupo** (número, mês, valor, status), com o valor total e a parcela atual destacada — de `GET /installment_groups/:id`.
   - **RF9.4.2** **Herança das parcelas futuras**: as parcelas que chegam mês a mês (sync) **herdam título/tags** do grupo e, quando já há uma parcela **consolidada**, **auto-consolidam** (não voltam pra inbox nem passam pela IA). Se o grupo ainda está pendente, a nova parcela herda o título/tags mas segue pra revisão.
   - **RF9.4.3** **Relatórios inalterados**: cada parcela conta uma vez no seu mês de competência — o agrupamento é exibição + edição + herança, não muda a contabilidade.
 - **RF9.5** **Faturas futuras do cartão**: visão do total previsto da fatura aberta + faturas dos próximos meses (compostas pelos parcelamentos já em curso + recorrentes detectadas).
@@ -238,6 +238,11 @@ compõem o gasto do mês + editar/excluir.
   mensagem por gasto com botões **Consolidar · Rejeitar · Abrir no app** — o
   casal aprova/rejeita direto do grupo, sem abrir o app. Autorizado pelo chat
   vinculado, idempotente, escopado no workspace. Acima de 5 gastos, só o resumo.
+- **RF17.5** **Espera a sugestão da IA**: as mensagens de gasto novo só saem
+  depois que a **análise IA do lote termina**, pra já irem com a **tag sugerida**
+  (`Sugestão: …`). O job se reagenda enquanto houver gasto aguardando. **Failsafe**:
+  passado o teto de espera (3 min) ou se a IA falhar, manda **sem sugestão** — a
+  IA atrasando/falhando nunca segura a notificação.
 
 ### RF18. Exportação (preparado, fora do MVP)
 - **RF18.1** Exportação CSV/Excel não entra no MVP.

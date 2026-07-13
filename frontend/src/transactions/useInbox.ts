@@ -375,6 +375,34 @@ export function useTransactionEdits(id: string, enabled: boolean) {
   })
 }
 
+export type InstallmentParcel = {
+  id: string
+  installment_number: number | null
+  installment_total: number | null
+  occurred_at: string
+  amount_cents: number
+  currency: string
+  status: string
+}
+
+export type InstallmentGroup = {
+  group_id: string
+  installment_total: number | null
+  total_amount_cents: number
+  parcels: InstallmentParcel[]
+}
+
+// RF9.4.4 — cronograma completo do parcelamento (todas as parcelas do grupo). No
+// consolidado cada parcela é uma linha no seu mês; aqui buscamos o grupo inteiro
+// pra exibir no detalhe. Lazy: só busca quando o detalhe de uma parcela abre.
+export function useInstallmentGroup(groupId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ['installment_group', groupId],
+    enabled: enabled && groupId != null,
+    queryFn: () => apiFetch<InstallmentGroup>(`/api/v1/installment_groups/${groupId}`),
+  })
+}
+
 // Payload cru do Pluggy (RF2.7 "exibir mais detalhes"). Lazy: só busca ao abrir.
 export function useTransactionSource(id: string, enabled: boolean) {
   return useQuery({

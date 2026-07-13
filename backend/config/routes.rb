@@ -88,7 +88,7 @@ Rails.application.routes.draw do
 
       # Parcelamentos (RF9.4.1) — editar título/tags de todas as parcelas do
       # grupo de uma vez. :id é o installment_group_id.
-      resources :installment_groups, only: [ :update ] do
+      resources :installment_groups, only: [ :show, :update ] do
         member do
           post "consolidate"
           post "reject"

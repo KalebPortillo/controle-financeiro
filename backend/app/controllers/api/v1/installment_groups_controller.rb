@@ -1,6 +1,24 @@
 class Api::V1::InstallmentGroupsController < ApplicationController
   before_action :require_authentication!
 
+  # GET /api/v1/installment_groups/:id — cronograma completo do parcelamento
+  # (RF9.4.4). No consolidado cada parcela é uma linha no seu mês; aqui devolvemos
+  # TODAS as parcelas do grupo pra exibir o parcelamento inteiro no detalhe.
+  def show
+    parcels = current_workspace.transactions
+                               .where(installment_group_id: params[:id])
+                               .order(:installment_number, :occurred_at)
+                               .to_a
+    return render_not_found if parcels.empty?
+
+    render json: {
+      group_id:           params[:id],
+      installment_total:  parcels.first.installment_total,
+      total_amount_cents: parcels.sum(&:amount_cents),
+      parcels:            parcels.map { |p| serialize_parcel(p) }
+    }
+  end
+
   # PATCH /api/v1/installment_groups/:id — edita título/tags de todas as parcelas
   # do parcelamento (RF9.4.1). :id é o installment_group_id.
   def update
@@ -56,5 +74,19 @@ class Api::V1::InstallmentGroupsController < ApplicationController
 
   def group_params
     params.permit(:improved_title, tag_ids: []).to_h.symbolize_keys
+  end
+
+  # Linha do cronograma: número/total, data, valor e status — o bastante pra o
+  # detalhe listar todas as parcelas sem carregar a serialização completa.
+  def serialize_parcel(p)
+    {
+      id:                 p.id,
+      installment_number: p.installment_number,
+      installment_total:  p.installment_total,
+      occurred_at:        p.occurred_at.iso8601,
+      amount_cents:       p.amount_cents,
+      currency:           p.currency,
+      status:             p.status
+    }
   end
 end

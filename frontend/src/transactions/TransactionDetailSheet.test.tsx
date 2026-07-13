@@ -27,6 +27,13 @@ function setupFetch() {
     if (url === '/api/v1/tags') body = { tags: [] }
     else if (url.endsWith('/edits')) body = { edits: [] }
     else if (url.endsWith('/source')) body = { source: 'automatic_sync', source_metadata: { merchant: { businessName: 'VIVO S.A.' } } }
+    else if (url.startsWith('/api/v1/installment_groups/')) body = {
+      group_id: 'grp-1', installment_total: 12, total_amount_cents: 120000,
+      parcels: [
+        { id: 't1', installment_number: 3, installment_total: 12, occurred_at: '2026-06-04', amount_cents: 10000, currency: 'BRL', status: 'consolidated' },
+        { id: 't2', installment_number: 4, installment_total: 12, occurred_at: '2026-07-04', amount_cents: 10000, currency: 'BRL', status: 'pending' },
+      ],
+    }
     return { ok: true, status: 200, json: async () => body } as Response
   }) as unknown as typeof fetch
   return calls
@@ -66,6 +73,24 @@ describe('<TransactionDetailSheet /> parcelamento', () => {
     setupFetch()
     renderSheet(tx({ installment_number: 1, installment_total: 12, installment_group_id: 'grp-1' }))
     expect(await screen.findByTestId('installment-group-note')).toHaveTextContent('12 parcelas')
+  })
+
+  it('lista todas as parcelas do parcelamento, destacando a atual', async () => {
+    setupFetch()
+    renderSheet(tx({ installment_number: 3, installment_total: 12, installment_group_id: 'grp-1' }))
+
+    expect(await screen.findByTestId('parcel-t1')).toHaveTextContent('3/12')
+    expect(await screen.findByTestId('parcel-t2')).toHaveTextContent('4/12')
+    expect(screen.getByTestId('installment-schedule')).toHaveTextContent('12x')
+    expect(screen.getByTestId('parcel-t1')).toHaveTextContent('esta parcela')
+  })
+
+  it('não busca o cronograma numa transação sem parcelamento', async () => {
+    const calls = setupFetch()
+    renderSheet(tx())
+    await screen.findByTestId('sheet-title-t1')
+    expect(screen.queryByTestId('installment-schedule')).toBeNull()
+    expect(calls.some((c) => c.url.startsWith('/api/v1/installment_groups/'))).toBe(false)
   })
 
   it('numa transação normal, editar título vai para a própria transação', async () => {

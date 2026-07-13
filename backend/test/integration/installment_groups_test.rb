@@ -21,6 +21,46 @@ class InstallmentGroupsTest < ActionDispatch::IntegrationTest
     }.merge(attrs))
   end
 
+  test "GET devolve todas as parcelas do grupo, ordenadas, com total" do
+    parcel(2, amount_cents: 10_000)
+    parcel(1, amount_cents: 10_000)
+    parcel(3, amount_cents: 10_000, status: "consolidated", consolidated_at: 1.day.ago)
+
+    get "/api/v1/installment_groups/#{@group}"
+    assert_response :ok
+    body = JSON.parse(response.body)
+
+    assert_equal @group, body["group_id"]
+    assert_equal 12, body["installment_total"]
+    assert_equal 30_000, body["total_amount_cents"]
+    assert_equal [ 1, 2, 3 ], body["parcels"].map { |p| p["installment_number"] }
+    assert_equal "consolidated", body["parcels"].last["status"]
+    assert_equal "2026-01-01", body["parcels"].first["occurred_at"]
+  end
+
+  test "GET de grupo inexistente → 404" do
+    get "/api/v1/installment_groups/#{SecureRandom.uuid}"
+    assert_response :not_found
+  end
+
+  test "GET de grupo de outro workspace → 404" do
+    other = create(:workspace)
+    other_acc = create(:account, workspace: other)
+    alheia = create(:transaction, workspace: other, account: other_acc, status: "pending",
+                                  direction: "debit", amount_cents: 100, original_description: "X",
+                                  installment_number: 1, installment_total: 3,
+                                  installment_group_id: SecureRandom.uuid)
+
+    get "/api/v1/installment_groups/#{alheia.installment_group_id}"
+    assert_response :not_found
+  end
+
+  test "GET exige auth" do
+    delete "/api/v1/sessions/current"
+    get "/api/v1/installment_groups/#{@group}"
+    assert_response :unauthorized
+  end
+
   test "PATCH aplica título e tags a todas as parcelas do grupo" do
     p1, p2, p3 = parcel(1), parcel(2), parcel(3)
     tag = create(:tag, workspace: @workspace, name: "Casa")

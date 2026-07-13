@@ -6,9 +6,38 @@ module Notifications
       @workspace = create(:workspace, telegram_chat_id: -100777, telegram_linked_at: Time.current)
       @account   = create(:account, workspace: @workspace)
       @tx        = create(:transaction, workspace: @workspace, account: @account, status: "pending",
-                                        direction: "debit", amount_cents: 5000,
+                                        direction: "debit", amount_cents: 5000, ai_status: "analyzed",
                                         original_description: "PADARIA", occurred_at: Date.new(2026, 6, 9))
       @base      = "https://api.telegram.org/bot#{ENV.fetch('TELEGRAM_BOT_TOKEN')}"
+    end
+
+    test "aguarda a sugestão da IA: com tx ainda em queued, reagenda e não manda" do
+      @tx.update!(ai_status: "queued")
+      # Sem stub HTTP: se tentasse mandar agora, o WebMock estouraria.
+      assert_enqueued_with(job: TelegramInboxButtonsJob) do
+        TelegramInboxButtonsJob.perform_now(@workspace.id, [ @tx.id ])
+      end
+    end
+
+    test "manda assim que a IA analisa (tx sai de queued)" do
+      @tx.update!(ai_status: "analyzed")
+      stub = stub_request(:post, "#{@base}/sendMessage")
+        .to_return(status: 200, body: { ok: true }.to_json)
+
+      assert_no_enqueued_jobs(only: TelegramInboxButtonsJob) do
+        TelegramInboxButtonsJob.perform_now(@workspace.id, [ @tx.id ])
+      end
+      assert_requested(stub, at_least_times: 1)
+    end
+
+    test "failsafe: passado o teto de espera, manda mesmo com a IA ainda em queued" do
+      @tx.update!(ai_status: "queued")
+      stub = stub_request(:post, "#{@base}/sendMessage")
+        .to_return(status: 200, body: { ok: true }.to_json)
+
+      TelegramInboxButtonsJob.perform_now(@workspace.id, [ @tx.id ],
+                                          TelegramInboxButtonsJob::MAX_WAIT_SECONDS)
+      assert_requested(stub, at_least_times: 1)
     end
 
     test "envia a mensagem com botões pro chat vinculado" do

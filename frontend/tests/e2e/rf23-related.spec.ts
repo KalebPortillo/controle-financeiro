@@ -48,14 +48,14 @@ test('F3 — vincular manualmente um gasto órfão a um gasto de origem', async 
   await expect(orphanRow).toBeVisible()
   await orphanRow.click()
 
-  // Abre o vínculo manual, escolhe o tipo e busca o gasto de origem.
-  await page.getByTestId('link-origin-open').click()
+  // Abre o vínculo manual (seção "Vínculos" unificada), escolhe o tipo e busca a origem.
+  await page.getByTestId('link-open').click()
   await page.getByTestId('link-type-fee').click()
-  await page.getByTestId('link-origin-search').fill('assinatura')
+  await page.getByTestId('link-search').fill('assinatura')
   await page.getByTestId(`link-candidate-${origin_id}`).click()
 
-  // Vinculado: a origem aparece na seção "Relacionadas" e a opção de vincular some.
-  await expect(page.getByTestId('related-section')).toBeVisible()
-  await expect(page.getByTestId(`related-${origin_id}`)).toContainText('Origem')
-  await expect(page.getByTestId('link-origin-section')).toHaveCount(0)
+  // Vinculado: a origem aparece na seção "Vínculos" e a opção de vincular some.
+  await expect(page.getByTestId('links-section')).toBeVisible()
+  await expect(page.getByTestId(`link-open-${origin_id}`)).toContainText('Origem')
+  await expect(page.getByTestId('link-open')).toHaveCount(0)
 })

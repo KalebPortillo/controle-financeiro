@@ -128,12 +128,33 @@ describe('<LinksSection />', () => {
     expect(screen.queryByTestId('link-type-iof')).not.toBeInTheDocument()
   })
 
-  it('débito mostra os chips de vínculo (IOF/tarifa…)', async () => {
+  it('débito mostra "Estorno" como primeiro chip, seguido de IOF/tarifa…', async () => {
     setupFetch()
     renderSection(tx({ id: 'd1', direction: 'debit', related: null }))
     await userEvent.click(screen.getByTestId('link-open'))
+    const chips = screen.getAllByTestId(/^link-type-/)
+    expect(chips[0]).toHaveAttribute('data-testid', 'link-type-refund')
     expect(screen.getByTestId('link-type-fee')).toBeInTheDocument()
     expect(screen.getByTestId('link-type-iof')).toBeInTheDocument()
+  })
+
+  it('débito vincula um crédito como estorno via /link_refund (crédito como :id)', async () => {
+    const { calls } = setupFetch({
+      '/api/v1/transactions/d1/refund_candidates': {
+        status: 200,
+        body: { refund_candidates: [{ ...tx({ id: 'c9', direction: 'credit', improved_title: 'Estorno loja', amount_cents: 10000 }) }] },
+      },
+      'POST /api/v1/transactions/c9/link_refund': { status: 201, body: { transaction: tx() } },
+    })
+    renderSection(tx({ id: 'd1', direction: 'debit', amount_cents: 10000, related: null }))
+    await userEvent.click(screen.getByTestId('link-open'))
+    // Estorno já vem selecionado (primeiro chip) → lista os créditos candidatos.
+    const candidate = await screen.findByTestId('link-candidate-c9')
+    await userEvent.click(within(candidate).getByText('Estorno loja'))
+    await waitFor(() => {
+      const post = calls.find((c) => c.url === '/api/v1/transactions/c9/link_refund' && c.method === 'POST')
+      expect(post?.body).toEqual({ refunded_transaction_id: 'd1' })
+    })
   })
 
   it('débito vincula um satélite por /link com o tipo escolhido', async () => {

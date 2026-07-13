@@ -102,10 +102,11 @@ class Api::V1::TransactionsController < ApplicationController
     render json: { source: @transaction.source, source_metadata: @transaction.source_metadata }
   end
 
-  # GET /api/v1/transactions/:id/refund_candidates — gastos que :id (credit)
-  # pode estar estornando (RF10.1). Heurística por valor + recência.
+  # GET /api/v1/transactions/:id/refund_candidates — candidatos a estorno nos dois
+  # sentidos (RF10.1): se :id é crédito, os gastos que ele pode estornar; se é
+  # débito, os créditos que podem tê-lo estornado. Heurística por valor + recência.
   def refund_candidates
-    candidates = Refunds::Candidates.call(credit: @transaction)
+    candidates = Refunds::Candidates.call(transaction: @transaction)
     render json: { refund_candidates: candidates.map { |t| serialize(t) } }
   end
 

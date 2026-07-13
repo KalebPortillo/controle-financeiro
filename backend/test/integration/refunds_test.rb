@@ -26,6 +26,35 @@ class RefundsTest < ActionDispatch::IntegrationTest
     assert_equal 1, ids.size
   end
 
+  test "GET refund_candidates lists compatible credits for a debit (reverse)" do
+    # ruído: crédito de valor diferente e crédito já vinculado a outro gasto não entram
+    create(:transaction, workspace: @workspace, account: @account, direction: "credit",
+           amount_cents: 999, status: "pending", occurred_at: Date.current - 2)
+    other_debit = create(:transaction, workspace: @workspace, account: @account, direction: "debit",
+                         amount_cents: 10_000, status: "consolidated", occurred_at: Date.current - 3)
+    linked_credit = create(:transaction, workspace: @workspace, account: @account, direction: "credit",
+                           amount_cents: 10_000, status: "pending", occurred_at: Date.current - 1)
+    Refunds::Link.call(credit: linked_credit, debit: other_debit, membership: @user.workspace_memberships.first)
+
+    get "/api/v1/transactions/#{@debit.id}/refund_candidates"
+    assert_response :ok
+    ids = JSON.parse(response.body)["refund_candidates"].map { |t| t["id"] }
+    assert_includes ids, @credit.id
+    assert_not_includes ids, linked_credit.id
+    assert_equal 1, ids.size
+  end
+
+  test "POST link_refund funciona a partir do gasto (crédito candidato como :id)" do
+    # Fluxo iniciado no débito: o front chama link_refund no crédito escolhido,
+    # com o débito atual como refunded_transaction_id.
+    assert_difference -> { TransactionRefund.count }, 1 do
+      post "/api/v1/transactions/#{@credit.id}/link_refund",
+           params: { refunded_transaction_id: @debit.id }, as: :json
+    end
+    assert_response :created
+    assert_equal 0, @debit.reload.effective_amount_cents
+  end
+
   test "GET refund_candidates requires auth" do
     delete "/api/v1/sessions/current"
     get "/api/v1/transactions/#{@credit.id}/refund_candidates"

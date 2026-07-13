@@ -234,7 +234,7 @@ Formato uniforme:
 - `POST /api/v1/transactions/bulk_tag` — body: `{ ids: [...], add_tag_ids: [...], remove_tag_ids: [...] }`.
 
 ### Refunds (RF10) — ✅ implementado
-- `GET  /api/v1/transactions/:id/refund_candidates` — débitos candidatos a estorno de `:id` (credit): valor dentro de ±10%, janela de 90 dias, ainda não totalmente estornados; até 10, ordenados por proximidade de valor e recência.
+- `GET  /api/v1/transactions/:id/refund_candidates` — candidatos a estorno nos dois sentidos: se `:id` é **credit**, os débitos que ele pode estornar (não totalmente estornados, janela anterior); se `:id` é **debit**, os créditos que podem tê-lo estornado (ainda não vinculados a outro gasto, janela posterior). Valor dentro de ±10%, janela de 90 dias; até 10, ordenados por proximidade de valor e recência. Vincular sempre via `POST /transactions/:creditId/link_refund { refunded_transaction_id }` (o `:id` é o crédito nos dois fluxos).
 - `POST /api/v1/transactions/:id/link_refund` — body: `{ refunded_transaction_id }`. `:id` deve ser credit. 422 se direções inconsistentes; 404 débito de outro workspace.
 - `DELETE /api/v1/transaction_refunds/:id` — desfaz vínculo (manual ou automático).
 - **Auto-vínculo por código exato (RF10.6)**: no sync (após dados novos) e no backfill `rails refunds:autolink`, estornos com código exato único são vinculados automaticamente (`origin: "automatic"`), com notificação `refund_auto_linked` (in-app + Telegram). Sem endpoint próprio — é processo de servidor; desfaz-se pelo `DELETE` acima.

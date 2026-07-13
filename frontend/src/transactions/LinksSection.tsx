@@ -105,13 +105,14 @@ function itemLabel(item: RelatedItem): string {
   return RELATION_LABEL[item.relation_type]
 }
 
-// RF23 F3 + RF10 — vincular esta transação a um gasto de origem. Débito escolhe o
-// tipo (IOF/tarifa/juros/ajuste) e busca a origem; crédito é sempre estorno e lista
-// os débitos compatíveis. Some quando a transação já é satélite (guarda no pai).
+// RF23 F3 + RF10 — vincular esta transação a outra. "Estorno" é o primeiro tipo:
+// num crédito, marca ESTE crédito como estorno de um gasto; num débito, marca um
+// crédito como estorno DESTE gasto (débitos também escolhem IOF/tarifa/juros/ajuste,
+// que vinculam a um gasto de origem).
 function LinkPicker({ transaction: t }: { transaction: InboxTransaction }) {
   const isCredit = t.direction === 'credit'
   const [open, setOpen] = useState(false)
-  const [type, setType] = useState<RelatedItem['relation_type']>(isCredit ? 'refund' : 'fee')
+  const [type, setType] = useState<RelatedItem['relation_type']>('refund')
   const [q, setQ] = useState('')
   const debouncedQ = useDebounced(q, 250)
 
@@ -125,14 +126,24 @@ function LinkPicker({ transaction: t }: { transaction: InboxTransaction }) {
   const loading = isRefundFlow ? refundCandidates.isLoading : linkCandidates.isLoading
   const busy = linkRefund.isPending || linkTransaction.isPending
 
+  // "Estorno" sempre primeiro. Crédito só pode ser estorno; débito também vincula
+  // satélites (IOF/tarifa/juros/ajuste).
   const chipTypes: RelatedItem['relation_type'][] = isCredit
     ? ['refund']
-    : ['iof', 'fee', 'interest', 'adjustment']
+    : ['refund', 'iof', 'fee', 'interest', 'adjustment']
 
   const pick = (candidateId: string) => {
     const onSuccess = () => setOpen(false)
-    if (isRefundFlow) linkRefund.mutate({ creditId: t.id, refundedTransactionId: candidateId }, { onSuccess })
-    else linkTransaction.mutate({ id: t.id, origin_id: candidateId, relation_type: type }, { onSuccess })
+    if (isRefundFlow) {
+      // Crédito atual → escolhe o gasto estornado. Débito atual → o candidato é o
+      // crédito, e este gasto é o refunded. link_refund sempre tem o crédito como :id.
+      const args = isCredit
+        ? { creditId: t.id, refundedTransactionId: candidateId }
+        : { creditId: candidateId, refundedTransactionId: t.id }
+      linkRefund.mutate(args, { onSuccess })
+    } else {
+      linkTransaction.mutate({ id: t.id, origin_id: candidateId, relation_type: type }, { onSuccess })
+    }
   }
 
   if (!open) {
@@ -144,10 +155,16 @@ function LinkPicker({ transaction: t }: { transaction: InboxTransaction }) {
         data-testid="link-open"
       >
         {isCredit ? <Undo2 size={13} /> : <Link2 size={13} />}
-        {isCredit ? 'Esta transação é um estorno?' : 'Vincular a um gasto de origem'}
+        {isCredit ? 'Esta transação é um estorno?' : 'Vincular a outra transação'}
       </button>
     )
   }
+
+  const prompt = isRefundFlow
+    ? isCredit
+      ? 'Estorno de qual gasto?'
+      : 'Estornado por qual crédito?'
+    : 'Vincular a qual gasto?'
 
   return (
     <div className="space-y-2.5" data-testid="link-picker">
@@ -171,9 +188,7 @@ function LinkPicker({ transaction: t }: { transaction: InboxTransaction }) {
         </div>
       )}
 
-      <p className="text-xs text-muted-foreground">
-        {isRefundFlow ? 'Estorno de qual gasto?' : 'Vincular a qual gasto?'}
-      </p>
+      <p className="text-xs text-muted-foreground">{prompt}</p>
 
       {!isRefundFlow && (
         <div className="relative flex items-center">

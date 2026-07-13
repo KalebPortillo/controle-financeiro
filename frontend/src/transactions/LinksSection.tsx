@@ -18,18 +18,14 @@ import type { InboxTransaction, RelatedItem } from './useInbox'
  */
 export function LinksSection({ transaction: t }: { transaction: InboxTransaction }) {
   const related = t.related ?? []
-  // Já é satélite/estorno de algum gasto (tem uma origem) → não oferece vincular
-  // de novo (um satélite pertence a uma origem só).
-  const isSatellite = related.some((r) => r.role === 'origin')
-  const hasContent = related.length > 0 || t.refund != null
-
-  if (!hasContent && isSatellite) return null
 
   return (
     <div className="mt-2 pt-3.5 border-t border-border space-y-2" data-testid="links-section">
       {t.refund && <EffectiveSummary transaction={t} />}
       {related.length > 0 && <RelatedList items={related} />}
-      {!isSatellite && <LinkPicker transaction={t} />}
+      {/* O botão de vincular fica SEMPRE disponível — uma transação pode acumular
+          vários vínculos (IOF, tarifa, estornos…) e sempre dá pra adicionar mais. */}
+      <LinkPicker transaction={t} />
     </div>
   )
 }

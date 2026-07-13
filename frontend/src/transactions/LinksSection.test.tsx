@@ -152,10 +152,11 @@ describe('<LinksSection />', () => {
     })
   })
 
-  it('não oferece vincular quando a transação já é satélite/estorno (tem origem)', () => {
+  it('mantém o botão de vincular mesmo quando a transação já tem vínculos', () => {
     setupFetch()
     renderSection(tx({ related: [{ ...iofItem, role: 'origin', transaction_id: 'buy9', title: 'Compra US' }] }))
     expect(screen.getByTestId('link-item-l1')).toHaveTextContent('Origem · Compra US')
-    expect(screen.queryByTestId('link-open')).not.toBeInTheDocument()
+    // O botão permanece independente do número de vínculos existentes.
+    expect(screen.getByTestId('link-open')).toBeInTheDocument()
   })
 })

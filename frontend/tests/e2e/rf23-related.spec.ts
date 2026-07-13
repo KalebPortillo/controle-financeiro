@@ -54,8 +54,9 @@ test('F3 — vincular manualmente um gasto órfão a um gasto de origem', async 
   await page.getByTestId('link-search').fill('assinatura')
   await page.getByTestId(`link-candidate-${origin_id}`).click()
 
-  // Vinculado: a origem aparece na seção "Vínculos" e a opção de vincular some.
+  // Vinculado: a origem aparece na seção "Vínculos"; o botão de vincular permanece
+  // disponível (dá pra acumular mais vínculos).
   await expect(page.getByTestId('links-section')).toBeVisible()
   await expect(page.getByTestId(`link-open-${origin_id}`)).toContainText('Origem')
-  await expect(page.getByTestId('link-open')).toHaveCount(0)
+  await expect(page.getByTestId('link-open')).toBeVisible()
 })

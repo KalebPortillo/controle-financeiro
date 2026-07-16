@@ -128,6 +128,21 @@ class MembershipsApiTest < ActionDispatch::IntegrationTest
     assert WorkspaceMembership.exists?(partner_membership.id)
   end
 
+  test "DELETE /memberships/:id do DONO do workspace é bloqueado (workspace nunca fica órfão)" do
+    owner   = create(:user)
+    partner = create(:user)
+    workspace = create(:workspace, created_by_user: owner)
+    owner_membership = create(:workspace_membership, user: owner, workspace: workspace)
+    create(:workspace_membership, user: partner, workspace: workspace)
+
+    sign_in_as(partner)
+    assert_no_difference "WorkspaceMembership.count" do
+      delete "/api/v1/workspaces/#{workspace.id}/memberships/#{owner_membership.id}"
+    end
+    assert_response :unprocessable_entity
+    assert_equal "cannot_remove_owner", JSON.parse(response.body).dig("error", "code")
+  end
+
   # ---- role enforcement (RF16) -----------------------------------------
 
   test "POST /memberships by a viewer is forbidden" do

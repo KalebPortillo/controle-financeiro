@@ -132,7 +132,9 @@ module AiProviders
       # Espaça as chamadas pra caber no RPM do free tier (no-op se desligado).
       AiProviders::RateLimiter.throttle!
 
-      uri = URI("#{BASE_URL}/#{@model}:generateContent?key=#{@api_key}")
+      # Chave via header, NUNCA na query string — URL aparece em logs de
+      # proxy/breadcrumbs do Sentry; header não.
+      uri = URI("#{BASE_URL}/#{@model}:generateContent")
       body = {
         contents: [ { parts: [ { text: prompt } ] } ],
         generationConfig: {
@@ -144,7 +146,8 @@ module AiProviders
       }
 
       req      = Net::HTTP::Post.new(uri)
-      req["Content-Type"] = "application/json"
+      req["Content-Type"]   = "application/json"
+      req["x-goog-api-key"] = @api_key
       req.body = body.to_json
 
       http = Net::HTTP.new(uri.host, uri.port)

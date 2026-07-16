@@ -21,6 +21,18 @@ class AiProviders::GeminiProviderTest < ActiveSupport::TestCase
     assert_equal "application/json", gen["responseMimeType"]
   end
 
+  # Segurança: a chave vai no header x-goog-api-key, nunca na query string —
+  # URL vaza em logs de proxy/breadcrumbs; header não.
+  test "API key is sent via header, not in the URL" do
+    captured = nil
+    stub_request(:post, @url).with { |req| captured = req; true }
+                             .to_return(status: 200, body: { candidates: [] }.to_json)
+    @provider.suggest_categories_from_tags(tag_names: [ "Alimentação" ])
+
+    assert_equal "test-key", captured.headers["X-Goog-Api-Key"]
+    assert_no_match(/key=/, captured.uri.to_s)
+  end
+
   # --- Inbox em lote (P2): 1 chamada classifica várias transações com as tags
   #     existentes do workspace, devolvendo uma entrada por transaction_id. ---
 

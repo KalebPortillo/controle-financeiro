@@ -109,4 +109,15 @@ class WorkspacesApiTest < ActionDispatch::IntegrationTest
     assert_response :not_found
     assert_equal "Old", workspace.reload.name
   end
+
+  test "PATCH /workspaces/:id by a viewer is forbidden (RF16: renomear é só editor)" do
+    viewer = create(:user)
+    workspace = create(:workspace, name: "Old")
+    create(:workspace_membership, user: viewer, workspace: workspace, role: "viewer")
+
+    sign_in_as(viewer)
+    patch "/api/v1/workspaces/#{workspace.id}", params: { name: "Hacked" }, as: :json
+    assert_response :forbidden
+    assert_equal "Old", workspace.reload.name
+  end
 end

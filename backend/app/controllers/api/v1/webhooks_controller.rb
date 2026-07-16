@@ -76,16 +76,19 @@ class Api::V1::WebhooksController < ApplicationController
   private
 
   def verify_telegram_secret
-    expected = ENV["TELEGRAM_WEBHOOK_SECRET"].to_s
-    given    = request.headers["X-Telegram-Bot-Api-Secret-Token"].to_s
-    return if expected.present? && ActiveSupport::SecurityUtils.secure_compare(given, expected)
-
-    head :unauthorized
+    verify_shared_secret(env_key: "TELEGRAM_WEBHOOK_SECRET", header: "X-Telegram-Bot-Api-Secret-Token")
   end
 
   def verify_webhook_secret
-    expected = ENV["PLUGGY_WEBHOOK_SECRET"].to_s
-    given    = request.headers["X-Webhook-Secret"].to_s
+    verify_shared_secret(env_key: "PLUGGY_WEBHOOK_SECRET", header: "X-Webhook-Secret")
+  end
+
+  # Secret compartilhado ecoado pelo provedor em cada chamada. Fail-closed:
+  # ENV ausente nega tudo (nunca "aberto por env esquecida"). secure_compare
+  # evita timing attack na comparação.
+  def verify_shared_secret(env_key:, header:)
+    expected = ENV[env_key].to_s
+    given    = request.headers[header].to_s
     return if expected.present? && ActiveSupport::SecurityUtils.secure_compare(given, expected)
 
     head :unauthorized

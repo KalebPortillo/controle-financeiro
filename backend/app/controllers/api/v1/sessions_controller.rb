@@ -1,6 +1,11 @@
 class Api::V1::SessionsController < ApplicationController
   # `create` é o callback do OmniAuth — não pode exigir auth prévia.
   before_action :require_authentication!, only: [ :show, :destroy, :select_workspace ]
+  # `failure` é invocada pelo on_failure do OmniAuth com o env ORIGINAL — se a
+  # request phase POST foi rejeitada por Origin forjado, o env ainda carrega
+  # esse Origin e o OriginVerification devolveria 403 JSON em vez do redirect
+  # amigável. A action só redireciona (sem efeito colateral), então é seguro.
+  skip_before_action :verify_request_origin, only: [ :failure ]
 
   # GET /api/v1/auth/:provider/callback
   # OmniAuth pôs o resultado em request.env["omniauth.auth"].
@@ -28,14 +33,16 @@ class Api::V1::SessionsController < ApplicationController
 
   # GET /api/v1/sessions/current
   def show
-    workspaces  = current_user.workspaces.order(:created_at)
-    active_id   = active_workspace_id(workspaces)
-    active_ws   = workspaces.find { |w| w.id == active_id }
+    workspaces = current_user.workspaces.order(:created_at)
+    # Workspace ativo resolvido pelo WorkspaceScope (mesma regra de todos os
+    # controllers): o escolhido via select_workspace se ainda válido, senão o
+    # primeiro do user.
+    active_ws = current_workspace
 
     render json: {
       user:                serialize_user(current_user),
       workspaces:          workspaces.map { |w| serialize_workspace(w) },
-      active_workspace_id: active_id,
+      active_workspace_id: active_ws&.id,
       onboarding:          serialize_onboarding(active_ws)
     }
   end
@@ -74,10 +81,7 @@ class Api::V1::SessionsController < ApplicationController
     # E2E tests test post-onboarding flows by default. Skip onboarding so
     # RequireAuth doesn't redirect to /onboarding. Pass skip_onboarding=false
     # to test the onboarding flow itself.
-    unless params[:skip_onboarding] == "false"
-      workspace = user.workspaces.first
-      workspace&.update!(onboarding_state: workspace.onboarding_state.merge("status" => "skipped"))
-    end
+    user.workspaces.first&.skip_onboarding! unless params[:skip_onboarding] == "false"
 
     head :no_content
   end
@@ -85,10 +89,12 @@ class Api::V1::SessionsController < ApplicationController
   private
 
   # ALLOWED_EMAILS — lista separada por vírgula de emails autorizados.
-  # Se a variável não estiver setada, qualquer email é aceito (sem restrição).
+  # Fail-closed em production: sem a variável, NINGUÉM entra (staging e prod
+  # têm dados reais; cadastro aberto por env esquecida seria a falha errada).
+  # Em dev/test a lista vazia libera geral, pra não atrapalhar o fluxo local.
   def email_allowed?(email)
     raw = ENV["ALLOWED_EMAILS"].to_s.strip
-    return true if raw.empty?
+    return !Rails.env.production? if raw.empty?
 
     raw.split(",").map { |e| e.strip.downcase }.include?(email)
   end
@@ -123,15 +129,5 @@ class Api::V1::SessionsController < ApplicationController
 
   def serialize_workspace(workspace)
     { id: workspace.id, name: workspace.name }
-  end
-
-  # Workspace ativo: o que foi escolhido explicitamente via select_workspace
-  # (se ainda for válido), senão o primeiro do user. Sempre validado contra
-  # a lista atual de memberships pra evitar IDs órfãos na sessão.
-  def active_workspace_id(workspaces)
-    selected = session[:active_workspace_id]
-    return selected if selected && workspaces.any? { |w| w.id == selected }
-
-    workspaces.first&.id
   end
 end

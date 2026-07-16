@@ -26,10 +26,27 @@ end
 # tratar tudo abaixo de /api/v1 como API.
 OmniAuth.config.path_prefix = "/api/v1/auth"
 
-# Sem POST do botão "Sign in with Google" (chamamos /api/v1/auth/google_oauth2
-# direto via <a href>); então não precisamos do CSRF token de form.
-OmniAuth.config.allowed_request_methods = %i[get post]
-OmniAuth.config.silence_get_warning = true
+# Request phase SÓ via POST (default do OmniAuth 2.x) — GET permitiria login
+# CSRF (atacante inicia o fluxo OAuth pela vítima via <img>/redirect). O botão
+# do frontend é um <form method="post"> pra essa rota.
+OmniAuth.config.allowed_request_methods = %i[post]
+
+# A validação default (omniauth-rails_csrf_protection) exige authenticity token
+# de form Rails — que uma SPA api-only não tem. Trocamos por checagem de Origin:
+# browsers SEMPRE mandam Origin em POST, então exigir Origin do MESMO HOST
+# bloqueia POSTs forjados cross-site (mesma defesa do OriginVerification nos
+# controllers; host-only pelo mesmo motivo — proxy do Vite reescreve a porta em
+# dev/E2E). O callback continua protegido pelo state param do strategy.
+OmniAuth.config.request_validation_phase = lambda do |env|
+  request     = Rack::Request.new(env)
+  origin      = request.get_header("HTTP_ORIGIN").to_s
+  origin_host = begin
+    URI.parse(origin).host
+  rescue URI::InvalidURIError
+    nil
+  end
+  raise OmniAuth::AuthenticityError, "Origin mismatch" if origin_host.nil? || origin_host != request.host
+end
 
 # Logger do OmniAuth vai pro Rails.logger, com tags de request.
 OmniAuth.config.logger = Rails.logger

@@ -1,6 +1,8 @@
 class Api::V1::WorkspacesController < ApplicationController
   before_action :require_authentication!
   before_action :set_workspace, only: [ :show, :update ]
+  # RF16 — renomear é alteração de workspace: só editor (viewer é leitura).
+  before_action -> { require_editor!(@workspace) }, only: [ :update ]
 
   def index
     workspaces = current_user.workspaces.order(:created_at)

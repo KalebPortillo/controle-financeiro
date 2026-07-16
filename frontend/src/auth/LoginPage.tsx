@@ -4,9 +4,10 @@ import { buttonClass } from '../components/buttonClass'
 import { WalletLogo } from '../components/WalletLogo'
 
 /**
- * Tela de login. Card centralizado, Linear-style. Botão é um <a> que envia
- * o browser pra /api/v1/auth/google_oauth2 — o middleware OmniAuth no Rails
- * cuida do handshake e redireciona pra raiz com a sessão setada.
+ * Tela de login. Card centralizado, Linear-style. Botão é um <form> POST pra
+ * /api/v1/auth/google_oauth2 — o OmniAuth só aceita POST na request phase
+ * (anti login-CSRF; valida o header Origin) — e o middleware no Rails cuida
+ * do handshake e redireciona pra raiz com a sessão setada.
  */
 export function LoginPage({ error }: { error?: string | null }) {
   // bfcache: no mobile, dar "back" pra cá depois de logar restaura o documento
@@ -44,13 +45,15 @@ export function LoginPage({ error }: { error?: string | null }) {
             </div>
           )}
 
-          <a
-            href="/api/v1/auth/google_oauth2"
-            data-testid="google-login"
-            className={buttonClass({ size: 'lg', className: 'w-full' })}
-          >
-            Entrar com Google
-          </a>
+          <form method="post" action="/api/v1/auth/google_oauth2" className="w-full">
+            <button
+              type="submit"
+              data-testid="google-login"
+              className={buttonClass({ size: 'lg', className: 'w-full' })}
+            >
+              Entrar com Google
+            </button>
+          </form>
 
           <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
             Acesso por convite — só os emails autorizados pelo workspace conseguem entrar.

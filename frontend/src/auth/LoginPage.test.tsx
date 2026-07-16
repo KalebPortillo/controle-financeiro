@@ -3,13 +3,14 @@ import { render, screen } from '@testing-library/react'
 import { LoginPage } from './LoginPage'
 
 describe('<LoginPage />', () => {
-  it('renders the wallet logo, headline and Google sign-in link', () => {
+  it('renders the wallet logo, headline and Google sign-in form (POST, anti login-CSRF)', () => {
     render(<LoginPage />)
     expect(screen.getByLabelText('PortilhoWallet')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /portilho\s*wallet/i })).toBeInTheDocument()
-    const link = screen.getByTestId('google-login') as HTMLAnchorElement
-    expect(link).toHaveAttribute('href', '/api/v1/auth/google_oauth2')
-    expect(link).toHaveTextContent(/entrar com google/i)
+    const button = screen.getByTestId('google-login') as HTMLButtonElement
+    expect(button).toHaveTextContent(/entrar com google/i)
+    expect(button.form).toHaveAttribute('method', 'post')
+    expect(button.form).toHaveAttribute('action', '/api/v1/auth/google_oauth2')
   })
 
   it('renders an error alert when an error message is provided', () => {

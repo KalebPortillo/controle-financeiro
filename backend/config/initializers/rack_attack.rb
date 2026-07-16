@@ -25,6 +25,15 @@ class Rack::Attack
 
   ### Throttles ###
 
+  # Baseline geral da API — teto largo por IP que nenhum uso humano alcança
+  # (o frontend faz dezenas de requests/min, não centenas), mas segura
+  # scraping/loop acidental em QUALQUER endpoint, não só nos listados abaixo.
+  # Os throttles específicos (auth, IA, Pluggy) continuam valendo — o
+  # Rack::Attack avalia todos e qualquer um que estoure responde 429.
+  throttle("api_general/ip", limit: 300, period: 1.minute) do |req|
+    req.ip if req.path.start_with?("/api/")
+  end
+
   # Endpoints de auth — limite por IP. Cobre tanto a fase de request
   # (/api/v1/auth/google_oauth2) quanto de callback. 10 reqs/min é
   # generoso para o uso real (clicar "Entrar com Google" → bater no Google

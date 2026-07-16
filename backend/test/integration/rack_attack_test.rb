@@ -82,6 +82,19 @@ class RackAttackTest < ActionDispatch::IntegrationTest
     assert_response :too_many_requests
   end
 
+  test "throttle geral da API limita bursts em qualquer endpoint /api/*" do
+    limit = 300
+    headers = { "REMOTE_ADDR" => "203.0.113.50" }
+
+    limit.times do
+      get "/api/v1/health", env: headers
+    end
+    assert_not_equal 429, response.status, "request #{limit} should not be throttled"
+
+    get "/api/v1/health", env: headers
+    assert_response :too_many_requests
+  end
+
   test "throttle response body is JSON with code 'rate_limited'" do
     headers = { "REMOTE_ADDR" => "203.0.113.20" }
     11.times { get "/api/v1/auth/google_oauth2/callback", env: headers }

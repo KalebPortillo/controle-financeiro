@@ -1,6 +1,10 @@
 class Api::V1::TransactionsController < ApplicationController
   include TransactionSerialization
 
+  # Teto da busca global (?q=) — mais do que isso ninguém revisa numa lista;
+  # refinar o termo é o caminho (paginação real fica pra Fase 2 da busca).
+  SEARCH_RESULTS_LIMIT = 200
+
   before_action :require_authentication!
   before_action :set_transaction, only: [ :update, :destroy, :consolidate, :reject, :edits, :source,
                                           :refund_candidates, :link_refund, :link_candidates, :link ]
@@ -19,6 +23,10 @@ class Api::V1::TransactionsController < ApplicationController
     # sem isso a listagem faz ~3 queries por item.
     transactions = scope.includes(*TransactionSerialization::SERIALIZE_INCLUDES)
                         .order(occurred_at: :desc, created_at: :desc)
+    # A busca global (?q=) não tem recorte de mês — teto defensivo pra um termo
+    # genérico ("pix") não serializar o histórico inteiro. Listagens por mês
+    # ficam sem teto (o recorte from/to já limita).
+    transactions = transactions.limit(SEARCH_RESULTS_LIMIT) if params[:q].present?
 
     render json: {
       transactions:  transactions.map { |t| serialize(t) },

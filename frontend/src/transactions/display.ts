@@ -9,6 +9,11 @@ export function formatDayMonth(iso: string): string {
   return `${d}/${m}`
 }
 
+// dd/mm/aaaa no fuso local a partir de um timestamp ISO completo.
+export function formatFullDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('pt-BR')
+}
+
 // Valor com sinal por direção: débito negativo, crédito positivo.
 export function signedCents(t: Pick<InboxTransaction, 'direction' | 'amount_cents'>): number {
   return t.direction === 'debit' ? -t.amount_cents : t.amount_cents

@@ -47,4 +47,12 @@ class Workspace < ApplicationRecord
 
     { reason: ai_last_error["reason"], message: ai_last_error["message"], at: ai_last_error["at"] }
   end
+
+  # Marca o onboarding (RF22) como pulado, preservando o resto do estado.
+  # Usado pelos atalhos de teste (test_sign_in, test_support/seed) pra abrir o
+  # app direto no pós-onboarding — o RequireAuth do frontend redireciona pro
+  # fluxo guiado em qualquer status não-terminal.
+  def skip_onboarding!
+    update!(onboarding_state: (onboarding_state || {}).merge("status" => "skipped"))
+  end
 end

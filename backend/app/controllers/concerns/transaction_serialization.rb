@@ -143,18 +143,11 @@ module TransactionSerialization
   end
 
   def related_item(link, other, role, link_id)
-    {
+    related_base(other, role).merge(
       link_id:       link_id,
       link_kind:     "link",
-      relation_type: link.relation_type,
-      role:          role,
-      transaction_id: other.id,
-      title:         other.improved_title.presence || other.original_description,
-      direction:     other.direction,
-      amount_cents:  other.amount_cents,
-      occurred_at:   other.occurred_at.iso8601,
-      status:        other.status
-    }
+      relation_type: link.relation_type
+    )
   end
 
   # RF10.6 — o vínculo de estorno também flui por `related` pra aninhar o estorno
@@ -167,19 +160,26 @@ module TransactionSerialization
   end
 
   def refund_related_item(refund, other, role)
-    {
+    related_base(other, role).merge(
       link_id:       refund.id,
       link_kind:     "refund",
       relation_type: "refund",
       origin:        refund.origin,
-      confidence:    refund.confidence,
-      role:          role,
+      confidence:    refund.confidence
+    )
+  end
+
+  # Campos comuns a qualquer item de `related` — descrevem a OUTRA transação
+  # do vínculo, independente do tipo (link RF23 ou estorno RF10.6).
+  def related_base(other, role)
+    {
+      role:           role,
       transaction_id: other.id,
-      title:         other.improved_title.presence || other.original_description,
-      direction:     other.direction,
-      amount_cents:  other.amount_cents,
-      occurred_at:   other.occurred_at.iso8601,
-      status:        other.status
+      title:          other.improved_title.presence || other.original_description,
+      direction:      other.direction,
+      amount_cents:   other.amount_cents,
+      occurred_at:    other.occurred_at.iso8601,
+      status:         other.status
     }
   end
 

@@ -70,4 +70,19 @@ class TransactionsSearchTest < ActionDispatch::IntegrationTest
 
     assert_equal [ mine.id ], search("amazon")
   end
+
+  test "busca global tem teto defensivo de resultados" do
+    limit = Api::V1::TransactionsController::SEARCH_RESULTS_LIMIT
+    now = Time.current
+    rows = (limit + 1).times.map do |i|
+      { workspace_id: @workspace.id, account_id: @account.id, direction: "debit",
+        amount_cents: 100 + i, occurred_at: Date.current - (i % 90),
+        original_description: "PIX MERCADO #{i}", status: "pending",
+        source: "automatic_sync", source_metadata: { "id" => "bulk-#{i}" },
+        created_at: now, updated_at: now }
+    end
+    Transaction.insert_all(rows)
+
+    assert_equal limit, search("pix").size
+  end
 end

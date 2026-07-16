@@ -12,7 +12,7 @@ class Api::V1::TestSupportController < ApplicationController
   def seed
     # Precondição comum: usuário PÓS-onboarding (senão RequireAuth manda pro fluxo
     # de onboarding em vez do app). O `not_started` default redirecionaria.
-    skip_onboarding!
+    current_workspace.skip_onboarding!
 
     case params[:scenario]
     when "related_inbox" then render json: seed_related_inbox
@@ -24,11 +24,6 @@ class Api::V1::TestSupportController < ApplicationController
   end
 
   private
-
-  def skip_onboarding!
-    state = current_workspace.onboarding_state || {}
-    current_workspace.update!(onboarding_state: state.merge("status" => "skipped"))
-  end
 
   # RF23 F2 — compra internacional + IOF, ambos PENDENTES e vinculados, na mesma
   # conta: o inbox deve agrupá-los num item só (`buildInboxItems` kind related).

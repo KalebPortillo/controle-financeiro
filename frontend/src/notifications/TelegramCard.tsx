@@ -7,6 +7,7 @@ import {
   useCreateTelegramLink,
   useUnlinkTelegram,
 } from './useTelegramLink'
+import { formatFullDate } from '../transactions/display'
 
 /**
  * Cartão "Telegram" (RF17, /mais): vincula o grupo do casal pra receber os
@@ -45,7 +46,7 @@ export function TelegramCard() {
               </div>
               {data.linked_at && (
                 <div className="text-[11px] text-muted-foreground">
-                  desde {new Date(data.linked_at).toLocaleDateString('pt-BR')}
+                  desde {formatFullDate(data.linked_at)}
                 </div>
               )}
             </div>

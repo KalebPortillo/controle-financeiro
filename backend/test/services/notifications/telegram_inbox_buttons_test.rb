@@ -240,5 +240,75 @@ module Notifications
       TelegramInboxButtons.push_pending(workspace: @workspace, channel: @channel)
       assert_empty @channel.sent
     end
+
+    # --- retomada após falha de rede no meio do lote --------------------
+    #
+    # O envio é 1 request por gasto: um timeout no meio abortava o lote e os
+    # gastos restantes nunca recebiam botão (não havia retry). Agora cada envio
+    # é carimbado, então a re-execução manda só o que faltou.
+
+    test "carimba telegram_notified_at em cada gasto enviado" do
+      tx = pending_tx
+
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: [ tx.id ], channel: @channel)
+
+      assert_not_nil tx.reload.telegram_notified_at
+    end
+
+    test "re-execução não reenvia gasto já notificado" do
+      a = pending_tx(original_description: "PADARIA")
+      b = pending_tx(original_description: "UBER")
+      ids = [ a.id, b.id ]
+
+      # 1ª rodada: manda os dois.
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: ids, channel: @channel)
+      assert_equal 2, expense_messages.size
+
+      # 2ª rodada (retry do job): nada de gasto novo, sem duplicar.
+      @channel.sent.clear
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: ids, channel: @channel)
+      assert_empty expense_messages
+    end
+
+    test "retoma o lote mandando só os gastos que faltaram" do
+      enviado    = pending_tx(original_description: "PADARIA")
+      pendentes  = 2.times.map { |i| pending_tx(original_description: "UBER #{i}") }
+      enviado.update!(telegram_notified_at: Time.current)
+
+      ids = [ enviado.id, *pendentes.map(&:id) ]
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: ids, channel: @channel)
+
+      textos = expense_messages.map { |m| m[:text] }
+      assert_equal 2, textos.size
+      assert textos.none? { |t| t.include?("PADARIA") }, "não deveria reenviar o já notificado"
+    end
+
+    test "timeout no meio do lote: o que passou fica carimbado, o resto não" do
+      a = pending_tx(original_description: "PADARIA", occurred_at: Date.new(2026, 6, 10))
+      b = pending_tx(original_description: "UBER",    occurred_at: Date.new(2026, 6, 9))
+
+      # Canal que estoura no 2º envio, como um Net::ReadTimeout no meio do lote.
+      flaky = Object.new
+      def flaky.send_message(chat_id:, text:, reply_markup: nil)
+        @n = (@n || 0) + 1
+        raise NotificationChannels::TransientError, "timeout" if @n > 1
+      end
+
+      assert_raises(NotificationChannels::TransientError) do
+        TelegramInboxButtons.call(workspace: @workspace, transaction_ids: [ a.id, b.id ], channel: flaky)
+      end
+
+      assert_not_nil a.reload.telegram_notified_at, "o que foi entregue fica carimbado"
+      assert_nil     b.reload.telegram_notified_at, "o que falhou volta no retry"
+    end
+
+    test "push_pending reenvia mesmo já notificado (o usuário pediu a lista)" do
+      tx = pending_tx
+      tx.update!(telegram_notified_at: 1.day.ago)
+
+      TelegramInboxButtons.push_pending(workspace: @workspace, channel: @channel)
+
+      assert_equal 1, expense_messages.size
+    end
   end
 end

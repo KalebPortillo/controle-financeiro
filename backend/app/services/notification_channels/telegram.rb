@@ -57,6 +57,15 @@ module NotificationChannels
 
     private
 
+    # Falhas de rede (sem resposta HTTP): o Telegram pode estar inacessível por
+    # segundos. Viram TransientError pro job re-tentar — cru, Net::OpenTimeout
+    # escapava a taxonomia do canal e matava o job sem retry.
+    NETWORK_ERRORS = [
+      Net::OpenTimeout, Net::ReadTimeout, Net::WriteTimeout,
+      Errno::ECONNRESET, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ENETUNREACH,
+      Errno::EPIPE, EOFError, IOError, SocketError, OpenSSL::SSL::SSLError
+    ].freeze
+
     def request(method, payload)
       uri = URI("https://#{BASE_HOST}/bot#{@bot_token}/#{method}")
       req = Net::HTTP::Post.new(uri)
@@ -81,6 +90,8 @@ module NotificationChannels
       else
         raise Error, "Telegram HTTP #{response.code}: #{response.body.to_s[0, 200]}"
       end
+    rescue *NETWORK_ERRORS => e
+      raise TransientError, "Telegram inacessível em #{method}: #{e.class} — #{e.message}"
     end
 
     def parse_body(raw)

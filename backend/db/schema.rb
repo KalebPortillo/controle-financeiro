@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_10_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_03_212458) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -405,6 +405,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_120000) do
     t.string "source", null: false
     t.jsonb "source_metadata"
     t.string "status", default: "pending", null: false
+    t.datetime "telegram_notified_at"
     t.datetime "updated_at", null: false
     t.uuid "workspace_id", null: false
     t.index ["account_id", "external_transaction_id"], name: "index_transactions_on_account_and_external_id", unique: true, where: "(external_transaction_id IS NOT NULL)"

@@ -18,15 +18,20 @@ module Notifications
       chat_id = workspace.telegram_chat_id
       return if chat_id.blank?
 
-      scope  = workspace.transactions.where(id: transaction_ids, status: "pending")
-      recent = ordered(scope).limit(PAGE_SIZE).to_a
-      return if recent.empty?
+      scope = workspace.transactions.where(id: transaction_ids, status: "pending")
+      page  = ordered(scope).limit(PAGE_SIZE).to_a
+      return if page.empty?
 
-      send_buttons(channel, chat_id, recent)
+      # Retomada: a janela mostrada é sempre a mesma (as PAGE_SIZE mais
+      # recentes), mas só reenvia o que ainda não foi entregue. Numa re-execução
+      # após timeout, isso manda o resto do lote sem duplicar o que já chegou.
+      # Se o `page` inteiro já foi entregue, ainda cai no rodapé — é o caso de a
+      # falha ter sido justamente nele.
+      send_buttons(channel, chat_id, page.reject(&:telegram_notified_at))
 
       # Botão "Ver mais 7" também aqui (não só no /pendentes): pagina TODOS os
       # pendentes a partir dos já mostrados — dá pra limpar o inbox pelo Telegram.
-      shown         = recent.size
+      shown         = page.size
       total_pending = workspace.transactions.where(status: "pending").count
       overflow      = scope.count - shown # novos além dos exibidos
 
@@ -67,9 +72,17 @@ module Notifications
       scope.includes(:account, :tags).order(occurred_at: :desc, created_at: :desc)
     end
 
+    # Carimba DEPOIS de cada envio, um a um: se a rede cair no meio do lote, o
+    # que já chegou fica marcado e só o resto volta no retry.
+    #
+    # `update_column` de propósito: é metadado de entrega, não edição do gasto.
+    # Não mexe em updated_at nem no lock_version — senão um envio concorrente ao
+    # toque do botão faria o HandleTelegramCallback perder a corrida do
+    # optimistic lock e virar "já processada" sem ter sido.
     def send_buttons(channel, chat_id, txs)
       txs.each do |tx|
         channel.send_message(chat_id: chat_id, text: text_for(tx), reply_markup: keyboard_for(tx))
+        tx.update_column(:telegram_notified_at, Time.current)
       end
     end
 

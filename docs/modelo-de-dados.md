@@ -207,6 +207,7 @@ Coração do sistema: gasto, receita ou estorno. Vive no inbox ou consolidado.
 | installment_group_id | uuid | NULL — agrupa todas as parcelas de uma mesma compra (UUIDv5 determinístico de conta+descritor normalizado+total) |
 | consolidated_at | timestamp | NULL — quando virou consolidated |
 | rejected_at | timestamp | NULL — quando virou rejected |
+| telegram_notified_at | timestamp | NULL — quando o gasto já recebeu mensagem com botões no Telegram (RF17). Checkpoint de entrega: o envio é 1 request por gasto e um timeout no meio do lote abortava o resto, então o retry usa isso pra mandar só o que faltou. Gravado com `update_column` (não mexe em updated_at/lock_version) |
 | lock_version | integer | NOT NULL default 0 — otimista locking para edição concorrente |
 | created_at, updated_at | timestamp | |
 

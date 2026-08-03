@@ -11,6 +11,11 @@ module Notifications
     queue_as :default
 
     retry_on NotificationChannels::RateLimitError, wait: 30.seconds, attempts: 3
+    # Telegram fora do ar por alguns segundos não pode custar o lote inteiro: o
+    # envio é retomável (TelegramInboxButtons carimba cada gasto entregue), então
+    # re-tentar manda só o que faltou. Sem isso o job ia direto pra
+    # FailedExecution e os gastos restantes nunca apareciam no grupo.
+    retry_on NotificationChannels::TransientError, wait: :polynomially_longer, attempts: 5
     discard_on NotificationChannels::ApiError
     discard_on ActiveRecord::RecordNotFound
 

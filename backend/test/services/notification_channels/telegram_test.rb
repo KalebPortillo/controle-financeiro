@@ -86,6 +86,33 @@ module NotificationChannels
       end
     end
 
+    # Falha de rede (timeout, conexão derrubada, DNS) é transitória: vira
+    # TransientError pra camada de cima re-tentar, em vez de escapar como
+    # Net::OpenTimeout crua e matar o job sem retry.
+    test "timeout de conexão vira TransientError" do
+      stub_request(:post, "#{@base}/sendMessage").to_timeout
+
+      assert_raises(TransientError) { @client.send_message(chat_id: 1, text: "x") }
+    end
+
+    test "conexão derrubada vira TransientError" do
+      stub_request(:post, "#{@base}/sendMessage").to_raise(Errno::ECONNRESET)
+
+      assert_raises(TransientError) { @client.send_message(chat_id: 1, text: "x") }
+    end
+
+    test "falha de DNS vira TransientError" do
+      stub_request(:post, "#{@base}/sendMessage").to_raise(SocketError)
+
+      assert_raises(TransientError) { @client.send_message(chat_id: 1, text: "x") }
+    end
+
+    test "TransientError é um Error do canal (não escapa a taxonomia)" do
+      stub_request(:post, "#{@base}/sendMessage").to_timeout
+
+      assert_raises(NotificationChannels::Error) { @client.send_message(chat_id: 1, text: "x") }
+    end
+
     test "set_webhook envia url, secret_token e aceita message + callback_query" do
       stub = stub_request(:post, "#{@base}/setWebhook")
         .with(body: hash_including(

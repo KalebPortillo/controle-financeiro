@@ -36,7 +36,7 @@ class ImportsTest < ActionDispatch::IntegrationTest
     big = "data,descricao,valor\n" + ("01/01/2026,X,-1.00\n" * 600_000)
     assert_operator big.bytesize, :>, Import::MAX_BYTES
     post "/api/v1/imports", params: { file: csv_upload(big), format: "csv" }
-    assert_response :payload_too_large
+    assert_response :content_too_large
   end
 
   test "POST without a file → 422" do

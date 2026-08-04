@@ -87,6 +87,73 @@ Rodar SEMPRE — a ideia é o deploy virar um loop com critério de saída expl�
 
 ---
 
+## Backup e restore do banco
+
+O Postgres roda na **mesma VM** da app (`oracle-app-box`), sem réplica. Até
+2026-08-03 não havia backup nenhum — nem `pg_dump` agendado nem WAL archiving
+(`archive_mode = off`). Os dados **não são reconstruíveis pelo Pluggy**: título
+melhorado, tags, vínculos (RF23), estornos (RF10) e a consolidação são trabalho
+manual do usuário. Ressincronizar traria só extrato cru.
+
+### Instalar / reinstalar o backup
+
+```bash
+ssh oracle-app-box 'bash -s' < infra/setup-postgres-backup.sh
+```
+
+Idempotente. Instala `/usr/local/bin/controle-financeiro-backup`, um timer
+systemd diário (05:00 UTC = 02:00 BRT, fora do sync noturno do Pluggy) e roda o
+primeiro backup na hora pra validar o caminho inteiro.
+
+Só o banco principal entra no dump. Os outros três (`_cache`, `_queue`,
+`_cable`) são solid_cache/solid_queue/solid_cable: estado efêmero, recriado
+pelo `db:prepare` no boot.
+
+### Conferir
+
+```bash
+ssh oracle-app-box 'systemctl list-timers controle-financeiro-backup.timer'
+ssh oracle-app-box 'sudo ls -lh /var/backups/controle-financeiro'
+ssh oracle-app-box 'journalctl -u controle-financeiro-backup.service -n 30'
+```
+
+O script recusa dump ilegível (`pg_restore --list`) ou suspeito de pequeno
+(<100 KB) — escreve em `.partial` e só promove no fim, então um dump
+interrompido nunca é confundido com um bom.
+
+### ⚠️ Off-site ainda é lacuna
+
+`BACKUP_REMOTE` em `/etc/default/controle-financeiro-backup` nasce **vazio**.
+Enquanto estiver assim, o backup mora no mesmo disco do banco: cobre migration
+ruim, bug da app e `DELETE` acidental, mas **não cobre perda da VM**. Preencher
+com um destino `rsync` (ou trocar o hook por `oci os object put`) fecha isso.
+
+### Restore
+
+```bash
+# 1. Escolher o dump
+ssh oracle-app-box 'sudo ls -lh /var/backups/controle-financeiro'
+
+# 2. Parar a app (senão ela escreve durante o restore)
+ssh oracle-app-box 'docker stop $(docker ps -q --filter name=controle-financeiro-web-production)'
+
+# 3. Restaurar sobre o banco existente
+ssh oracle-app-box 'sudo -u postgres pg_restore --clean --if-exists \
+  -d controle_financeiro_production /var/backups/controle-financeiro/<arquivo>.dump'
+
+# 4. Subir a app de volta
+ssh oracle-app-box 'docker start <container>'   # ou: kamal app boot -d production
+```
+
+`--clean --if-exists` derruba os objetos antes de recriar — sem isso o restore
+falha em cima de um banco populado. Para inspecionar antes de aplicar:
+`pg_restore --list <arquivo>.dump`.
+
+**Teste o restore de vez em quando** contra o banco de staging
+(`-d controle_financeiro_staging`): backup nunca restaurado é backup presumido.
+
+---
+
 ## Loops recorrentes (proativos)
 
 Trabalho repetitivo e bem-definido que NÃO precisa de prompt a cada vez — bons
@@ -98,6 +165,7 @@ Não são criados sozinhos: peça pra ligar o que quiser.
 | **Triagem Sentry pós-deploy** | após cada `deploy-production: success` | `bin/sentry-triage --since <hora do deploy>` (só triagem, sem fix) | pega regressão nova cedo — ver [[sentry-triage]] |
 | **CVE check semanal** | 1×/semana | backend `bundle exec bundle-audit check --update`; frontend `npm audit --production` | o gate `bundler-audit` do CI já travou deploy 2× (oauth2, concurrent-ruby…). Antecipar o bump evita descobrir no meio de um deploy |
 | **Sync/health canário** | se algo parecer parado | conferir o `BankConnections::ScheduledSyncJob` horário + `/up` | o pull automático é silencioso; um canário evita "por que não sincronizou?" |
+| **Backup + disco** | 1×/semana | `systemctl list-timers controle-financeiro-backup.timer`, `ls /var/backups/controle-financeiro`, `df -h /` | backup que falha em silêncio é o mesmo que não ter. O disco é o gatilho: `/var/lib/postgresql` divide o filesystem com o cache do buildkit, que cresce a cada deploy |
 
 Regra do artigo de loops: **não rode rotina mais vezes que o necessário** e
 prefira reagir a evento (deploy concluído) a poll cego. Poll de CI/deploy usa

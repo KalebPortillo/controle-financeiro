@@ -121,18 +121,53 @@ O script recusa dump ilegível (`pg_restore --list`) ou suspeito de pequeno
 (<100 KB) — escreve em `.partial` e só promove no fim, então um dump
 interrompido nunca é confundido com um bom.
 
-### ⚠️ Off-site ainda é lacuna
+### Espelho off-site (oracle-dev-box)
 
-`BACKUP_REMOTE` em `/etc/default/controle-financeiro-backup` nasce **vazio**.
-Enquanto estiver assim, o backup mora no mesmo disco do banco: cobre migration
-ruim, bug da app e `DELETE` acidental, mas **não cobre perda da VM**. Preencher
-com um destino `rsync` (ou trocar o hook por `oci os object put`) fecha isso.
+O backup local não cobre perda da VM. O espelho fecha isso: os dumps são
+copiados para a **VM de desenvolvimento** (`oracle-dev-box`), que é uma máquina
+separada, em `~/apps/controle-financeiro/backups/`.
+
+```bash
+# rodar NA VM de dev
+bash infra/setup-postgres-backup-mirror.sh
+```
+
+Timer diário às 06:00 UTC — 1h depois do dump na produção, pra o arquivo do dia
+já existir. Retenção de 30 dias (maior que os 14 da origem).
+
+**É PULL, não push.** O `oracle-app-box` não guarda credencial nenhuma para
+alcançar a VM de dev; quem inicia a cópia é o destino. Num comprometimento da
+produção, o atacante não encontra chave para apagar as cópias off-site — que é
+exatamente quando o backup precisa existir.
+
+**É `ssh sudo cat`, não rsync.** rsync não está instalado em nenhuma das duas
+VMs, e instalar pacote na produção é mudança que não precisa acontecer. Os dumps
+são imutáveis e datados: só buscamos os que faltam, nunca sincronizamos deleções.
+O diretório de origem é `700/postgres`, por isso o `sudo` no lado remoto.
+
+Cada arquivo é validado com `pg_restore --list` **no destino** antes de ser
+promovido — cópia truncada no meio do caminho também é um arquivo.
+
+O script **sai com erro se nenhum dump novo chegar em 48h**, então o systemd
+marca a unidade como falha. Backup que para de chegar em silêncio é o mesmo que
+não ter backup.
+
+```bash
+systemctl list-timers controle-financeiro-backup-mirror.timer
+ls -lh ~/apps/controle-financeiro/backups/
+journalctl -u controle-financeiro-backup-mirror.service -n 30
+```
+
+⚠️ **Não confundir com `~/apps/controle-financeiro/postgres-{production,staging}/data`**:
+apesar do nome, esses são data dirs VIVOS de containers Postgres que rodam na VM
+de dev, não pastas de backup. O espelho fica em `backups/`.
 
 ### Restore
 
 ```bash
-# 1. Escolher o dump
+# 1. Escolher o dump — na origem, ou no espelho da VM de dev se a origem se foi
 ssh oracle-app-box 'sudo ls -lh /var/backups/controle-financeiro'
+ls -lh ~/apps/controle-financeiro/backups/      # espelho off-site
 
 # 2. Parar a app (senão ela escreve durante o restore)
 ssh oracle-app-box 'docker stop $(docker ps -q --filter name=controle-financeiro-web-production)'

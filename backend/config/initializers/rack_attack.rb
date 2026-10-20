@@ -38,8 +38,12 @@ class Rack::Attack
   # (/api/v1/auth/google_oauth2) quanto de callback. 10 reqs/min é
   # generoso para o uso real (clicar "Entrar com Google" → bater no Google
   # → voltar no callback = 2 hits) mas atalha brute-force.
+  #
+  # `test_sign_in` fica de fora: só existe em dev/test (rota gated em routes.rb)
+  # e o E2E faz um login por spec — passado de 10 specs/min a suíte tomava 429.
+  # Continua sob o baseline api_general.
   throttle("auth/ip", limit: 10, period: 1.minute) do |req|
-    req.ip if req.path.start_with?("/api/v1/auth/")
+    req.ip if req.path.start_with?("/api/v1/auth/") && req.path != "/api/v1/auth/test_sign_in"
   end
 
   # Reanálise de IA — queima quota Gemini (RF3.5). 5/min por IP é o suficiente

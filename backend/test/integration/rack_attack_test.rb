@@ -49,6 +49,16 @@ class RackAttackTest < ActionDispatch::IntegrationTest
     assert_not_equal 429, response.status
   end
 
+  test "test_sign_in (só dev/test, usado pelo E2E) fica fora do throttle de auth" do
+    # O E2E faz um login por spec; com mais de 10 specs num minuto o throttle de
+    # auth derrubava a suíte com 429. A rota nem existe fora de dev/test.
+    headers = { "REMOTE_ADDR" => "203.0.113.20" }
+    15.times do |i|
+      post "/api/v1/auth/test_sign_in", params: { email: "e2e-#{i}@example.com", name: "E2E" }, env: headers
+      assert_not_equal 429, response.status, "request #{i + 1} should not be throttled"
+    end
+  end
+
   test "/up healthcheck is never throttled" do
     100.times do
       get "/up", env: { "REMOTE_ADDR" => "203.0.113.99" }

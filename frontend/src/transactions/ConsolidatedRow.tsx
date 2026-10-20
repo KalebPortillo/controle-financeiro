@@ -8,9 +8,12 @@ import { formatDayMonth, signedCents, displayTitle } from './display'
 
 /**
  * Linha de um gasto avulso no consolidado (RF4). Reusada por Gastos e pelas
- * páginas de detalhe de relatório (drill-down RF13.8).
+ * páginas de detalhe de relatório (drill-down RF13.8). `showPurchaseDate`:
+ * parcela de compra de mês anterior mostra quando a compra foi feita.
  */
-export function ConsolidatedRow({ t, onOpen }: { t: InboxTransaction; onOpen: () => void }) {
+export function ConsolidatedRow({
+  t, onOpen, showPurchaseDate = false,
+}: { t: InboxTransaction; onOpen: () => void; showPurchaseDate?: boolean }) {
   return (
     <button
       onClick={onOpen}
@@ -31,6 +34,11 @@ export function ConsolidatedRow({ t, onOpen }: { t: InboxTransaction; onOpen: ()
             </>
           )}
         </div>
+        {showPurchaseDate && t.purchase_date && (
+          <div className="text-[11px] text-muted-foreground tabular-nums mt-0.5" data-testid={`purchase-date-${t.id}`}>
+            compra em {formatDayMonth(t.purchase_date)}
+          </div>
+        )}
         {originalToShow(t) && (
           <div className="text-[11px] text-muted-foreground/70 font-mono truncate mt-0.5" data-testid={`original-${t.id}`}>
             orig.: {originalToShow(t)}

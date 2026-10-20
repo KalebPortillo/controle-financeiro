@@ -49,6 +49,20 @@ class TestSupportTest < ActionDispatch::IntegrationTest
     assert_equal 30, @workspace.transactions.where(id: body["transaction_ids"], status: "pending").count
   end
 
+  test "gastos_sections cria uma compra do mês e uma parcela de compra anterior" do
+    post "/api/v1/test_support/seed", params: { scenario: "gastos_sections" }
+    assert_response :success
+    body = JSON.parse(response.body)
+
+    current = @workspace.transactions.find(body["current_id"])
+    parcel  = @workspace.transactions.find(body["parcel_id"])
+    assert_equal "consolidated", current.status
+    assert_equal "consolidated", parcel.status
+    assert_equal Date.current.beginning_of_month, current.occurred_at.beginning_of_month
+    assert_equal Date.current.beginning_of_month, parcel.occurred_at.beginning_of_month
+    assert_equal [ 3, 6 ], [ parcel.installment_number, parcel.installment_total ]
+  end
+
   test "cenário desconhecido devolve 422" do
     post "/api/v1/test_support/seed", params: { scenario: "nope" }
     assert_response :unprocessable_entity

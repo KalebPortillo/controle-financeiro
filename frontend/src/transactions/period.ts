@@ -15,6 +15,16 @@ export function shiftPeriod(period: string, delta: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
+const MONTHS_FULL = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+]
+
+// Nome do mês por extenso ("outubro") de um período "YYYY-MM".
+export function monthName(period: string): string {
+  return MONTHS_FULL[Number(period.split('-')[1]) - 1]
+}
+
 // Rótulo legível "mai · 2026".
 export function periodLabel(period: string): string {
   const [y, m] = period.split('-').map(Number)

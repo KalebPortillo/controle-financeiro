@@ -19,6 +19,7 @@ class Api::V1::TestSupportController < ApplicationController
     when "link_manual"   then render json: seed_link_manual
     when "budget_setup"  then render json: seed_budget_setup
     when "long_inbox"    then render json: seed_long_inbox
+    when "gastos_sections" then render json: seed_gastos_sections
     else render json: { error: { code: "unknown_scenario", message: params[:scenario] } },
                 status: :unprocessable_entity
     end
@@ -69,6 +70,17 @@ class Api::V1::TestSupportController < ApplicationController
       tx(account:, cents: 1_000 + i, desc: "GASTO #{i}", occurred: Date.current - i).id
     end
     { account_id: account.id, transaction_ids: ids }
+  end
+
+  # Gastos do mês: uma compra feita no mês + a parcela 3/6 de uma compra de dois
+  # meses antes, ambas consolidadas e faturadas no mês corrente.
+  def seed_gastos_sections
+    account = credit_card_account
+    day     = Date.current.beginning_of_month + 4
+    current = tx(account:, cents: 11_989, desc: "SUPER ZE", status: "consolidated", occurred: day)
+    parcel  = tx(account:, cents: 23_315, desc: "MAGAZINE LUIZA", status: "consolidated", occurred: day + 10)
+    parcel.update!(installment_group_id: SecureRandom.uuid, installment_number: 3, installment_total: 6)
+    { account_id: account.id, current_id: current.id, parcel_id: parcel.id }
   end
 
   def credit_card_account

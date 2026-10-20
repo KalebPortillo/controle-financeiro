@@ -1,7 +1,6 @@
 # Melhorias — barra de ação flutuante, ordem dos gastos, parcelas no Telegram
 
-Status: **proposta (2026-10-20)** — aguardando aprovação de PRD + design antes do
-desenvolvimento. Design: ver artefato "Proposta de melhorias" (mockups mobile).
+Status: **aprovado e implementado (2026-10-20)** — M1, M3, M2 em commits próprios. Design: ver artefato "Proposta de melhorias" (mockups mobile).
 
 Três melhorias independentes, entregáveis em fatias separadas (M1, M2, M3).
 
@@ -58,15 +57,16 @@ primeiro o que comprou no mês.
      Ordenadas pela data da compra, mais recente primeiro.
   2. **Parcelas de compras anteriores** — parcelas cuja data da compra é anterior
      ao mês. Ordenadas pela data da parcela (`occurred_at`), mais recente primeiro.
-- **M2.2** *Data da compra* = `purchase_date` do serializer (para parcela é a âncora
+- **M2.2** *Data da compra*: para parcela é o `purchase_date` do serializer (âncora
   retro-calculada `occurred − (n−1) meses`, ver `Transactions::Installment`); sem
-  `purchase_date`, usa `occurred_at`. Logo, à vista e 1ª parcela ficam na seção 1;
-  parcela 2/6 em diante, na seção 2.
+  ele, `occurred_at`. Gasto avulso usa sempre `occurred_at` — uma compra de 30/09 que
+  postou em 01/10 é de outubro, não "parcela antiga". Logo, à vista e 1ª parcela
+  ficam na seção 1; parcela 2/6 em diante, na seção 2.
 - **M2.3** Divisor visual da seção 2: linha de cabeçalho dentro da lista com
   rótulo "Parcelas de compras anteriores", contagem e subtotal em mono. A seção 1
   usa o cabeçalho de colunas atual (sem rótulo extra quando a seção 2 está vazia).
-- **M2.4** Nas linhas da seção 2 o meta mostra "3/6 · compra em 30/07" (a data da
-  compra, além do badge de parcela que já existe).
+- **M2.4** Nas linhas da seção 2, abaixo do meta (conta + badge 3/6), uma linha
+  "compra em 30/07" — em linha própria pra não espremer a conta no mobile.
 - **M2.5** Grupos de relacionadas (compra + IOF/estorno, RF23) seguem a âncora.
 - **M2.6** Totais do topo ("R$ X em N gastos", receita) não mudam.
 - **M2.7** Modo busca (`?q=`, sem recorte de mês): lista única por data, sem seções.

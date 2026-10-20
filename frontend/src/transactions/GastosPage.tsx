@@ -8,11 +8,12 @@ import { TagChip } from '../components/TagChip'
 import { AccountTag } from './AccountTag'
 import { CurrencyChip } from './CurrencyChip'
 import { useConsolidated } from './useInbox'
-import { formatDayMonth, groupAnchorTitle } from './display'
+import { formatDayMonth, groupAnchorTitle, signedCents } from './display'
 import { ConsolidatedRow } from './ConsolidatedRow'
 import { buildInboxItems, type InboxItem } from './inboxItems'
 import { groupSummary } from './relationType'
-import { currentPeriod, shiftPeriod, periodLabel } from './period'
+import { currentPeriod, shiftPeriod, periodLabel, monthName } from './period'
+import { splitByPurchaseMonth } from './purchaseSections'
 import { useOverlay } from '../app/useOverlay'
 import { TransactionDetailSheet } from './TransactionDetailSheet'
 import { RelatedGroupSheet } from './RelatedGroupSheet'
@@ -59,6 +60,24 @@ export function GastosPage() {
   // Mesmo agrupamento do inbox (relacionadas RF23 + estornos RF10.6), mas SEM
   // agregar parcelas (RF9.4.4: no consolidado cada parcela é uma linha).
   const items = useMemo(() => buildInboxItems(txs, { groupInstallments: false }), [txs])
+  // Por mês: compras feitas no mês em cima, parcelas de compras anteriores
+  // embaixo. Na busca (sem recorte de mês) a lista segue única, por data.
+  const sections = useMemo(
+    () => (searching ? { current: items, previous: [] } : splitByPurchaseMonth(items, period)),
+    [items, period, searching],
+  )
+  const previousTotal = sections.previous.reduce((s, i) => s + itemSignedCents(i), 0)
+  const renderItem = (item: InboxItem, showPurchaseDate = false) =>
+    item.kind === 'related' ? (
+      <GastoGroupRow key={`rel-${item.key}`} item={item} onOpen={() => push((p) => p.set('rel', item.key))} />
+    ) : item.kind === 'single' ? (
+      <ConsolidatedRow
+        key={item.transaction.id}
+        t={item.transaction}
+        showPurchaseDate={showPurchaseDate}
+        onOpen={() => push((p) => p.set('tx', item.transaction.id))}
+      />
+    ) : null
   const activeGroup = items.find(
     (i): i is Extract<InboxItem, { kind: 'related' }> => i.kind === 'related' && i.key === activeRelId,
   ) ?? null
@@ -158,12 +177,19 @@ export function GastosPage() {
             <span>Tags</span>
             <span className="text-right">Valor</span>
           </div>
-          {items.map((item) =>
-            item.kind === 'related' ? (
-              <GastoGroupRow key={`rel-${item.key}`} item={item} onOpen={() => push((p) => p.set('rel', item.key))} />
-            ) : item.kind === 'single' ? (
-              <ConsolidatedRow key={item.transaction.id} t={item.transaction} onOpen={() => push((p) => p.set('tx', item.transaction.id))} />
-            ) : null,
+          {sections.previous.length > 0 && (
+            <SectionHeader testid="gastos-section-current" label={`Compras de ${monthName(period)}`} />
+          )}
+          {sections.current.map((item) => renderItem(item))}
+          {sections.previous.length > 0 && (
+            <>
+              <SectionHeader
+                testid="gastos-section-previous"
+                label={`Parcelas de compras anteriores · ${sections.previous.length}`}
+                cents={previousTotal}
+              />
+              {sections.previous.map((item) => renderItem(item, true))}
+            </>
           )}
         </div>
       )}
@@ -185,6 +211,26 @@ export function GastosPage() {
       />
 
       <ManualEntrySheet open={manualOpen} onClose={() => close('new')} />
+    </div>
+  )
+}
+
+// Valor assinado de um item da lista (grupo = custo combinado).
+function itemSignedCents(item: InboxItem): number {
+  if (item.kind === 'related') return item.signedTotalCents
+  if (item.kind === 'single') return signedCents(item.transaction)
+  return 0
+}
+
+// Divisor de seção dentro da lista: rótulo + subtotal opcional (mono).
+function SectionHeader({ testid, label, cents }: { testid: string; label: string; cents?: number }) {
+  return (
+    <div
+      data-testid={testid}
+      className="flex items-baseline justify-between gap-3 px-4 py-2 bg-muted border-b border-border text-[11px] uppercase tracking-wider font-medium text-muted-foreground"
+    >
+      <span className="truncate">{label}</span>
+      {cents !== undefined && <Money cents={cents} signed className="normal-case tracking-normal shrink-0" />}
     </div>
   )
 }

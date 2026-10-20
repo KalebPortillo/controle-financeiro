@@ -215,4 +215,49 @@ describe('<GastosPage />', () => {
     expect(await screen.findByTestId('related-sheet-members-buy')).toBeInTheDocument()
     expect(screen.queryByTestId('related-sheet-accept-buy')).not.toBeInTheDocument()
   })
+  it('divide o mês em compras do mês e parcelas de compras anteriores (com subtotal)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 20))
+    try {
+      setupFetch(() => ({
+        status: 200,
+        body: {
+          transactions: [
+            tx({ id: 'magalu', improved_title: 'Magazine Luiza', amount_cents: 23315, occurred_at: '2026-10-30',
+              installment_number: 4, installment_total: 6, installment_group_id: 'g1', purchase_date: '2026-07-30' }),
+            tx({ id: 'super', improved_title: 'Super Ze', amount_cents: 11989, occurred_at: '2026-10-08' }),
+          ],
+          pending_count: 0,
+        },
+      }))
+      renderGastos()
+
+      const previous = await screen.findByTestId('gastos-section-previous')
+      expect(screen.getByTestId('gastos-section-current')).toHaveTextContent('Compras de outubro')
+      expect(previous).toHaveTextContent('Parcelas de compras anteriores · 1')
+      expect(previous).toHaveTextContent('R$ 233,15')
+
+      // ordem no DOM: compra do mês antes do cabeçalho, parcela antiga depois
+      const rows = screen.getAllByTestId(/^gasto-row-|^gastos-section-/).map((el) => el.dataset.testid)
+      expect(rows).toEqual(['gastos-section-current', 'gasto-row-super', 'gastos-section-previous', 'gasto-row-magalu'])
+
+      expect(screen.getByTestId('purchase-date-magalu')).toHaveTextContent('compra em 30/07')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('sem parcelas antigas não mostra cabeçalhos de seção', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 4, 20)) // mês da fixture (2026-05)
+    try {
+      setupFetch(() => ({ status: 200, body: { transactions: [tx()], pending_count: 0 } }))
+      renderGastos()
+      await waitFor(() => expect(screen.getByText('Mercado da semana')).toBeInTheDocument())
+      expect(screen.queryByTestId('gastos-section-current')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('gastos-section-previous')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

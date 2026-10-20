@@ -123,5 +123,60 @@ module Notifications
       assert_equal 1, @channel.answers.size
       assert_empty @channel.edits
     end
+
+    # --- compra parcelada (grp:<ação>:<installment_group_id>) -------------
+
+    def group_parcels(workspace: @workspace, account: @account, group_id: SecureRandom.uuid, count: 3, status: "pending")
+      (1..count).map do |n|
+        create(:transaction, workspace: workspace, account: account, status: status,
+                             direction: "debit", amount_cents: 4630, original_description: "AMAZON",
+                             installment_group_id: group_id, installment_number: n, installment_total: count)
+      end
+    end
+
+    test "grp:consolidate consolida todas as parcelas pendentes da compra" do
+      group = group_parcels
+      HandleTelegramCallback.call(callback_query: callback("grp:consolidate:#{group.first.installment_group_id}"),
+                                  channel: @channel)
+
+      assert group.all? { |p| p.reload.status == "consolidated" && p.consolidated_at.present? }
+      assert_equal "pending", @tx.reload.status, "gasto fora do grupo não muda"
+      assert_equal "Consolidado", @channel.answers.first[:text]
+      assert_match "— Consolidado (3 parcelas)", @channel.edits.first[:text]
+    end
+
+    test "grp:reject rejeita todas as parcelas pendentes, sem tocar nas já decididas" do
+      gid   = SecureRandom.uuid
+      group = group_parcels(group_id: gid, count: 2)
+      done  = group_parcels(group_id: gid, count: 1, status: "consolidated").first
+
+      HandleTelegramCallback.call(callback_query: callback("grp:reject:#{gid}"), channel: @channel)
+
+      assert group.all? { |p| p.reload.status == "rejected" && p.rejected_at.present? }
+      assert_equal "consolidated", done.reload.status
+      assert_match "— Rejeitado (2 parcelas)", @channel.edits.first[:text]
+    end
+
+    test "grp sem parcela pendente → 'já processada', sem editar" do
+      group = group_parcels(status: "consolidated")
+      HandleTelegramCallback.call(callback_query: callback("grp:reject:#{group.first.installment_group_id}"),
+                                  channel: @channel)
+
+      assert group.all? { |p| p.reload.status == "consolidated" }
+      assert_equal "Já processada", @channel.answers.first[:text]
+      assert_empty @channel.edits
+    end
+
+    test "grp não afeta parcelas do mesmo group_id em OUTRO workspace" do
+      gid   = SecureRandom.uuid
+      other = create(:workspace)
+      alien = group_parcels(workspace: other, account: create(:account, workspace: other), group_id: gid)
+      mine  = group_parcels(group_id: gid)
+
+      HandleTelegramCallback.call(callback_query: callback("grp:consolidate:#{gid}"), channel: @channel)
+
+      assert mine.all? { |p| p.reload.status == "consolidated" }
+      assert alien.all? { |p| p.reload.status == "pending" }
+    end
   end
 end

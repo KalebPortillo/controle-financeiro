@@ -10,6 +10,7 @@ module Notifications
     module_function
 
     CALLBACK = /\Atx:(consolidate|reject):(.+)\z/
+    GROUP    = /\Agrp:(consolidate|reject):(.+)\z/
     MORE     = /\Ainbox:more:(\d+)\z/
 
     def call(callback_query:, channel: NotificationChannels::Telegram.new)
@@ -27,6 +28,18 @@ module Notifications
       if (more = MORE.match(data))
         answer(channel, cq_id)
         return TelegramPendingDigestJob.perform_later(workspace.id, more[1].to_i)
+      end
+
+      # Compra parcelada — age em todas as parcelas pendentes do grupo.
+      if (grp = GROUP.match(data))
+        count = apply_group(workspace, grp[2], grp[1])
+        result = count.zero? ? :already_done : (grp[1] == "consolidate" ? :consolidated : :rejected)
+        answer(channel, cq_id, toast_for(result))
+        if message_id && count.positive?
+          edit_done(channel, chat_id, message_id, orig_text, result,
+                    suffix: " (#{count} #{count == 1 ? 'parcela' : 'parcelas'})")
+        end
+        return
       end
 
       match = CALLBACK.match(data)
@@ -60,6 +73,16 @@ module Notifications
       :already_done
     end
 
+    # Uma a uma (não update_all) pra cada parcela passar pelo optimistic lock e
+    # disparar o broadcast de status — o inbox aberto no app tira o grupo na hora.
+    # Escopo no workspace: o mesmo group_id em outro workspace não é tocado.
+    # Devolve quantas parcelas mudaram (0 = nada pendente → "já processada").
+    def apply_group(workspace, group_id, action)
+      workspace.transactions.where(installment_group_id: group_id, status: "pending")
+               .order(:installment_number).to_a
+               .count { |tx| apply(tx, action) != :already_done }
+    end
+
     def toast_for(result)
       case result
       when :consolidated then "Consolidado"
@@ -74,10 +97,10 @@ module Notifications
 
     # Reescreve a mensagem com o desfecho e sem os botões (editMessageText sem
     # reply_markup remove o teclado).
-    def edit_done(channel, chat_id, message_id, orig_text, result)
+    def edit_done(channel, chat_id, message_id, orig_text, result, suffix: "")
       label = result == :consolidated ? "Consolidado" : "Rejeitado"
       channel.edit_message_text(chat_id: chat_id, message_id: message_id,
-                                text: "#{orig_text}\n— #{label}")
+                                text: "#{orig_text}\n— #{label}#{suffix}")
     end
   end
 end

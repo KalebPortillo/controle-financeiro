@@ -29,9 +29,21 @@ module Notifications
       }.merge(attrs))
     end
 
-    # Mensagens que são um gasto (têm botão tx:*), separadas do rodapé.
+    # Mensagens que são um gasto ou compra parcelada (botão tx:* / grp:*), separadas do rodapé.
     def expense_messages
-      @channel.sent.select { |m| m.dig(:reply_markup, :inline_keyboard, 0, 0, :callback_data)&.start_with?("tx:") }
+      @channel.sent.select { |m| m.dig(:reply_markup, :inline_keyboard, 0, 0, :callback_data)&.match?(/\A(tx|grp):/) }
+    end
+
+    # Parcelas pendentes de uma mesma compra (mesmo installment_group_id). A
+    # parcela N cai N−1 meses depois da compra.
+    def parcels(count:, total: count, group_id: SecureRandom.uuid, cents: 4630, purchase: Date.new(2026, 10, 8), **attrs)
+      (1..count).map do |n|
+        pending_tx(**{
+          installment_group_id: group_id, installment_number: n, installment_total: total,
+          amount_cents: cents, original_description: "AMAZON BR #{n}/#{total}",
+          occurred_at: purchase >> (n - 1)
+        }.merge(attrs))
+      end
     end
 
     test "envia uma mensagem por transação pendente, pro chat do workspace" do
@@ -309,6 +321,94 @@ module Notifications
       TelegramInboxButtons.push_pending(workspace: @workspace, channel: @channel)
 
       assert_equal 1, expense_messages.size
+    end
+
+    # --- compra parcelada: uma mensagem por compra (não por parcela) -----
+
+    test "parcelas da mesma compra viram UMA mensagem com botões de grupo" do
+      group = parcels(count: 12, improved_title: "Amazon Br")
+
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: group.map(&:id), channel: @channel)
+
+      assert_equal 1, expense_messages.size
+      msg = expense_messages.first
+      assert_match "Amazon Br — 12x · R$ 555,60", msg[:text]
+      assert_match "compra em 08/10", msg[:text]
+      assert_match "12 parcelas no inbox (R$ 46,30 cada)", msg[:text]
+
+      gid = group.first.installment_group_id
+      row = msg[:reply_markup][:inline_keyboard].first
+      assert_equal [ "Consolidar 12x", "Rejeitar 12x" ], row.map { |b| b[:text] }
+      assert_equal [ "grp:consolidate:#{gid}", "grp:reject:#{gid}" ], row.map { |b| b[:callback_data] }
+      assert row.all? { |b| b[:callback_data].bytesize <= 64 }
+    end
+
+    test "parcela sozinha no inbox usa o formato de compra, botões sem contagem" do
+      parcel = parcels(count: 1, total: 4).first
+
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: [ parcel.id ], channel: @channel)
+
+      msg = expense_messages.first
+      assert_match "4x · R$ 46,30", msg[:text]
+      assert_match "1 parcela no inbox", msg[:text]
+      assert_equal [ "Consolidar", "Rejeitar" ], msg[:reply_markup][:inline_keyboard].first.map { |b| b[:text] }
+      assert_match(/\Agrp:consolidate:/, msg[:reply_markup][:inline_keyboard].first.first[:callback_data])
+    end
+
+    test "valores diferentes entre parcelas: sem 'cada'" do
+      gid = SecureRandom.uuid
+      a = parcels(count: 1, total: 2, group_id: gid, cents: 5001).first
+      b = pending_tx(installment_group_id: gid, installment_number: 2, installment_total: 2,
+                     amount_cents: 4999, occurred_at: Date.new(2026, 11, 8))
+
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: [ a.id, b.id ], channel: @channel)
+
+      text = expense_messages.first[:text]
+      assert_match "2 parcelas no inbox", text
+      assert_no_match(/cada/, text)
+      assert_match "R$ 100,00", text
+    end
+
+    test "a mensagem do grupo conta todas as parcelas pendentes da compra, não só as do lote" do
+      group = parcels(count: 3)
+
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: [ group.last.id ], channel: @channel)
+
+      assert_equal 1, expense_messages.size
+      assert_match "3 parcelas no inbox", expense_messages.first[:text]
+    end
+
+    test "limite de 7 conta compras, não parcelas" do
+      group   = parcels(count: 12, purchase: Date.new(2026, 6, 20))
+      singles = (1..7).map { |i| pending_tx(occurred_at: Date.new(2026, 6, i)) }
+
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: (group + singles).map(&:id), channel: @channel)
+
+      # 8 itens (1 compra parcelada + 7 avulsos) → 7 mensagens + rodapé com 1 de overflow.
+      assert_equal 7, expense_messages.size
+      assert_match(/\Agrp:/, expense_messages.first[:reply_markup][:inline_keyboard].first.first[:callback_data])
+      assert_match "Mais 1 gasto novo", @channel.sent.last[:text]
+    end
+
+    test "push_pending pagina por compra e informa o total em itens" do
+      parcels(count: 10, purchase: Date.new(2026, 6, 20))
+      (1..8).each { |i| pending_tx(occurred_at: Date.new(2026, 6, i)) }
+
+      TelegramInboxButtons.push_pending(workspace: @workspace, offset: 0, channel: @channel)
+
+      assert_equal 7, expense_messages.size
+      assert_match "Mostrando 7 de 9 pendentes", @channel.sent.last[:text]
+    end
+
+    test "carimba todas as parcelas da compra e não reenvia no retry" do
+      group = parcels(count: 3)
+
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: group.map(&:id), channel: @channel)
+      assert group.all? { |p| p.reload.telegram_notified_at.present? }
+
+      @channel.sent.clear
+      TelegramInboxButtons.call(workspace: @workspace, transaction_ids: group.map(&:id), channel: @channel)
+      assert_empty expense_messages
     end
   end
 end

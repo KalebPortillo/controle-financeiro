@@ -40,6 +40,15 @@ class TestSupportTest < ActionDispatch::IntegrationTest
     assert_nil orphan.link_as_related
   end
 
+  test "long_inbox cria 30 pendentes (lista maior que a tela)" do
+    post "/api/v1/test_support/seed", params: { scenario: "long_inbox" }
+    assert_response :success
+    body = JSON.parse(response.body)
+
+    assert_equal 30, body["transaction_ids"].size
+    assert_equal 30, @workspace.transactions.where(id: body["transaction_ids"], status: "pending").count
+  end
+
   test "cenário desconhecido devolve 422" do
     post "/api/v1/test_support/seed", params: { scenario: "nope" }
     assert_response :unprocessable_entity

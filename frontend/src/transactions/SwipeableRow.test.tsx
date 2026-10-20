@@ -36,6 +36,13 @@ describe('SwipeableRow', () => {
     expect(right).not.toHaveBeenCalled()
   })
 
+  it('pointerup sem pointerdown na linha (ex.: toque no checkbox) não dispara onClick', () => {
+    const { row, onClick } = setup()
+    // o checkbox barra o pointerdown (stopPropagation), mas o pointerup sobe
+    fireEvent.pointerUp(row, { clientX: 100, pointerId: 1 })
+    expect(onClick).not.toHaveBeenCalled()
+  })
+
   it('arrastar pra esquerda além do limiar dispara swipeLeft, não onClick', () => {
     const { row, onClick, left, right } = setup()
     swipe(row, 200, 100) // dx = -100 (< -90)

@@ -279,6 +279,34 @@ describe('<InboxPage />', () => {
     await waitFor(() => expect(screen.getByTestId('bulk-accept')).toBeInTheDocument())
   })
 
+  it('barra de ações em massa flutua fixa no rodapé da janela e reserva espaço na lista', async () => {
+    setupFetch({
+      'GET /api/v1/transactions?status=pending': {
+        status: 200,
+        body: { transactions: [tx({ id: 't1' }), tx({ id: 't2' })], pending_count: 2 },
+      },
+    })
+    renderInbox()
+    const user = userEvent.setup()
+    await user.click(await screen.findByTestId('select-t1'))
+
+    // fixed (não sticky): o <main> do layout não é quem rola, então sticky nunca engata.
+    const bar = screen.getByTestId('bulk-bar')
+    expect(bar.className).toMatch(/\bfixed\b/)
+    expect(bar.className).not.toMatch(/\bsticky\b/)
+    // acima da bottom nav no mobile (56px + 8px)
+    expect(bar.className).toContain('bottom-16')
+    // a lista ganha respiro pra barra não cobrir o último gasto
+    expect(screen.getByTestId('inbox-page')).toHaveClass('pb-24')
+    // toasts sobem acima da barra enquanto ela existe
+    expect(document.documentElement).toHaveAttribute('data-bulk-bar')
+
+    await user.click(screen.getByText('limpar'))
+    expect(screen.queryByTestId('bulk-bar')).toBeNull()
+    expect(screen.getByTestId('inbox-page')).not.toHaveClass('pb-24')
+    expect(document.documentElement).not.toHaveAttribute('data-bulk-bar')
+  })
+
   it('bulk-accepts selected rows in a single bulk request', async () => {
     const { fetchMock } = setupFetch({
       'GET /api/v1/transactions?status=pending': {

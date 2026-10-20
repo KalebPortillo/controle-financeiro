@@ -18,6 +18,7 @@ class Api::V1::TestSupportController < ApplicationController
     when "related_inbox" then render json: seed_related_inbox
     when "link_manual"   then render json: seed_link_manual
     when "budget_setup"  then render json: seed_budget_setup
+    when "long_inbox"    then render json: seed_long_inbox
     else render json: { error: { code: "unknown_scenario", message: params[:scenario] } },
                 status: :unprocessable_entity
     end
@@ -58,6 +59,16 @@ class Api::V1::TestSupportController < ApplicationController
                  occurred: Date.current)
     gasto.tags = [ tag ]
     { account_id: account.id, tag_id: tag.id, tag_name: tag.name, spent_cents: 40_000 }
+  end
+
+  # Inbox maior que a tela — o E2E seleciona um gasto, rola e confere que a barra
+  # de ações em massa continua visível (fixa no rodapé da janela).
+  def seed_long_inbox
+    account = credit_card_account
+    ids = (1..30).map do |i|
+      tx(account:, cents: 1_000 + i, desc: "GASTO #{i}", occurred: Date.current - i).id
+    end
+    { account_id: account.id, transaction_ids: ids }
   end
 
   def credit_card_account

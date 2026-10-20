@@ -64,6 +64,9 @@ export function SwipeableRow({
   }
 
   const onPointerUp = () => {
+    // Gesto não começou na linha (ex.: o checkbox barra o pointerdown, mas o
+    // pointerup sobe até aqui) → não é toque na linha, não abre o detalhe.
+    if (startX.current === null) return
     const wasDrag = moved.current
     finish()
     if (!wasDrag) onClick()

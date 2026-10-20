@@ -36,3 +36,19 @@
   --font-mono:    "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
   --font-display: "Space Grotesk", "Geist", system-ui, sans-serif;
 }
+
+/* Barra de ações em massa do inbox (fixa no rodapé): toasts sobem acima dela
+   enquanto há seleção. Sonner define os offsets inline no <ol>, daí o !important. */
+:root[data-bulk-bar] [data-sonner-toaster] {
+  --offset-bottom: 88px !important;
+  --mobile-offset-bottom: 136px !important;
+}
+
+/* Entrada da barra: slide-up curto, sem movimento pra quem pede menos. */
+@media (prefers-reduced-motion: no-preference) {
+  .bulk-bar-in { animation: bulk-bar-in 150ms cubic-bezier(0.16, 1, 0.3, 1); }
+}
+@keyframes bulk-bar-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

@@ -159,6 +159,16 @@ export function InboxPage() {
     }
   }, [analyzing, qc])
 
+  // Barra de ações flutuante: sinaliza no <html> pra os toasts subirem acima dela
+  // (regra em index.css) e não cobrirem os botões. Limpa ao sair da tela.
+  const hasSelection = selected.size > 0
+  useEffect(() => {
+    const root = document.documentElement
+    if (hasSelection) root.setAttribute('data-bulk-bar', '')
+    else root.removeAttribute('data-bulk-bar')
+    return () => root.removeAttribute('data-bulk-bar')
+  }, [hasSelection])
+
   const handleReanalyze = () => {
     reanalyze.mutate(undefined, {
       // Refaz a leitura do progresso pra barra reagir ao novo lote enfileirado.
@@ -169,7 +179,7 @@ export function InboxPage() {
   const busy = bulkConsolidate.isPending || bulkReject.isPending
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className={`max-w-4xl mx-auto ${selected.size > 0 ? 'pb-24' : ''}`} data-testid="inbox-page">
       <div className="flex items-end justify-between mb-4">
         <div>
           <h1 className="font-sans text-2xl font-semibold tracking-tight">Inbox</h1>
@@ -332,8 +342,15 @@ export function InboxPage() {
         </div>
       )}
 
+      {/* Fixa no rodapé da janela (não sticky: quem rola é a janela, não o <main>).
+          Mobile: logo acima da bottom nav (h-14 + 8px). Desktop: alinhada à coluna
+          de conteúdo (sidebar 256px + px-8 do <main>), mesma largura da lista. */}
       {selected.size > 0 && (
-        <div className="sticky bottom-4 md:bottom-4 mt-4 flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-card border border-border rounded-lg shadow-[var(--shadow-lg)]">
+        <div
+          data-testid="bulk-bar"
+          className="fixed z-30 bottom-16 inset-x-4 md:bottom-4 md:left-[calc(256px+2rem)] md:right-8 pointer-events-none"
+        >
+        <div className="bulk-bar-in pointer-events-auto max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-card border border-border rounded-lg shadow-[var(--shadow-lg)]">
           <div className="flex items-center gap-2.5 text-sm font-medium min-w-0">
             {selected.size} selecionado{selected.size > 1 ? 's' : ''}
             <button
@@ -351,6 +368,7 @@ export function InboxPage() {
               Aceitar ({selected.size})
             </Button>
           </div>
+        </div>
         </div>
       )}
 

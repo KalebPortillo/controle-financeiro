@@ -31,10 +31,10 @@ export async function goto(page: Page, path: string) {
  * POST /api/v1/test_support/seed só existe em dev/test (gate Rails.env.local?).
  * Devolve os ids criados pros seletores do teste.
  */
-export async function seed(
+export async function seed<T = Record<string, string>>(
   context: BrowserContext,
-  scenario: 'related_inbox' | 'link_manual' | 'budget_setup',
-): Promise<Record<string, string>> {
+  scenario: 'related_inbox' | 'link_manual' | 'budget_setup' | 'long_inbox',
+): Promise<T> {
   const res = await context.request.post('/api/v1/test_support/seed', { data: { scenario } })
   if (!res.ok()) {
     throw new Error(`seed ${scenario} failed: HTTP ${res.status()} — ${await res.text()}`)
